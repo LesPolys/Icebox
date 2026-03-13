@@ -1,0 +1,539 @@
+{
+  "setId": "core",
+  "setName": "Core Set",
+  "cards": [
+    {
+      "id": "loc-001",
+      "name": "Engineering Bay",
+      "type": "location",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/loc-engineering",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["sector", "engineering"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "matter": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
+      "location": { "sector": 0, "structureSlots": 3 },
+      "flavorText": "The beating heart of the ship. Every bolt, every weld — a prayer to the void."
+    },
+    {
+      "id": "loc-002",
+      "name": "Habitat Ring",
+      "type": "location",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/loc-habitat",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["sector", "habitat"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
+      "location": { "sector": 1, "structureSlots": 3 },
+      "flavorText": "Green corridors and simulated sunlight. Almost enough to forget where you are."
+    },
+    {
+      "id": "loc-003",
+      "name": "Command Spire",
+      "type": "location",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/loc-command",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["sector", "command"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
+      "location": { "sector": 2, "structureSlots": 3 },
+      "flavorText": "From here, you can see every star that isn't home."
+    },
+
+    {
+      "id": "vf-001",
+      "name": "Weld-Rig Alpha",
+      "type": "structure",
+      "faction": "void-forged",
+      "tier": 1,
+      "art": "cards/vf-weld-rig",
+      "cost": { "matter": 2, "energy": 1 },
+      "resourceGain": { "matter": 1 },
+      "effects": [
+        { "id": "vf-001-p", "timing": "passive", "description": "Structures in this sector cost 1 less Matter.", "type": "modify-cost", "params": { "resource": "matter", "amount": -1, "scope": "sector" } }
+      ],
+      "factionIcons": ["void-forged"],
+      "tags": ["repair", "infrastructure"],
+      "aging": { "lifespan": 4, "decayConditions": [{ "type": "resource-below", "params": { "resource": "energy", "threshold": 2 }, "description": "Shuts down if energy drops below 2." }], "onDeath": "transform", "transformInto": "vf-001b" },
+      "cryosleep": { "inertiaContribution": { "matter": 2 }, "decayVulnerability": ["energy"], "survivalPriority": 3, "factionWeight": 1 },
+      "flavorText": "Every seam it closes opens a question: how long until the next one?"
+    },
+    {
+      "id": "vf-001b",
+      "name": "Weld-Rig Wreckage",
+      "type": "junk",
+      "faction": "void-forged",
+      "tier": 1,
+      "art": "cards/vf-weld-wreckage",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["wreckage", "scrap"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
+      "junk": { "source": "hull-breach", "removalCost": { "matter": 1 } },
+      "flavorText": "Useful parts, if you know where to look."
+    },
+    {
+      "id": "vf-002",
+      "name": "Overclock Protocol",
+      "type": "action",
+      "faction": "void-forged",
+      "tier": 1,
+      "art": "cards/vf-overclock",
+      "cost": { "energy": 2 },
+      "resourceGain": { "matter": 3 },
+      "effects": [
+        { "id": "vf-002-p", "timing": "on-play", "description": "Gain 3 Matter, but add 1 Hull Breach to your discard.", "type": "add-junk", "params": { "junkSource": "hull-breach", "count": 1 } }
+      ],
+      "factionIcons": ["void-forged"],
+      "tags": ["overclock", "risk"],
+      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": ["matter"], "survivalPriority": 2, "factionWeight": 1 },
+      "flavorText": "Push it past the red line. We'll deal with the consequences later."
+    },
+    {
+      "id": "vf-003",
+      "name": "Hull Patching Crew",
+      "type": "action",
+      "faction": "void-forged",
+      "tier": 1,
+      "art": "cards/vf-hull-patch",
+      "cost": { "matter": 1 },
+      "effects": [
+        { "id": "vf-003-p", "timing": "on-play", "description": "Remove 1 Junk card from your hand or discard.", "type": "remove-junk", "params": { "count": 1 } }
+      ],
+      "factionIcons": ["void-forged"],
+      "tags": ["repair", "crew"],
+      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "matter": 1 }, "decayVulnerability": [], "survivalPriority": 4, "factionWeight": 1 },
+      "flavorText": "They work in silence. The hull speaks loud enough."
+    },
+    {
+      "id": "vf-004",
+      "name": "Scrapyard Forge",
+      "type": "structure",
+      "faction": "void-forged",
+      "tier": 2,
+      "art": "cards/vf-scrapyard",
+      "cost": { "matter": 3, "energy": 2 },
+      "effects": [
+        { "id": "vf-004-p", "timing": "passive", "description": "At the start of each turn, you may remove 1 Junk from your hand for free.", "type": "remove-junk", "params": { "count": 1, "costOverride": {} } }
+      ],
+      "factionIcons": ["void-forged", "void-forged"],
+      "tags": ["repair", "infrastructure", "scrap"],
+      "aging": { "lifespan": 6, "decayConditions": [{ "type": "resource-below", "params": { "resource": "energy", "threshold": 3 }, "description": "Cannot operate without sufficient power." }], "onDeath": "transform", "transformInto": "vf-001b" },
+      "cryosleep": { "inertiaContribution": { "matter": 3 }, "decayVulnerability": ["energy"], "survivalPriority": 5, "factionWeight": 2 },
+      "flavorText": "One ship's junk is another generation's salvation."
+    },
+
+    {
+      "id": "sw-001",
+      "name": "Hydroponics Bay",
+      "type": "structure",
+      "faction": "sowers",
+      "tier": 1,
+      "art": "cards/sw-hydroponics",
+      "cost": { "matter": 2, "influence": 1 },
+      "resourceGain": { "matter": 1 },
+      "effects": [
+        { "id": "sw-001-p", "timing": "passive", "description": "Gain +1 Influence at the start of each turn.", "type": "gain-resource", "params": { "resource": "influence", "amount": 1, "timing": "turn-start" } }
+      ],
+      "factionIcons": ["sowers"],
+      "tags": ["growth", "food", "infrastructure"],
+      "aging": { "lifespan": 5, "decayConditions": [{ "type": "resource-below", "params": { "resource": "matter", "threshold": 2 }, "description": "Withers without raw materials for nutrient cycling." }], "onDeath": "transform", "transformInto": "sw-001b" },
+      "cryosleep": { "inertiaContribution": { "matter": 1, "influence": 1 }, "decayVulnerability": ["matter"], "survivalPriority": 4, "factionWeight": 1 },
+      "flavorText": "The roots remember soil, even if the children don't."
+    },
+    {
+      "id": "sw-001b",
+      "name": "Overgrown Ruin",
+      "type": "junk",
+      "faction": "sowers",
+      "tier": 1,
+      "art": "cards/sw-overgrown",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["ruin", "organic"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
+      "junk": { "source": "hull-breach", "removalCost": { "matter": 1, "influence": 1 } },
+      "flavorText": "Nature reclaims what it was never truly given."
+    },
+    {
+      "id": "sw-002",
+      "name": "Community Gathering",
+      "type": "action",
+      "faction": "sowers",
+      "tier": 1,
+      "art": "cards/sw-gathering",
+      "cost": { "influence": 1 },
+      "resourceGain": { "influence": 2, "matter": 1 },
+      "effects": [],
+      "factionIcons": ["sowers"],
+      "tags": ["social", "community"],
+      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
+      "flavorText": "In the sharing of bread, they share a future."
+    },
+    {
+      "id": "sw-003",
+      "name": "Root Network",
+      "type": "structure",
+      "faction": "sowers",
+      "tier": 2,
+      "art": "cards/sw-root-network",
+      "cost": { "matter": 2, "influence": 2 },
+      "effects": [
+        { "id": "sw-003-p", "timing": "passive", "description": "Sowers cards in this sector gain +1 lifespan when played.", "type": "extend-lifespan", "params": { "factionFilter": "sowers", "scope": "sector", "amount": 1 } }
+      ],
+      "factionIcons": ["sowers", "sowers"],
+      "tags": ["growth", "network", "rooted"],
+      "aging": { "lifespan": 7, "decayConditions": [], "onDeath": "transform", "transformInto": "sw-001b" },
+      "cryosleep": { "inertiaContribution": { "matter": 1, "influence": 2 }, "decayVulnerability": ["matter"], "survivalPriority": 5, "factionWeight": 2 },
+      "flavorText": "What connects us is deeper than steel."
+    },
+
+    {
+      "id": "gl-001",
+      "name": "Supply Cache",
+      "type": "structure",
+      "faction": "gilded",
+      "tier": 1,
+      "art": "cards/gl-supply-cache",
+      "cost": { "matter": 2, "data": 1 },
+      "resourceGain": { "matter": 2 },
+      "effects": [
+        { "id": "gl-001-p", "timing": "passive", "description": "Cards you buy from the market cost 1 less Matter.", "type": "modify-cost", "params": { "resource": "matter", "amount": -1, "scope": "market" } }
+      ],
+      "factionIcons": ["gilded"],
+      "tags": ["hoarding", "supply"],
+      "aging": { "lifespan": 5, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "matter": 2 }, "decayVulnerability": ["data"], "survivalPriority": 3, "factionWeight": 1 },
+      "flavorText": "Ownership is a fiction. Possession is fact."
+    },
+    {
+      "id": "gl-002",
+      "name": "Inventory Audit",
+      "type": "action",
+      "faction": "gilded",
+      "tier": 1,
+      "art": "cards/gl-audit",
+      "cost": { "data": 1 },
+      "resourceGain": { "data": 1, "matter": 1 },
+      "effects": [
+        { "id": "gl-002-p", "timing": "on-play", "description": "Draw 1 card.", "type": "draw-cards", "params": { "count": 1 } }
+      ],
+      "factionIcons": ["gilded"],
+      "tags": ["inventory", "control"],
+      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
+      "flavorText": "Every gram accounted for. Every gram leveraged."
+    },
+    {
+      "id": "gl-003",
+      "name": "Trade Embargo",
+      "type": "event",
+      "faction": "gilded",
+      "tier": 2,
+      "art": "cards/gl-embargo",
+      "cost": { "matter": 1, "data": 2 },
+      "effects": [
+        { "id": "gl-003-f", "timing": "on-fallout", "description": "All market cards cost +2 of any resource next turn.", "type": "modify-cost", "params": { "amount": 2, "scope": "market", "duration": 1 } },
+        { "id": "gl-003-p", "timing": "on-play", "description": "Gain 3 Data.", "type": "gain-resource", "params": { "resource": "data", "amount": 3 } }
+      ],
+      "factionIcons": ["gilded", "gilded"],
+      "tags": ["trade", "control", "embargo"],
+      "aging": { "lifespan": 4, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 2 }, "decayVulnerability": ["influence"], "survivalPriority": 4, "factionWeight": 2 },
+      "flavorText": "The Gilded don't close doors. They charge admission."
+    },
+
+    {
+      "id": "ac-001",
+      "name": "Mission Archive",
+      "type": "structure",
+      "faction": "archival-core",
+      "tier": 1,
+      "art": "cards/ac-mission-archive",
+      "cost": { "energy": 1, "data": 2 },
+      "effects": [
+        { "id": "ac-001-p", "timing": "passive", "description": "Cards in this sector are immune to Tech Decay.", "type": "modify-threshold", "params": { "type": "techDecay", "scope": "sector", "immune": true } }
+      ],
+      "factionIcons": ["archival-core"],
+      "tags": ["archive", "preservation", "mission"],
+      "aging": { "lifespan": 8, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 3 }, "decayVulnerability": ["energy"], "survivalPriority": 6, "factionWeight": 1 },
+      "flavorText": "The mission parameters have not changed. The crew has."
+    },
+    {
+      "id": "ac-002",
+      "name": "Diagnostic Sweep",
+      "type": "action",
+      "faction": "archival-core",
+      "tier": 1,
+      "art": "cards/ac-diagnostic",
+      "cost": { "energy": 1 },
+      "resourceGain": { "data": 2 },
+      "effects": [
+        { "id": "ac-002-p", "timing": "on-play", "description": "Draw 2 cards, then discard 1.", "type": "draw-cards", "params": { "count": 2, "thenDiscard": 1 } }
+      ],
+      "factionIcons": ["archival-core"],
+      "tags": ["scan", "precision"],
+      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "energy": 1, "data": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
+      "flavorText": "Every anomaly catalogued. Every deviation noted."
+    },
+    {
+      "id": "ac-003",
+      "name": "Compliance Directive",
+      "type": "institution",
+      "faction": "archival-core",
+      "tier": 2,
+      "art": "cards/ac-compliance",
+      "cost": { "energy": 2, "data": 2 },
+      "effects": [
+        { "id": "ac-003-p", "timing": "passive", "description": "Lock the rightmost market slot — its card cannot be bought or fall out.", "type": "lock-market-slot", "params": { "slot": 5 } }
+      ],
+      "factionIcons": ["archival-core", "archival-core"],
+      "tags": ["law", "control", "compliance"],
+      "aging": { "lifespan": 6, "decayConditions": [{ "type": "faction-dominance", "params": { "rivalFaction": "the-flux" }, "description": "Dissolved if The Flux gains sector dominance." }], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 2 }, "decayVulnerability": ["influence"], "survivalPriority": 5, "factionWeight": 2 },
+      "flavorText": "The directive was clear. The interpretation was not."
+    },
+
+    {
+      "id": "fx-001",
+      "name": "Cascade Surge",
+      "type": "action",
+      "faction": "the-flux",
+      "tier": 1,
+      "art": "cards/fx-cascade",
+      "cost": { "energy": 2 },
+      "resourceGain": { "energy": 1, "influence": 2 },
+      "effects": [
+        { "id": "fx-001-p", "timing": "on-play", "description": "Slide the market 1 extra slot to the left.", "type": "shift-faction", "params": { "marketSlide": 1 } }
+      ],
+      "factionIcons": ["the-flux"],
+      "tags": ["chaos", "surge", "market"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 1 },
+      "flavorText": "Change is the only constant between the stars."
+    },
+    {
+      "id": "fx-002",
+      "name": "Voltage Cult",
+      "type": "institution",
+      "faction": "the-flux",
+      "tier": 1,
+      "art": "cards/fx-voltage-cult",
+      "cost": { "energy": 1, "influence": 2 },
+      "effects": [
+        { "id": "fx-002-p", "timing": "passive", "description": "When any card falls out of the market, gain 1 Energy.", "type": "gain-resource", "params": { "resource": "energy", "amount": 1, "trigger": "on-fallout" } }
+      ],
+      "factionIcons": ["the-flux"],
+      "tags": ["cult", "energy", "chaos"],
+      "aging": { "lifespan": 3, "decayConditions": [{ "type": "no-presence-in-sector", "params": { "faction": "the-flux" }, "description": "Disbands without Flux presence in the sector." }], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "energy": 1, "influence": 1 }, "decayVulnerability": ["data"], "survivalPriority": 3, "factionWeight": 1 },
+      "flavorText": "They worship the spark. The spark does not care."
+    },
+    {
+      "id": "fx-003",
+      "name": "Revolutionary Tide",
+      "type": "event",
+      "faction": "the-flux",
+      "tier": 2,
+      "art": "cards/fx-revolution",
+      "cost": { "energy": 2, "influence": 2 },
+      "effects": [
+        { "id": "fx-003-p", "timing": "on-play", "description": "Change the dominant faction of one sector to The Flux.", "type": "shift-faction", "params": { "targetFaction": "the-flux", "scope": "sector" } },
+        { "id": "fx-003-f", "timing": "on-fallout", "description": "All players lose 2 Influence. Gain 2 Energy.", "type": "spend-resource", "params": { "resource": "influence", "amount": 2, "gainResource": "energy", "gainAmount": 2 } }
+      ],
+      "factionIcons": ["the-flux", "the-flux"],
+      "tags": ["revolution", "chaos", "faction-shift"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 2 },
+      "flavorText": "Every ship has a breaking point. The Flux calls it a beginning."
+    },
+
+    {
+      "id": "ec-001",
+      "name": "Memory Vault",
+      "type": "structure",
+      "faction": "the-echoes",
+      "tier": 1,
+      "art": "cards/ec-memory-vault",
+      "cost": { "data": 2, "influence": 1 },
+      "effects": [
+        { "id": "ec-001-p", "timing": "passive", "description": "Cards in this sector gain +1 lifespan.", "type": "extend-lifespan", "params": { "scope": "sector", "amount": 1 } }
+      ],
+      "factionIcons": ["the-echoes"],
+      "tags": ["memory", "preservation"],
+      "aging": { "lifespan": 8, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 1, "influence": 1 }, "decayVulnerability": [], "survivalPriority": 5, "factionWeight": 1 },
+      "flavorText": "Every face, every name. The Echoes forget nothing."
+    },
+    {
+      "id": "ec-002",
+      "name": "Ancestral Rite",
+      "type": "action",
+      "faction": "the-echoes",
+      "tier": 1,
+      "art": "cards/ec-rite",
+      "cost": { "influence": 1 },
+      "resourceGain": { "data": 1, "influence": 1 },
+      "effects": [
+        { "id": "ec-002-p", "timing": "on-play", "description": "Extend the lifespan of 1 card in your tableau by 2 cycles.", "type": "extend-lifespan", "params": { "target": "tableau-choice", "amount": 2 } }
+      ],
+      "factionIcons": ["the-echoes"],
+      "tags": ["ritual", "preservation", "morale"],
+      "aging": { "lifespan": 4, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 3, "factionWeight": 1 },
+      "flavorText": "We carry them with us. They carry us forward."
+    },
+    {
+      "id": "ec-003",
+      "name": "Chronicle of Departures",
+      "type": "institution",
+      "faction": "the-echoes",
+      "tier": 2,
+      "art": "cards/ec-chronicle",
+      "cost": { "data": 2, "influence": 2 },
+      "effects": [
+        { "id": "ec-003-p", "timing": "on-sleep", "description": "Archive 1 extra card during Succession.", "type": "gain-resource", "params": { "archiveSlots": 1 } },
+        { "id": "ec-003-d", "timing": "on-death", "description": "When destroyed, add 2 Echoes cards from the Vault to the World Deck.", "type": "shift-faction", "params": { "faction": "the-echoes", "addFromVault": 2 } }
+      ],
+      "factionIcons": ["the-echoes", "the-echoes"],
+      "tags": ["chronicle", "legacy", "persistence"],
+      "aging": { "lifespan": 10, "decayConditions": [], "onDeath": "return-to-vault" },
+      "cryosleep": { "inertiaContribution": { "data": 2, "influence": 2 }, "decayVulnerability": [], "survivalPriority": 7, "factionWeight": 2 },
+      "flavorText": "Every ending is an entry. Every entry, an ending."
+    },
+
+    {
+      "id": "jk-001",
+      "name": "Hull Breach",
+      "type": "junk",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/jk-hull-breach",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["damage", "hull"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
+      "junk": { "source": "hull-breach", "removalCost": { "matter": 2 } },
+      "flavorText": "The void doesn't knock. It just comes in."
+    },
+    {
+      "id": "jk-002",
+      "name": "System Corruption",
+      "type": "junk",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/jk-corruption",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["damage", "tech"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
+      "junk": { "source": "tech-decay", "removalCost": { "data": 2 } },
+      "flavorText": "Error. Error. Error. The logs are full of ghosts."
+    },
+    {
+      "id": "jk-003",
+      "name": "Sedition Pamphlet",
+      "type": "junk",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/jk-sedition",
+      "cost": {},
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["damage", "political"],
+      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
+      "junk": { "source": "factional-coup", "removalCost": { "influence": 2 } },
+      "flavorText": "Someone is always listening. Someone is always writing."
+    },
+
+    {
+      "id": "nu-001",
+      "name": "Emergency Rations",
+      "type": "action",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/nu-rations",
+      "cost": {},
+      "resourceGain": { "matter": 1, "energy": 1 },
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["supply", "basic"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
+      "flavorText": "Nutrient paste. Day 4,380. Still tastes like hope. Barely."
+    },
+    {
+      "id": "nu-002",
+      "name": "Power Cell",
+      "type": "action",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/nu-power-cell",
+      "cost": {},
+      "resourceGain": { "energy": 2 },
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["supply", "basic", "energy"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
+      "flavorText": "A full cell is a promise. An empty one is a prayer."
+    },
+    {
+      "id": "nu-003",
+      "name": "Data Fragment",
+      "type": "action",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/nu-data-fragment",
+      "cost": {},
+      "resourceGain": { "data": 2 },
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["supply", "basic", "data"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": { "data": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
+      "flavorText": "Corrupted. Partial. Still worth more than silence."
+    },
+    {
+      "id": "nu-004",
+      "name": "Crew Morale Boost",
+      "type": "action",
+      "faction": "neutral",
+      "tier": 1,
+      "art": "cards/nu-morale",
+      "cost": {},
+      "resourceGain": { "influence": 2 },
+      "effects": [],
+      "factionIcons": [],
+      "tags": ["supply", "basic", "social"],
+      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
+      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
+      "flavorText": "A song from Earth. No one remembers the words. Everyone hums along."
+    }
+  ]
+}

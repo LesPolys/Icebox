@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "noEmit": true,
+    "paths": {
+      "@icebox/shared": ["../shared/src/index.ts"]
+    },
+    "resolveJsonModule": true
+  },
+  "include": ["src/**/*", "../shared/src/**/*", "../shared/data/**/*.json"]
+}
