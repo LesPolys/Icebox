@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "npx vite --port 3005"],
+      "port": 3005,
+      "cwd": "packages/game"
+    },
+    {
+      "name": "editor",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npx.cmd",
+      "runtimeArgs": ["vite", "--port", "3001"],
+      "port": 3001,
+      "cwd": "packages/editor"
+    }
+  ]
+}

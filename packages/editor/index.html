@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Icebox — Card Editor</title>
+  <link rel="stylesheet" href="/src/styles/editor.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <h1>Icebox Card Editor</h1>
+      <div id="header-actions">
+        <button id="btn-new">New Card</button>
+        <button id="btn-import">Import JSON</button>
+        <button id="btn-export-all">Export All</button>
+      </div>
+    </header>
+    <div id="main">
+      <aside id="sidebar">
+        <div id="search-bar">
+          <input type="text" id="search-input" placeholder="Search cards..." />
+        </div>
+        <div id="deck-list"></div>
+      </aside>
+      <section id="editor-area">
+        <div id="card-form-container"></div>
+      </section>
+      <aside id="preview-area">
+        <div id="card-preview"></div>
+        <div id="validation-output"></div>
+      </aside>
+    </div>
+  </div>
+  <input type="file" id="file-import" accept=".json" style="display:none" />
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
