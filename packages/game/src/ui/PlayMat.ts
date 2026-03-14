@@ -49,7 +49,8 @@ export class PlayMat extends Phaser.GameObjects.Container {
       "❄",
       0x4488cc,
       () => { if (this.onSleep) this.onSleep(); },
-      Math.round(r * 4 / 3)
+      Math.round(r * 4 / 3),
+      "Enter Cryosleep — skip to Succession phase"
     );
 
     this.createCircleBtn(
@@ -59,7 +60,9 @@ export class PlayMat extends Phaser.GameObjects.Container {
       r,
       "END",
       NUM.midnightViolet,
-      () => { if (this.onEndTurn) this.onEndTurn(); }
+      () => { if (this.onEndTurn) this.onEndTurn(); },
+      undefined,
+      "End Turn — resolve market and draw cards"
     );
 
     this.setDepth(-1);
@@ -74,7 +77,8 @@ export class PlayMat extends Phaser.GameObjects.Container {
     label: string,
     fillColor: number,
     onClick: () => void,
-    labelSize?: number
+    labelSize?: number,
+    tooltip?: string
   ): void {
     const gfx = scene.add.graphics();
     const drawNormal = () => {
@@ -100,15 +104,39 @@ export class PlayMat extends Phaser.GameObjects.Container {
       fontStyle: "bold",
     }).setOrigin(0.5);
 
+    // Tooltip text (hidden by default, shown on hover)
+    let tooltipText: Phaser.GameObjects.Text | null = null;
+    let tooltipBg: Phaser.GameObjects.Graphics | null = null;
+    if (tooltip) {
+      tooltipBg = scene.add.graphics();
+      tooltipText = scene.add.text(0, -radius - s(20), tooltip, {
+        fontSize: fs(8),
+        color: HEX.eggshell,
+        fontFamily: "monospace",
+        backgroundColor: "#1a1a2e",
+        padding: { x: 6, y: 3 },
+      }).setOrigin(0.5).setVisible(false);
+    }
+
     // Invisible interactive hit area over the circle
     const hitArea = scene.add.circle(0, 0, radius, 0x000000, 0);
     hitArea.setInteractive({ useHandCursor: true });
-    hitArea.on("pointerover", () => { drawHover(); text.setColor("#ffffff"); });
-    hitArea.on("pointerout", () => { drawNormal(); text.setColor(HEX.eggshell); });
+    hitArea.on("pointerover", () => {
+      drawHover();
+      text.setColor("#ffffff");
+      if (tooltipText) tooltipText.setVisible(true);
+    });
+    hitArea.on("pointerout", () => {
+      drawNormal();
+      text.setColor(HEX.eggshell);
+      if (tooltipText) tooltipText.setVisible(false);
+    });
     hitArea.on("pointerdown", onClick);
 
     // Add to scene directly (not to PlayMat container) at high depth
-    const container = scene.add.container(x, y, [gfx, text, hitArea]);
+    const children: Phaser.GameObjects.GameObject[] = [gfx, text, hitArea];
+    if (tooltipText) children.push(tooltipText);
+    const container = scene.add.container(x, y, children);
     container.setDepth(50);
   }
 

@@ -15,12 +15,13 @@ interface LogEntry {
 export class ActionLog extends Phaser.GameObjects.Container {
   private entries: LogEntry[] = [];
   private currentTurn = 0;
-  private collapsed = false;
+  private collapsed = true;
 
   private panelContainer: Phaser.GameObjects.Container;
   private bgGfx: Phaser.GameObjects.Graphics;
   private logTexts: Phaser.GameObjects.Text[] = [];
   private toggleBtn: Phaser.GameObjects.Container;
+  private scrollBottomBtn: Phaser.GameObjects.Container;
   private contentMask!: Phaser.Display.Masks.GeometryMask;
   private maskGfx: Phaser.GameObjects.Graphics;
 
@@ -42,6 +43,14 @@ export class ActionLog extends Phaser.GameObjects.Container {
     // Panel container (slides left/right)
     this.panelContainer = scene.add.container(0, 0);
     this.add(this.panelContainer);
+
+    // Input blocker — prevents clicks from passing through to elements below
+    const blocker = scene.add.rectangle(
+      this.panelX + this.panelW / 2, this.panelTop + this.panelH / 2,
+      this.panelW, this.panelH, 0x000000, 0
+    );
+    blocker.setInteractive();
+    this.panelContainer.add(blocker);
 
     // Background
     this.bgGfx = scene.add.graphics();
@@ -81,6 +90,15 @@ export class ActionLog extends Phaser.GameObjects.Container {
     this.toggleBtn = this.createToggleTab(scene);
     this.add(this.toggleBtn);
 
+    // Scroll-to-bottom button (at bottom of panel)
+    this.scrollBottomBtn = this.createScrollBottomBtn(scene);
+    this.panelContainer.add(this.scrollBottomBtn);
+
+    // Start collapsed
+    this.panelContainer.x = -(this.panelW + this.panelX);
+    this.toggleBtn.x = 0;
+    this.maskGfx.x = -(this.panelW + this.panelX);
+
     // Scroll with mouse wheel over the panel
     scene.input.on("wheel", (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
       if (this.collapsed) return;
@@ -119,7 +137,7 @@ export class ActionLog extends Phaser.GameObjects.Container {
     gfx.lineStyle(s(1), NUM.charcoalBlue, 0.5);
     gfx.strokeRoundedRect(0, -tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
 
-    const arrow = scene.add.text(tabW / 2, 0, "◀", {
+    const arrow = scene.add.text(tabW / 2, 0, "▶", {
       fontSize: fs(8), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(0.5);
 
@@ -128,6 +146,32 @@ export class ActionLog extends Phaser.GameObjects.Container {
     hitArea.on("pointerdown", () => this.toggle());
 
     return scene.add.container(tabX, tabY, [gfx, arrow, hitArea]);
+  }
+
+  private createScrollBottomBtn(scene: Phaser.Scene): Phaser.GameObjects.Container {
+    const btnW = s(24);
+    const btnH = s(16);
+    const bx = this.panelX + this.panelW - this.padding - btnW / 2;
+    const by = this.panelTop + this.panelH - this.padding - btnH / 2;
+
+    const gfx = scene.add.graphics();
+    gfx.fillStyle(NUM.charcoalBlue, 0.7);
+    gfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, s(3));
+    const label = scene.add.text(0, 0, "▼", {
+      fontSize: fs(7), color: HEX.pearlAqua, fontFamily: "monospace",
+    }).setOrigin(0.5);
+    const hit = scene.add.rectangle(0, 0, btnW, btnH, 0x000000, 0);
+    hit.setInteractive({ useHandCursor: true });
+    hit.on("pointerdown", () => this.scrollToBottom());
+
+    return scene.add.container(bx, by, [gfx, label, hit]);
+  }
+
+  scrollToBottom(): void {
+    const totalH = this.entries.length * this.lineH;
+    const viewH = this.panelH - s(30);
+    this.scrollOffset = Math.max(0, totalH - viewH);
+    this.renderEntries();
   }
 
   toggle(): void {

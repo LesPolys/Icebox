@@ -15,13 +15,14 @@ interface MessageEntry {
  */
 export class MessagePanel extends Phaser.GameObjects.Container {
   private entries: MessageEntry[] = [];
-  private collapsed = false;
+  private collapsed = true;
   private unreadCount = 0;
 
   private panelContainer: Phaser.GameObjects.Container;
   private bgGfx: Phaser.GameObjects.Graphics;
   private msgTexts: Phaser.GameObjects.Text[] = [];
   private toggleBtn: Phaser.GameObjects.Container;
+  private scrollBottomBtn: Phaser.GameObjects.Container;
   private notifDot: Phaser.GameObjects.Graphics;
   private notifText: Phaser.GameObjects.Text;
   private contentMask!: Phaser.Display.Masks.GeometryMask;
@@ -30,7 +31,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
   private readonly panelW = s(180);
   private readonly panelH: number;
   private readonly panelTop = s(60);
-  private readonly lineGap = s(14);
+  private readonly lineGap = s(20);
   private readonly padding = s(8);
   private panelRight: number;
 
@@ -49,6 +50,14 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     // Panel container (slides right when collapsed)
     this.panelContainer = scene.add.container(0, 0);
     this.add(this.panelContainer);
+
+    // Input blocker — prevents clicks from passing through to elements below
+    const blocker = scene.add.rectangle(
+      panelLeft + this.panelW / 2, this.panelTop + this.panelH / 2,
+      this.panelW, this.panelH, 0x000000, 0
+    );
+    blocker.setInteractive();
+    this.panelContainer.add(blocker);
 
     // Background
     this.bgGfx = scene.add.graphics();
@@ -98,6 +107,15 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     }).setOrigin(0.5).setVisible(false);
     this.toggleBtn.add(this.notifText);
 
+    // Scroll-to-bottom button
+    this.scrollBottomBtn = this.createScrollBottomBtn(scene, panelLeft);
+    this.panelContainer.add(this.scrollBottomBtn);
+
+    // Start collapsed
+    this.panelContainer.x = this.panelW + s(4);
+    this.toggleBtn.x = this.panelRight - s(16);
+    this.maskGfx.x = this.panelW + s(4);
+
     // Scroll with mouse wheel over the panel
     scene.input.on("wheel", (_pointer: Phaser.Input.Pointer, _gos: unknown[], _dx: number, dy: number) => {
       if (this.collapsed) return;
@@ -138,7 +156,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     gfx.lineStyle(s(1), NUM.charcoalBlue, 0.5);
     gfx.strokeRoundedRect(0, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
 
-    const arrow = scene.add.text(tabW / 2, 0, "▶", {
+    const arrow = scene.add.text(tabW / 2, 0, "◀", {
       fontSize: fs(8), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(0.5);
 
@@ -147,6 +165,31 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     hitArea.on("pointerdown", () => this.toggle());
 
     return scene.add.container(tabX, tabY, [gfx, arrow, hitArea]);
+  }
+
+  private createScrollBottomBtn(scene: Phaser.Scene, panelLeft: number): Phaser.GameObjects.Container {
+    const btnW = s(24);
+    const btnH = s(16);
+    const bx = panelLeft + this.panelW - this.padding - btnW / 2;
+    const by = this.panelTop + this.panelH - this.padding - btnH / 2;
+
+    const gfx = scene.add.graphics();
+    gfx.fillStyle(NUM.charcoalBlue, 0.7);
+    gfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, s(3));
+    const label = scene.add.text(0, 0, "▼", {
+      fontSize: fs(7), color: HEX.pearlAqua, fontFamily: "monospace",
+    }).setOrigin(0.5);
+    const hit = scene.add.rectangle(0, 0, btnW, btnH, 0x000000, 0);
+    hit.setInteractive({ useHandCursor: true });
+    hit.on("pointerdown", () => this.scrollToBottom());
+
+    return scene.add.container(bx, by, [gfx, label, hit]);
+  }
+
+  scrollToBottom(): void {
+    const viewH = this.panelH - s(30);
+    this.scrollOffset = Math.max(0, this.totalContentHeight - viewH);
+    this.renderEntries();
   }
 
   private updateNotifDot(): void {

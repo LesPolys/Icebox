@@ -314,6 +314,26 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     return this.selectedInstanceId;
   }
 
+  /** Return world-space position of each card by instanceId. */
+  getCardWorldPositions(): Map<string, { x: number; y: number }> {
+    const map = new Map<string, { x: number; y: number }>();
+    for (const sprite of this.cardSprites) {
+      const worldX = this.x + sprite.x;
+      const worldY = this.y + sprite.y;
+      map.set(sprite.cardInstance.instanceId, { x: worldX, y: worldY });
+    }
+    return map;
+  }
+
+  /** Hide specific cards by instanceId (used during draw animation). */
+  setCardsVisible(instanceIds: Set<string>, visible: boolean): void {
+    for (const sprite of this.cardSprites) {
+      if (instanceIds.has(sprite.cardInstance.instanceId)) {
+        sprite.setVisible(visible);
+      }
+    }
+  }
+
   clearSelection(): void {
     this.selectedInstanceId = null;
     this.highlightSelected();

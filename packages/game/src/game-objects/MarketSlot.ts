@@ -117,6 +117,11 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     }
   }
 
+  /** Show or hide investment icons (used during animation). */
+  setInvestmentVisible(visible: boolean): void {
+    for (const icon of this.investmentIcons) icon.setVisible(visible);
+  }
+
   // ── Purchase mode highlights ──
 
   setPurchaseHighlight(mode: PurchaseHighlight): void {

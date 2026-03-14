@@ -163,6 +163,13 @@ export class ResourceBar extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
+  /** Get the world position of a specific resource column's shape icon. */
+  getResourceWorldPos(resourceKey: string): { x: number; y: number } {
+    const shape = this.shapes[resourceKey];
+    if (!shape) return { x: this.x, y: this.y };
+    return { x: this.x + shape.x, y: this.y + shape.y };
+  }
+
   /** Show/hide the glow pulse indicating purchase mode is active. */
   setDraggable(enabled: boolean): void {
     if (enabled) {
