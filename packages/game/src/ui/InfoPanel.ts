@@ -1,10 +1,15 @@
 import Phaser from "phaser";
 import type { CardInstance } from "@icebox/shared";
 import { FACTIONS, NUM, HEX } from "@icebox/shared";
-import { s, fontSize as fs } from "./layout";
+import { s, fontSize as fs, GAME_W, GAME_H } from "./layout";
+
+const PANEL_W = s(220);
+const PANEL_H = s(300);
+const EDGE_MARGIN = s(12);
 
 /**
- * Detail panel that shows full card information on hover/select.
+ * Tooltip-style detail panel that follows the mouse pointer.
+ * Automatically constrained to stay within the game viewport.
  */
 export class InfoPanel extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Rectangle;
@@ -16,64 +21,92 @@ export class InfoPanel extends Phaser.GameObjects.Container {
   private lifespanText: Phaser.GameObjects.Text;
   private flavorText: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y);
+  constructor(scene: Phaser.Scene) {
+    super(scene, 0, 0);
 
-    const panelW = s(220);
-    const panelH = s(300);
-
-    this.bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.midnightViolet, 0.95);
+    // Background — origin (0,0) is the top-left of the panel
+    this.bg = scene.add.rectangle(0, 0, PANEL_W, PANEL_H, NUM.midnightViolet, 0.95);
     this.bg.setStrokeStyle(s(1), NUM.charcoalBlue);
+    this.bg.setOrigin(0, 0);
     this.add(this.bg);
 
-    let yPos = s(-130);
+    let yPos = s(10);
+    const textX = PANEL_W / 2;
 
-    this.nameText = scene.add.text(0, yPos, "", {
+    this.nameText = scene.add.text(textX, yPos, "", {
       fontSize: fs(14), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
-      wordWrap: { width: panelW - s(20) }, align: "center",
+      wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.nameText);
 
     yPos += s(30);
-    this.typeText = scene.add.text(0, yPos, "", {
+    this.typeText = scene.add.text(textX, yPos, "", {
       fontSize: fs(10), color: HEX.darkCyan, fontFamily: "monospace",
     }).setOrigin(0.5, 0);
     this.add(this.typeText);
 
     yPos += s(20);
-    this.factionText = scene.add.text(0, yPos, "", {
+    this.factionText = scene.add.text(textX, yPos, "", {
       fontSize: fs(10), color: HEX.darkCyan, fontFamily: "monospace",
     }).setOrigin(0.5, 0);
     this.add(this.factionText);
 
     yPos += s(20);
-    this.costText = scene.add.text(0, yPos, "", {
+    this.costText = scene.add.text(textX, yPos, "", {
       fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(0.5, 0);
     this.add(this.costText);
 
     yPos += s(25);
-    this.effectsText = scene.add.text(0, yPos, "", {
+    this.effectsText = scene.add.text(textX, yPos, "", {
       fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
-      wordWrap: { width: panelW - s(20) }, align: "center",
+      wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.effectsText);
 
     yPos += s(80);
-    this.lifespanText = scene.add.text(0, yPos, "", {
+    this.lifespanText = scene.add.text(textX, yPos, "", {
       fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(0.5, 0);
     this.add(this.lifespanText);
 
     yPos += s(20);
-    this.flavorText = scene.add.text(0, yPos, "", {
+    this.flavorText = scene.add.text(textX, yPos, "", {
       fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "italic",
-      wordWrap: { width: panelW - s(20) }, align: "center",
+      wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.flavorText);
 
     this.setVisible(false);
+    this.setDepth(1000);
     scene.add.existing(this);
+
+    // Follow the pointer every frame
+    scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible) return;
+      this.positionNearPointer(pointer.x, pointer.y);
+    });
+  }
+
+  /** Place the panel near the pointer, clamped so it stays fully on-screen. */
+  private positionNearPointer(px: number, py: number): void {
+    const offset = s(16);
+
+    // Try placing to the right of the pointer
+    let x = px + offset;
+    let y = py - PANEL_H / 2;
+
+    // If it would go off the right edge, flip to the left
+    if (x + PANEL_W > GAME_W - EDGE_MARGIN) {
+      x = px - PANEL_W - offset;
+    }
+    if (x < EDGE_MARGIN) x = EDGE_MARGIN;
+
+    // Clamp vertical
+    if (y < EDGE_MARGIN) y = EDGE_MARGIN;
+    if (y + PANEL_H > GAME_H - EDGE_MARGIN) y = GAME_H - PANEL_H - EDGE_MARGIN;
+
+    this.setPosition(x, y);
   }
 
   showCard(cardInst: CardInstance): void {
@@ -107,6 +140,10 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     }
 
     this.flavorText.setText(card.flavorText ?? "");
+
+    // Position at current pointer
+    const pointer = this.scene.input.activePointer;
+    this.positionNearPointer(pointer.x, pointer.y);
 
     this.setVisible(true);
   }

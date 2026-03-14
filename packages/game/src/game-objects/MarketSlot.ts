@@ -1,8 +1,6 @@
 import Phaser from "phaser";
 import type { CardInstance } from "@icebox/shared";
-import { NUM, HEX } from "@icebox/shared";
-import { CardSprite, CARD_WIDTH, CARD_HEIGHT } from "./CardSprite";
-import { s, fontSize as fs } from "../ui/layout";
+import { CardSprite } from "./CardSprite";
 
 /** Scale applied to market cards so they fit cleanly in columns. */
 const MARKET_CARD_SCALE = 0.55;
@@ -15,7 +13,6 @@ export class MarketSlot extends Phaser.GameObjects.Container {
   public slotIndex: number;
   public cardSprite: CardSprite | null = null;
   private emptySlot: Phaser.GameObjects.Image;
-  private falloutIndicator: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, slotIndex: number, scaled = false) {
     super(scene, x, y);
@@ -25,18 +22,6 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     this.emptySlot = scene.add.image(0, 0, "card-empty");
     if (scaled) this.emptySlot.setScale(MARKET_CARD_SCALE);
     this.add(this.emptySlot);
-
-    // Fallout warning on slot 0
-    const yOffset = scaled ? -(CARD_HEIGHT * MARKET_CARD_SCALE) / 2 - s(10) : -CARD_HEIGHT / 2 - s(12);
-    this.falloutIndicator = scene.add.text(0, yOffset, "FALLOUT", {
-      fontSize: fs(7),
-      color: HEX.dustyMauve,
-      fontFamily: "monospace",
-      fontStyle: "bold",
-    });
-    this.falloutIndicator.setOrigin(0.5);
-    this.falloutIndicator.setVisible(slotIndex === 0);
-    this.add(this.falloutIndicator);
 
     scene.add.existing(this);
   }

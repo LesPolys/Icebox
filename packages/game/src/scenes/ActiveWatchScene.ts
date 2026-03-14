@@ -31,6 +31,7 @@ export class ActiveWatchScene extends Phaser.Scene {
   private phaseIndicator!: PhaseIndicator;
   private messageText!: Phaser.GameObjects.Text;
   private deckCountText!: Phaser.GameObjects.Text;
+  private worldDeckCountText!: Phaser.GameObjects.Text;
 
   constructor() {
     super(ActiveWatchScene.KEY);
@@ -58,7 +59,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.deckCountText = this.add.text(LAYOUT.deckCountX, LAYOUT.deckCountY, "", {
       fontSize: fontSize(10), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(1, 0);
-    this.infoPanel = new InfoPanel(this, LAYOUT.infoPanelX, LAYOUT.infoPanelY);
+    this.infoPanel = new InfoPanel(this);
 
     // ─── Main area ───
     this.createMarket();
@@ -95,18 +96,26 @@ export class ActiveWatchScene extends Phaser.Scene {
       fontSize: fontSize(10), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "bold",
     }).setOrigin(0.5);
 
-    // Column numbers — positioned ABOVE the box
+    // Column numbers — bordered badges above the box
+    const badgeY = LAYOUT.marketLabelY + s(18);
+    const badgeR = s(12);
     for (let col = 0; col < numCols; col++) {
       const colX = cx + (col - 2.5) * cs;
-      this.add.text(colX, LAYOUT.marketLabelY + s(14), `${col + 1}`, {
-        fontSize: fontSize(13), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
+      const badge = this.add.graphics();
+      badge.fillStyle(NUM.midnightViolet, 0.8);
+      badge.fillCircle(colX, badgeY, badgeR);
+      badge.lineStyle(s(1.5), NUM.charcoalBlue, 0.7);
+      badge.strokeCircle(colX, badgeY, badgeR);
+      badge.setDepth(9);
+      this.add.text(colX, badgeY, `${col + 1}`, {
+        fontSize: fontSize(11), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(10);
     }
 
-    // Box background — starts below the column numbers
+    // Box background — starts below the badge row
     const boxPadX = s(40);
     const boxLeft = cx - 2.5 * cs - boxPadX;
-    const boxTop = LAYOUT.marketLabelY + s(28);
+    const boxTop = badgeY + badgeR + s(4);
     const boxW = 5 * cs + boxPadX * 2;
     const boxH = LAYOUT.marketRow2Y - LAYOUT.marketRow1Y + s(120);
 
@@ -123,21 +132,8 @@ export class ActiveWatchScene extends Phaser.Scene {
       gfx.lineBetween(divX, boxTop + s(4), divX, boxTop + boxH - s(4));
     }
 
-    // Flow indicators
-    const rightEdge = cx + 2.5 * cs + boxPadX - s(10);
-    this.add.text(rightEdge, LAYOUT.marketRow1Y, "← NEW", {
-      fontSize: fontSize(7), color: HEX.darkCyan, fontFamily: "monospace",
-    }).setOrigin(1, 0.5);
-    this.add.text(rightEdge, LAYOUT.marketRow2Y, "FALL →", {
-      fontSize: fontSize(7), color: HEX.dustyMauve, fontFamily: "monospace",
-    }).setOrigin(1, 0.5);
-    this.add.text(rightEdge - s(14), (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2, "↓", {
-      fontSize: fontSize(11), color: HEX.darkCyan, fontFamily: "monospace",
-    }).setOrigin(0.5);
-
     // Slots: 6 cols × 2 rows = 12 total
-    // Top row (newest): slots 11..6, left to right = 11, 10, 9, 8, 7, 6
-    // Bottom row (oldest): slots 5..0, left to right = 5, 4, 3, 2, 1, 0
+    // Both rows flow right-to-left; leftmost slots fall off
     this.marketSlots = [];
     for (let col = 0; col < numCols; col++) {
       const colX = cx + (col - 2.5) * cs;
@@ -154,6 +150,20 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.marketSlots[botSlotIdx] = bot;
       this.setupMarketSlotEvents(bot, botSlotIdx);
     }
+
+    // World deck pile — to the right of the market box
+    const deckX = cx + 2.5 * cs + boxPadX + s(40);
+    const deckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
+    // Stacked card-back images to suggest a pile
+    for (let i = 2; i >= 0; i--) {
+      const offset = i * s(2);
+      const back = this.add.image(deckX + offset, deckY + offset, "card-back");
+      back.setScale(0.5);
+      back.setAlpha(0.6 + i * 0.15);
+    }
+    this.worldDeckCountText = this.add.text(deckX, deckY + s(55), "", {
+      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
+    }).setOrigin(0.5);
   }
 
   private setupMarketSlotEvents(slot: MarketSlot, slotIndex: number): void {
@@ -181,6 +191,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
       // Structure card hover → InfoPanel
       sector.onCardClicked = (card) => this.infoPanel.showCard(card);
+      sector.onCardUnhovered = () => this.infoPanel.hide();
 
       sector.on("pointerdown", () => {
         const id = this.handDisplay.getSelectedInstanceId();
@@ -290,6 +301,10 @@ export class ActiveWatchScene extends Phaser.Scene {
     const draw = this.gameState.mandateDeck.drawPile.length;
     const disc = this.gameState.mandateDeck.discardPile.length;
     this.deckCountText.setText(`Deck: ${draw} | Discard: ${disc}`);
+
+    // Update world deck count
+    const worldDeckCount = this.gameState.worldDeck.drawPile.length;
+    this.worldDeckCountText.setText(`${worldDeckCount} cards`);
   }
 
   private showMessage(msg: string): void {
