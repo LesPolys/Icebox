@@ -12,9 +12,12 @@ import {
   RESOURCE_DRAIN_PER_CYCLE,
   DOMINANT_FACTION_CARDS_PER_CYCLE,
   WEAKEST_FACTION_REMOVAL_PER_CYCLE,
+  HULL_DAMAGE_PER_JUNK,
+  YEARS_PER_SLEEP,
   calculateArchiveSlots,
   shuffle,
   generateInstanceId,
+  FACTIONS,
 } from "@icebox/shared";
 import { drainResources, getDeficit } from "./ResourceManager";
 import { flushMarket, fillMarket } from "./MarketManager";
@@ -31,6 +34,7 @@ import {
   type DeathEvent,
 } from "./AgingManager";
 import { createCardInstance } from "./GameStateManager";
+import { checkDefeat, checkVictory } from "./VictoryConditions";
 
 /**
  * Core cryosleep algorithm. Pure logic — no Phaser imports.
@@ -53,6 +57,11 @@ export type CryosleepEventType =
   | "card-transform"
   | "threshold-escalation"
   | "resource-drain"
+  | "hull-damage"
+  | "global-law-set"
+  | "dominance-recorded"
+  | "defeat"
+  | "victory"
   | "cycle-end";
 
 export interface CryosleepEvent {
@@ -187,6 +196,31 @@ export function executeCryosleep(
       }
     }
 
+    // Set global law from dominant faction
+    const factionDef = FACTIONS[dominant];
+    if (factionDef) {
+      currentState.globalLaw = {
+        faction: dominant,
+        description: factionDef.globalLaw.description,
+        effectId: factionDef.globalLaw.effectId,
+      };
+      events.push({
+        type: "global-law-set",
+        cycle,
+        data: { faction: dominant, description: factionDef.globalLaw.description },
+      });
+    }
+
+    // Record dominance history
+    if (currentState.dominanceHistory[dominant] !== undefined) {
+      currentState.dominanceHistory[dominant]++;
+    }
+    events.push({
+      type: "dominance-recorded",
+      cycle,
+      data: { dominant, weakest, dominanceHistory: { ...currentState.dominanceHistory } },
+    });
+
     // Refill market from evolved world deck
     const fillResult = fillMarket(currentState.transitMarket, currentState.worldDeck);
     currentState.transitMarket = fillResult.market;
@@ -225,6 +259,7 @@ export function executeCryosleep(
       RESOURCE_DRAIN_PER_CYCLE
     );
     currentState.totalSleepCycles++;
+    currentState.yearsPassed += YEARS_PER_SLEEP;
 
     events.push({
       type: "threshold-escalation",
@@ -236,10 +271,39 @@ export function executeCryosleep(
       cycle,
       data: { newResources: { ...currentState.resources } },
     });
-    events.push({ type: "cycle-end", cycle, data: {} });
 
     // Update ship presence
     currentState.ship = updateShipPresence(currentState.ship);
+
+    // Hull damage event
+    events.push({
+      type: "hull-damage",
+      cycle,
+      data: { hullIntegrity: currentState.hullIntegrity },
+    });
+
+    // Check victory/defeat after each cycle
+    const defeat = checkDefeat(currentState);
+    if (defeat) {
+      events.push({
+        type: "defeat",
+        cycle,
+        data: { reason: defeat.reason },
+      });
+      events.push({ type: "cycle-end", cycle, data: {} });
+      break; // Stop processing further cycles
+    }
+
+    const victory = checkVictory(currentState);
+    if (victory) {
+      events.push({
+        type: "victory",
+        cycle,
+        data: { type: victory.type, dominantFaction: victory.dominantFaction },
+      });
+    }
+
+    events.push({ type: "cycle-end", cycle, data: {} });
   }
 
   const archiveSlots = calculateArchiveSlots(sleepDuration);
@@ -281,10 +345,14 @@ function processInertiaCheck(
         s.mandateDeck.drawPile.push(junkInst);
       }
     }
+    // Hull damage from junk
+    const hullDamage = junkCount * HULL_DAMAGE_PER_JUNK;
+    s.hullIntegrity = Math.max(0, s.hullIntegrity - hullDamage);
+
     events.push({
       type: "inertia-breach",
       cycle,
-      data: { resource: "matter", deficit: matterDeficit, junkAdded: junkCount },
+      data: { resource: "matter", deficit: matterDeficit, junkAdded: junkCount, hullDamage },
     });
   }
 

@@ -1,7 +1,9 @@
-import type { GameState, CardInstance, ResourceCost } from "@icebox/shared";
-import { canAfford, spendResources, gainResources, AUTO_DRAW_COUNT, EXTRA_DRAW_COST } from "@icebox/shared";
+import type { GameState, CardInstance, ResourceCost, MarketRowId } from "@icebox/shared";
+import { canAfford, spendResources, gainResources, AUTO_DRAW_COUNT, EXTRA_DRAW_COST, getMarketRowById } from "@icebox/shared";
 import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
-import { acquireFromMarket, slideMarket } from "./MarketManager";
+import { acquireFromMarket, slideMarket, canBuyFromSlot, investOnSlot } from "./MarketManager";
+import { resolveFallout } from "./FalloutHandler";
+import { getMarketCostModifier, isActionDisabled, getExtraSlideCount } from "./MarketEffectResolver";
 
 /**
  * Pure logic for managing the Active Watch turn flow.
@@ -9,8 +11,10 @@ import { acquireFromMarket, slideMarket } from "./MarketManager";
 
 export type PlayerAction =
   | { type: "play-card"; instanceId: string }
-  | { type: "buy-from-market"; slotIndex: number }
+  | { type: "buy-from-market"; row: MarketRowId; slotIndex: number }
+  | { type: "invest"; row: MarketRowId; slotIndex: number; resource: ResourceCost }
   | { type: "slot-structure"; instanceId: string; sectorIndex: number }
+  | { type: "scrap-structure"; instanceId: string; sectorIndex: number }
   | { type: "draw-extra"; resourceType: "matter" | "energy" | "data" | "influence" }
   | { type: "pass" }
   | { type: "enter-cryosleep" };
@@ -24,16 +28,23 @@ export interface ActionResult {
 
 /**
  * Start a new turn: auto-draw, increment turn number.
+ * If the mandate deck is completely empty (draw + discard), auto-transition to succession.
  */
 export function startTurn(state: GameState): GameState {
   const s = structuredClone(state);
   s.turnNumber++;
 
+  // Check if deck is completely empty -> auto-sleep
+  if (s.mandateDeck.drawPile.length === 0 && s.mandateDeck.discardPile.length === 0 && s.mandateDeck.hand.length === 0) {
+    s.phase = "succession";
+    return s;
+  }
+
   // Auto-draw
   const drawResult = drawCards(s.mandateDeck, AUTO_DRAW_COUNT);
   s.mandateDeck = drawResult.deck;
 
-  // Re-power all tableau cards at turn start (if energy is sufficient)
+  // Re-power all tableau cards at turn start
   for (const sector of s.ship.sectors) {
     for (const card of sector.installedCards) {
       card.powered = true;
@@ -54,9 +65,13 @@ export function executeAction(
     case "play-card":
       return playCard(state, action.instanceId);
     case "buy-from-market":
-      return buyFromMarket(state, action.slotIndex);
+      return buyFromMarket(state, action.row, action.slotIndex);
+    case "invest":
+      return investAction(state, action.row, action.slotIndex, action.resource);
     case "slot-structure":
       return slotStructure(state, action.instanceId, action.sectorIndex);
+    case "scrap-structure":
+      return scrapStructure(state, action.instanceId, action.sectorIndex);
     case "draw-extra":
       return drawExtra(state, action.resourceType);
     case "pass":
@@ -77,23 +92,26 @@ function playCard(state: GameState, instanceId: string): ActionResult {
   const cardInst = s.mandateDeck.hand[cardIdx];
   const card = cardInst.card;
 
-  // Check cost
+  // Check hazard passive: action abilities disabled
+  if (card.type === "action" && isActionDisabled(s.transitMarket, "play-action")) {
+    return { success: false, state, message: "A hazard is preventing action abilities." };
+  }
+
   if (!canAfford(s.resources, card.cost)) {
     return { success: false, state, message: "Cannot afford this card." };
   }
 
-  // Spend resources
   s.resources = spendResources(s.resources, card.cost);
 
-  // Apply resource gain
   if (card.resourceGain) {
-    s.resources = gainResources(s.resources, card.resourceGain);
+    let gain = { ...card.resourceGain };
+    if (isActionDisabled(s.transitMarket, "gain-influence") && gain.influence) {
+      gain = { ...gain, influence: 0 };
+    }
+    s.resources = gainResources(s.resources, gain);
   }
 
-  // Move to discard
   s.mandateDeck = discardFromHand(s.mandateDeck, instanceId);
-
-  // TODO: Trigger on-play effects via EffectResolver
 
   return {
     success: true,
@@ -103,34 +121,93 @@ function playCard(state: GameState, instanceId: string): ActionResult {
   };
 }
 
-function buyFromMarket(state: GameState, slotIndex: number): ActionResult {
+function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number): ActionResult {
   const s = structuredClone(state);
-  const slot = s.transitMarket.slots[slotIndex];
+  const row = getMarketRowById(s.transitMarket, rowId);
+  const slot = row.slots[slotIndex];
 
   if (!slot) {
     return { success: false, state, message: "Empty market slot." };
   }
 
-  // Check cost
-  if (!canAfford(s.resources, slot.card.cost)) {
+  // Check investment requirement
+  if (!canBuyFromSlot(s.transitMarket, rowId, slotIndex)) {
+    return { success: false, state, message: "Must invest on all preceding slots before buying." };
+  }
+
+  // Calculate effective cost with hazard modifiers
+  const costModifier = getMarketCostModifier(s.transitMarket);
+  const baseCost = slot.card.cost;
+  const effectiveCost: ResourceCost = {
+    matter: (baseCost.matter ?? 0) + (costModifier.matter ?? 0),
+    energy: (baseCost.energy ?? 0) + (costModifier.energy ?? 0),
+    data: (baseCost.data ?? 0) + (costModifier.data ?? 0),
+    influence: (baseCost.influence ?? 0) + (costModifier.influence ?? 0),
+  };
+
+  if (!canAfford(s.resources, effectiveCost)) {
     return { success: false, state, message: "Cannot afford this card." };
   }
 
-  // Spend resources
-  s.resources = spendResources(s.resources, slot.card.cost);
+  s.resources = spendResources(s.resources, effectiveCost);
 
-  // Remove from market, add to discard
-  const result = acquireFromMarket(s.transitMarket, slotIndex);
+  const result = acquireFromMarket(s.transitMarket, rowId, slotIndex);
   s.transitMarket = result.market;
 
+  const cardType = slot.card.type;
+  const isHazardOrEvent = cardType === "hazard" || cardType === "event";
+
   if (result.card) {
-    s.mandateDeck = addToDiscard(s.mandateDeck, result.card);
+    if (isHazardOrEvent) {
+      if (result.card.card.resourceGain) {
+        s.resources = gainResources(s.resources, result.card.card.resourceGain);
+      }
+      const hazardData = result.card.card.hazard;
+      if (hazardData?.onBuy === "return-to-vault") {
+        result.card.zone = "vault";
+        s.vault.cards.push(result.card);
+      } else {
+        result.card.zone = "graveyard";
+        s.graveyard.cards.push(result.card);
+      }
+    } else {
+      s.mandateDeck = addToDiscard(s.mandateDeck, result.card);
+    }
   }
+
+  const buyVerb = isHazardOrEvent ? "Resolved" : "Acquired";
+  return {
+    success: true,
+    state: s,
+    message: `${buyVerb} ${slot.card.name} from the ${rowId} market.`,
+    effectsTriggered: slot.card.effects.filter((e) => e.timing === "on-play").map((e) => e.description),
+  };
+}
+
+function investAction(
+  state: GameState,
+  rowId: MarketRowId,
+  slotIndex: number,
+  resource: ResourceCost
+): ActionResult {
+  if (!canAfford(state.resources, resource)) {
+    return { success: false, state, message: "Cannot afford this investment." };
+  }
+
+  const s = structuredClone(state);
+  s.resources = spendResources(s.resources, resource);
+
+  const updatedMarket = investOnSlot(s.transitMarket, rowId, slotIndex, resource);
+  if (!updatedMarket) {
+    return { success: false, state, message: "Cannot invest on this slot." };
+  }
+
+  s.transitMarket = updatedMarket;
 
   return {
     success: true,
     state: s,
-    message: `Acquired ${slot.card.name} from the market.`,
+    message: `Invested on ${rowId} market slot ${slotIndex}.`,
   };
 }
 
@@ -150,7 +227,6 @@ function slotStructure(
     return { success: false, state, message: "Sector is full." };
   }
 
-  // Find card in hand
   const cardIdx = s.mandateDeck.hand.findIndex((c) => c.instanceId === instanceId);
   if (cardIdx === -1) {
     return { success: false, state, message: "Card not in hand." };
@@ -161,20 +237,26 @@ function slotStructure(
     return { success: false, state, message: "Only structures and institutions can be slotted." };
   }
 
-  // Check cost
-  if (!canAfford(s.resources, cardInst.card.cost)) {
+  // Hazard modifiers for slotting cost
+  const costModifier = getMarketCostModifier(s.transitMarket);
+  const baseCost = cardInst.card.cost;
+  const effectiveCost: ResourceCost = {
+    matter: (baseCost.matter ?? 0),
+    energy: (baseCost.energy ?? 0) + (costModifier.energy ?? 0),
+    data: (baseCost.data ?? 0),
+    influence: (baseCost.influence ?? 0),
+  };
+
+  if (!canAfford(s.resources, effectiveCost)) {
     return { success: false, state, message: "Cannot afford to slot this card." };
   }
 
-  // Spend resources
-  s.resources = spendResources(s.resources, cardInst.card.cost);
+  s.resources = spendResources(s.resources, effectiveCost);
 
-  // Apply resource gain
   if (cardInst.card.resourceGain) {
     s.resources = gainResources(s.resources, cardInst.card.resourceGain);
   }
 
-  // Move from hand to tableau
   s.mandateDeck.hand.splice(cardIdx, 1);
   cardInst.zone = "tableau";
   sector.installedCards.push(cardInst);
@@ -186,12 +268,53 @@ function slotStructure(
   };
 }
 
+function scrapStructure(
+  state: GameState,
+  instanceId: string,
+  sectorIndex: number
+): ActionResult {
+  const s = structuredClone(state);
+  const sector = s.ship.sectors[sectorIndex];
+
+  if (!sector) {
+    return { success: false, state, message: "Invalid sector." };
+  }
+
+  const cardIdx = sector.installedCards.findIndex((c) => c.instanceId === instanceId);
+  if (cardIdx === -1) {
+    return { success: false, state, message: "Card not installed in this sector." };
+  }
+
+  const cardInst = sector.installedCards[cardIdx];
+  const cost = cardInst.card.cost;
+  const refund: ResourceCost = {
+    matter: Math.floor((cost.matter ?? 0) / 2),
+    energy: Math.floor((cost.energy ?? 0) / 2),
+    data: Math.floor((cost.data ?? 0) / 2),
+    influence: Math.floor((cost.influence ?? 0) / 2),
+  };
+  s.resources = gainResources(s.resources, refund);
+
+  sector.installedCards.splice(cardIdx, 1);
+  cardInst.zone = "graveyard";
+  s.graveyard.cards.push(cardInst);
+
+  return {
+    success: true,
+    state: s,
+    message: `Scrapped ${cardInst.card.name} from sector ${sectorIndex}.`,
+  };
+}
+
 function drawExtra(
   state: GameState,
   resourceType: "matter" | "energy" | "data" | "influence"
 ): ActionResult {
-  const s = structuredClone(state);
+  if (isActionDisabled(state.transitMarket, "draw-extra")) {
+    return { success: false, state, message: "A hazard is preventing extra draws." };
+  }
 
+  const s = structuredClone(state);
   const cost: ResourceCost = { [resourceType]: EXTRA_DRAW_COST };
   if (!canAfford(s.resources, cost)) {
     return { success: false, state, message: "Cannot afford to draw." };
@@ -210,22 +333,47 @@ function drawExtra(
 }
 
 function endTurn(state: GameState): ActionResult {
-  const s = structuredClone(state);
+  let s = structuredClone(state);
+  const allEffects: string[] = [];
 
-  // Market slides left by 1
-  const slideResult = slideMarket(s.transitMarket, s.worldDeck);
-  s.transitMarket = slideResult.market;
-  s.worldDeck = slideResult.worldDeck;
+  const extraSlides = getExtraSlideCount(s.transitMarket);
+  const totalSlides = 1 + extraSlides;
 
-  // TODO: Trigger fallout effects on slideResult.falloutCard
+  for (let i = 0; i < totalSlides; i++) {
+    const slideResult = slideMarket(s.transitMarket, s.worldDeck);
+    s.transitMarket = slideResult.market;
+    s.worldDeck = slideResult.worldDeck;
+
+    // Resolve fallout from both rows
+    for (const falloutData of [slideResult.physicalFallout, slideResult.socialFallout]) {
+      if (falloutData.card) {
+        const fallout = resolveFallout(s, falloutData.card);
+        s = fallout.state;
+        allEffects.push(...fallout.messages);
+      }
+    }
+
+    // Handle claimed investments (faction gains presence)
+    for (const claim of slideResult.claimedInvestments) {
+      allEffects.push(`${claim.faction} claimed invested resources.`);
+      // Boost faction presence (simplified: add to global presence)
+      if (s.globalFactionPresence[claim.faction] !== undefined) {
+        const total = (claim.resources.matter ?? 0) + (claim.resources.energy ?? 0) +
+                     (claim.resources.data ?? 0) + (claim.resources.influence ?? 0);
+        s.globalFactionPresence[claim.faction] += total;
+      }
+    }
+  }
+
+  if (extraSlides > 0) {
+    allEffects.push(`Market slid ${totalSlides} times (${extraSlides} extra from hazards).`);
+  }
 
   return {
     success: true,
     state: s,
     message: "Turn ended. Market slides.",
-    effectsTriggered: slideResult.falloutCard
-      ? [`Fallout: ${slideResult.falloutCard.card.name}`]
-      : [],
+    effectsTriggered: allEffects,
   };
 }
 

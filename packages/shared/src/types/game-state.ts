@@ -52,7 +52,7 @@ export interface GameState {
   /** The World Deck (cards available for market) */
   worldDeck: WorldDeckState;
 
-  /** The Transit Market (6-slot conveyor) */
+  /** The Transit Market (dual-row conveyor: physical + social) */
   transitMarket: TransitMarketState;
 
   /** The Mandate Deck (player's deck, hand, discard) */
@@ -78,6 +78,22 @@ export interface GameState {
 
   /** How many sleep cycles the player chose for current/last sleep */
   chosenSleepDuration: number;
+
+  /** Hull integrity percentage (0-100). Defeat at 0. */
+  hullIntegrity: number;
+
+  /** Years elapsed in the journey (0-1000). Victory at 1000 with hull > 0. */
+  yearsPassed: number;
+
+  /** Centuries of dominance per faction (for victory type calculation) */
+  dominanceHistory: Record<FactionId, number>;
+
+  /** Current global law set by the dominant faction. null if none. */
+  globalLaw: {
+    faction: FactionId;
+    description: string;
+    effectId: string;
+  } | null;
 
   /** Random seed for deterministic replay (optional) */
   seed?: number;

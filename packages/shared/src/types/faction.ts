@@ -18,6 +18,10 @@ export interface FactionDefinition {
   description: string;
   mechanicalIdentity: string;
   sectorRule: string; // passive rule when faction dominates a sector
+  /** Sector indices where this faction has affinity (0=Engineering, 1=Habitat, 2=Biosphere) */
+  sectorAffinity: number[];
+  /** Global law effect when this faction is dominant ship-wide */
+  globalLaw: { description: string; effectId: string };
 }
 
 export const ALL_FACTION_IDS: FactionId[] = [

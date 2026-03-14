@@ -1,4 +1,5 @@
 import type { CardInstance } from "./card.js";
+import type { ResourceCost } from "./resource.js";
 
 /** The three deck system */
 
@@ -12,12 +13,47 @@ export interface WorldDeckState {
   drawPile: CardInstance[];
 }
 
-/** The Transit Market (Conveyor): 12 slots, slides left, leftmost falls out */
-export interface TransitMarketState {
-  /** Slots 0-11. Index 0 = leftmost (fallout position). Index 11 = newest. */
+/** A single row of the dual-row Transit Market */
+export interface MarketRowState {
+  /** Slots in this row. Index 0 = leftmost (fallout). Last index = newest. */
   slots: (CardInstance | null)[];
-  /** Maximum number of market slots */
-  maxSlots: number;
+  /** Resources invested on each slot (parallel to slots). null = no investment. */
+  investments: (ResourceCost | null)[];
+}
+
+/** The Transit Market (Conveyor): two rows of 6 slots each */
+export interface TransitMarketState {
+  /** Row A: Physical — hardware, repairs, environmental hazards */
+  physicalRow: MarketRowState;
+  /** Row B: Social — policies, factions, cultural events */
+  socialRow: MarketRowState;
+  /** Maximum number of slots per row */
+  maxSlotsPerRow: number;
+}
+
+export type MarketRowId = "physical" | "social";
+
+/** Helper: get all market slots across both rows as a flat array */
+export function getAllMarketSlots(market: TransitMarketState): (CardInstance | null)[] {
+  return [...market.physicalRow.slots, ...market.socialRow.slots];
+}
+
+/** Helper: get all non-null cards currently in the market */
+export function getAllMarketCards(market: TransitMarketState): CardInstance[] {
+  return getAllMarketSlots(market).filter((s): s is CardInstance => s !== null);
+}
+
+/** Helper: get a specific row by ID */
+export function getMarketRowById(market: TransitMarketState, rowId: MarketRowId): MarketRowState {
+  return rowId === "physical" ? market.physicalRow : market.socialRow;
+}
+
+/** Helper: create an empty market row */
+export function createEmptyRow(slotsPerRow: number): MarketRowState {
+  return {
+    slots: new Array(slotsPerRow).fill(null),
+    investments: new Array(slotsPerRow).fill(null),
+  };
 }
 
 /** The Mandate Deck: player's personal deck */

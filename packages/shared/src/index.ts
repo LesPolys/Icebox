@@ -22,6 +22,7 @@ export type {
   CardAging,
   CryosleepMeta,
   LocationData,
+  HazardData,
   JunkSource,
   JunkData,
   Card,
@@ -37,7 +38,9 @@ export type {
 export type {
   VaultState,
   WorldDeckState,
+  MarketRowState,
   TransitMarketState,
+  MarketRowId,
   MandateDeckState,
   LegacyArchiveState,
   GraveyardState,
@@ -68,6 +71,11 @@ export {
   AUTO_DRAW_COUNT,
   EXTRA_DRAW_COST,
   MARKET_SLOTS,
+  MARKET_SLOTS_PER_ROW,
+  STARTING_HULL_INTEGRITY,
+  YEARS_PER_SLEEP,
+  MAX_YEARS,
+  HULL_DAMAGE_PER_JUNK,
   SECTOR_COUNT,
   DEFAULT_STRUCTURE_SLOTS,
   MIN_MANDATE_DECK_SIZE,
@@ -80,8 +88,10 @@ export {
 export { ALL_FACTION_IDS } from "./types/faction.js";
 export { RESOURCE_DOMAINS, totalResourceCost, canAfford, spendResources, gainResources } from "./types/resource.js";
 export { SECTOR_NAMES } from "./types/board.js";
+export { getAllMarketSlots, getAllMarketCards, getMarketRowById, createEmptyRow } from "./types/deck.js";
 
 // ─── Utilities ───────────────────────────────────────────────────────
 export { shuffle, seededShuffle, drawCards, generateInstanceId } from "./utils/shuffle.js";
 export { validateCard } from "./utils/validate-card.js";
 export type { ValidationError } from "./utils/validate-card.js";
+export { getMarketRow, resetMarketRowCounter } from "./utils/market-row.js";

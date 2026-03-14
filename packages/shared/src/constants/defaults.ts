@@ -17,8 +17,23 @@ export const AUTO_DRAW_COUNT = 1;
 /** Cost to draw an extra card (1 of any resource) */
 export const EXTRA_DRAW_COST = 1;
 
-/** Number of market slots */
+/** Number of market slots (total across both rows) */
 export const MARKET_SLOTS = 12;
+
+/** Number of slots per market row */
+export const MARKET_SLOTS_PER_ROW = 6;
+
+/** Starting hull integrity (0-100) */
+export const STARTING_HULL_INTEGRITY = 100;
+
+/** Years per cryosleep cycle */
+export const YEARS_PER_SLEEP = 100;
+
+/** Maximum journey length in years */
+export const MAX_YEARS = 1000;
+
+/** Hull damage per junk card from inertia failure */
+export const HULL_DAMAGE_PER_JUNK = 10;
 
 /** Number of sectors on the ship */
 export const SECTOR_COUNT = 3;

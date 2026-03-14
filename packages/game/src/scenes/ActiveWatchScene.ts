@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import type { GameState, Card } from "@icebox/shared";
-import { MARKET_SLOTS, NUM, HEX } from "@icebox/shared";
+import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots } from "@icebox/shared";
+import type { MarketRowId } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
 import { drawCards } from "../systems/DeckManager";
 import { startTurn, executeAction, type PlayerAction } from "../systems/TurnManager";
@@ -133,22 +134,26 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     // Slots: 6 cols × 2 rows = 12 total
+    // Top row = Physical, Bottom row = Social
     // Both rows flow right-to-left; leftmost slots fall off
     this.marketSlots = [];
     for (let col = 0; col < numCols; col++) {
       const colX = cx + (col - 2.5) * cs;
-      const topSlotIdx = 11 - col;
-      const botSlotIdx = 5 - col;
+      // Physical row slot index (displayed right-to-left: col 0 = slot 5, col 5 = slot 0)
+      const physSlotIdx = numCols - 1 - col;
+      // Social row slot index (same layout)
+      const socSlotIdx = numCols - 1 - col;
 
-      // Top row (newest)
-      const top = new MarketSlot(this, colX, LAYOUT.marketRow1Y, topSlotIdx, true);
-      this.marketSlots[topSlotIdx] = top;
-      this.setupMarketSlotEvents(top, topSlotIdx);
+      // Top row = Physical (flat index offset by MARKET_SLOTS_PER_ROW for display array)
+      const topFlatIdx = physSlotIdx + MARKET_SLOTS_PER_ROW;
+      const top = new MarketSlot(this, colX, LAYOUT.marketRow1Y, topFlatIdx, true);
+      this.marketSlots[topFlatIdx] = top;
+      this.setupMarketSlotEvents(top, physSlotIdx, "physical");
 
-      // Bottom row (oldest)
-      const bot = new MarketSlot(this, colX, LAYOUT.marketRow2Y, botSlotIdx, true);
-      this.marketSlots[botSlotIdx] = bot;
-      this.setupMarketSlotEvents(bot, botSlotIdx);
+      // Bottom row = Social
+      const bot = new MarketSlot(this, colX, LAYOUT.marketRow2Y, socSlotIdx, true);
+      this.marketSlots[socSlotIdx] = bot;
+      this.setupMarketSlotEvents(bot, socSlotIdx, "social");
     }
 
     // World deck pile — to the right of the market box
@@ -166,9 +171,9 @@ export class ActiveWatchScene extends Phaser.Scene {
     }).setOrigin(0.5);
   }
 
-  private setupMarketSlotEvents(slot: MarketSlot, slotIndex: number): void {
+  private setupMarketSlotEvents(slot: MarketSlot, slotIndex: number, row: MarketRowId): void {
     slot.on("pointerdown", () => {
-      if (slot.cardSprite) this.doAction({ type: "buy-from-market", slotIndex });
+      if (slot.cardSprite) this.doAction({ type: "buy-from-market", row, slotIndex });
     });
   }
 
@@ -250,7 +255,7 @@ export class ActiveWatchScene extends Phaser.Scene {
   private showCardInInfoPanel(instanceId: string): void {
     let card = this.gameState.mandateDeck.hand.find(c => c.instanceId === instanceId);
     if (!card) {
-      for (const slot of this.gameState.transitMarket.slots) {
+      for (const slot of getAllMarketSlots(this.gameState.transitMarket)) {
         if (slot && slot.instanceId === instanceId) { card = slot; break; }
       }
     }
@@ -285,9 +290,10 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.resourceBar.update(this.gameState.resources, this.gameState.entropyThresholds);
     this.phaseIndicator.update(this.gameState.phase, this.gameState.turnNumber, this.gameState.totalSleepCycles);
 
+    const allSlots = getAllMarketSlots(this.gameState.transitMarket);
     for (let i = 0; i < MARKET_SLOTS; i++) {
       if (this.marketSlots[i]) {
-        this.marketSlots[i].setCard(this.gameState.transitMarket.slots[i] ?? null);
+        this.marketSlots[i].setCard(allSlots[i] ?? null);
         this.wireMarketHover(this.marketSlots[i]);
       }
     }
