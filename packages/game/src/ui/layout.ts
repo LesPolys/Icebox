@@ -15,8 +15,8 @@ export function fontSize(px: number): string {
   return `${Math.round(px * SCALE)}px`;
 }
 
-/** Center-X of the main playable area (between left gutter and right gutter) */
-export const MAIN_CX = Math.round(GAME_W * (600 / 1280));
+/** Center-X of the main playable area (accounts for left gutter) */
+export const MAIN_CX = Math.round(GAME_W / 2);
 
 export const LAYOUT = {
   // Left gutter
@@ -28,12 +28,12 @@ export const LAYOUT = {
 
   // Market (6 cols × 2 rows)
   marketLabelY: s(14),
-  marketRow1Y: s(70),
-  marketRow2Y: s(175),
+  marketRow1Y: s(108),
+  marketRow2Y: s(213),
   marketColSpacing: s(120),
 
   // Sectors
-  sectorY: s(355),
+  sectorY: s(375),
   sectorSpacing: s(300),
 
   // Resources

@@ -18,8 +18,10 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
   private cardSprites: CardSprite[] = [];
   private slotIndicators: Phaser.GameObjects.Rectangle[] = [];
 
-  /** Callback fired when a sector card is clicked (for InfoPanel) */
+  /** Callback fired when a sector card is hovered (for InfoPanel) */
   public onCardClicked: ((card: import("@icebox/shared").CardInstance) => void) | null = null;
+  /** Callback fired when pointer leaves a sector card */
+  public onCardUnhovered: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sectorIndex: number) {
     super(scene, x, y);
@@ -30,7 +32,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.add(this.bg);
 
     // Sector name — eggshell for readability
-    this.nameText = scene.add.text(0, s(-72), SECTOR_NAMES[sectorIndex], {
+    this.nameText = scene.add.text(0, s(-60), SECTOR_NAMES[sectorIndex], {
       fontSize: fs(11),
       color: HEX.eggshell,
       fontFamily: "monospace",
@@ -40,7 +42,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.add(this.nameText);
 
     // Dominant faction indicator — darkCyan default
-    this.dominantText = scene.add.text(0, s(-56), "No faction dominant", {
+    this.dominantText = scene.add.text(0, s(-44), "No faction dominant", {
       fontSize: fs(8),
       color: HEX.darkCyan,
       fontFamily: "monospace",
@@ -55,14 +57,14 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     // Create 3 empty slot indicators (compact)
     for (let i = 0; i < 3; i++) {
       const slotX = (i - 1) * (CARD_WIDTH * 0.45 + s(6));
-      const slot = scene.add.rectangle(slotX, 0, CARD_WIDTH * 0.45 + s(2), s(70), NUM.midnightViolet, 0.3);
+      const slot = scene.add.rectangle(slotX, 0, CARD_WIDTH * 0.45 + s(2), s(60), NUM.midnightViolet, 0.3);
       slot.setStrokeStyle(s(1), NUM.charcoalBlue, 0.3);
       this.slotsContainer.add(slot);
       this.slotIndicators.push(slot);
     }
 
     // Interactive for slotting structures (click the sector zone)
-    this.setSize(s(300), s(160));
+    this.setSize(s(270), s(140));
     this.setInteractive({ useHandCursor: true, dropZone: true });
 
     scene.add.existing(this);
@@ -106,7 +108,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
         if (this.onCardClicked) this.onCardClicked(sector.installedCards[i]);
       });
       sprite.on("pointerout", () => {
-        // onCardClicked with null isn't typed, so we leave InfoPanel clearing to the scene
+        if (this.onCardUnhovered) this.onCardUnhovered();
       });
 
       this.slotsContainer.add(sprite);

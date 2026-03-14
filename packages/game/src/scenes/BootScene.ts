@@ -42,10 +42,30 @@ export class BootScene extends Phaser.Scene {
     const r = s(8);
     const lw = s(2);
 
-    // Card back
+    // Card back — with diamond pattern
     const backGfx = this.add.graphics();
     backGfx.fillStyle(NUM.midnightViolet, 1);
     backGfx.fillRoundedRect(0, 0, cardW, cardH, r);
+    // Inner border
+    backGfx.lineStyle(s(1), NUM.charcoalBlue, 0.4);
+    backGfx.strokeRoundedRect(s(6), s(6), cardW - s(12), cardH - s(12), s(4));
+    // Center diamond
+    const cx = cardW / 2, cy = cardH / 2, dSize = s(24);
+    backGfx.fillStyle(NUM.darkCyan, 0.3);
+    backGfx.fillPoints([
+      { x: cx, y: cy - dSize },
+      { x: cx + dSize * 0.7, y: cy },
+      { x: cx, y: cy + dSize },
+      { x: cx - dSize * 0.7, y: cy },
+    ], true);
+    backGfx.lineStyle(s(1), NUM.darkCyan, 0.5);
+    backGfx.strokePoints([
+      { x: cx, y: cy - dSize },
+      { x: cx + dSize * 0.7, y: cy },
+      { x: cx, y: cy + dSize },
+      { x: cx - dSize * 0.7, y: cy },
+    ], true);
+    // Outer border
     backGfx.lineStyle(lw, NUM.charcoalBlue, 1);
     backGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
     backGfx.generateTexture("card-back", cardW, cardH);
@@ -111,9 +131,9 @@ export class BootScene extends Phaser.Scene {
     btnGfx.generateTexture("btn-primary", btnW, btnH);
     btnGfx.destroy();
 
-    // Sector background
-    const secW = s(380);
-    const secH = s(180);
+    // Sector background — sized to fit within sectorSpacing (300) with gaps
+    const secW = s(280);
+    const secH = s(150);
     const sectorGfx = this.add.graphics();
     sectorGfx.fillStyle(NUM.midnightViolet, 0.7);
     sectorGfx.fillRoundedRect(0, 0, secW, secH, r);

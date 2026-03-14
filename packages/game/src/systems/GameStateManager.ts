@@ -53,17 +53,11 @@ export function createNewGameState(allCards: Card[]): GameState {
   // Split: some go to starting mandate, rest to vault/world deck
   const shuffled = shuffle(allInstances);
 
-  // Starting mandate: 15 cards (mix of neutral basics + some faction cards)
-  const neutralCards = shuffled.filter((c) => c.card.faction === "neutral");
-  const factionCards = shuffled.filter((c) => c.card.faction !== "neutral");
-
-  const mandateCards = [...neutralCards.slice(0, 8), ...factionCards.slice(0, 7)];
+  // Starting mandate: 8 cards so the market (12 slots) can be filled
+  const mandateCards = shuffled.slice(0, 8);
   mandateCards.forEach((c) => (c.zone = "mandate-deck"));
 
-  const worldDeckCards = [
-    ...neutralCards.slice(8),
-    ...factionCards.slice(7),
-  ];
+  const worldDeckCards = shuffled.slice(8);
   worldDeckCards.forEach((c) => (c.zone = "world-deck"));
 
   // Setup locations for 3 sectors

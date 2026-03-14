@@ -7,3 +7,5 @@ dist/
 !.env.example
 coverage/
 *.tsbuildinfo
+.claude/settings.local.json
+.claude/worktrees/

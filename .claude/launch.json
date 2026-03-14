@@ -4,9 +4,8 @@
     {
       "name": "game",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "npx vite --port 3005"],
-      "port": 3005,
-      "cwd": "packages/game"
+      "runtimeArgs": ["/c", "cd packages\\game && npx vite --port 3005"],
+      "port": 3005
     },
     {
       "name": "editor",

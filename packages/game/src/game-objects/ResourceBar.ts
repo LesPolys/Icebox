@@ -20,23 +20,27 @@ export class ResourceBar extends Phaser.GameObjects.Container {
     { key: "influence", label: "INF", color: "#cc77dd", numColor: 0xcc77dd, shape: "square" },
   ];
 
-  private static SHAPE_SIZE = s(21);
-  private static COLUMN_WIDTH = s(68);
+  private static SHAPE_SIZE = s(22);
+  private static COLUMN_WIDTH = s(82);
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
 
     // Background
     const totalW = ResourceBar.RESOURCES.length * ResourceBar.COLUMN_WIDTH + s(30);
-    const bg = scene.add.rectangle(0, 0, totalW, s(60), NUM.midnightViolet, 0.85);
+    const bg = scene.add.rectangle(0, 0, totalW, s(78), NUM.midnightViolet, 0.85);
     bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.6);
     this.add(bg);
 
-    let offsetX = -(totalW / 2) + s(38);
-    for (const res of ResourceBar.RESOURCES) {
+    // Center the columns within the bar
+    const startX = -((ResourceBar.RESOURCES.length - 1) * ResourceBar.COLUMN_WIDTH) / 2;
+    for (let i = 0; i < ResourceBar.RESOURCES.length; i++) {
+      const res = ResourceBar.RESOURCES[i];
+      const colX = startX + i * ResourceBar.COLUMN_WIDTH;
+
       // Label above
-      const label = scene.add.text(offsetX, s(-22), res.label, {
-        fontSize: fs(8),
+      const label = scene.add.text(colX, s(-28), res.label, {
+        fontSize: fs(10),
         color: HEX.pearlAqua,
         fontFamily: "monospace",
         fontStyle: "bold",
@@ -45,35 +49,35 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       this.labels[res.key] = label;
       this.add(label);
 
-      // Shape background
+      // Shape icon (centered)
       const shapeGfx = scene.add.graphics();
       this.drawShape(shapeGfx, res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
-      shapeGfx.setPosition(offsetX, s(-3));
+      shapeGfx.setPosition(colX, s(-2));
       this.shapes[res.key] = shapeGfx;
       this.add(shapeGfx);
 
-      // Value text centered in shape
-      const value = scene.add.text(offsetX, s(-4), "0", {
-        fontSize: fs(12),
+      // Value text centered in shape — stroke for readability
+      const value = scene.add.text(colX, s(-3), "0", {
+        fontSize: fs(14),
         color: "#ffffff",
         fontFamily: "monospace",
         fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: s(2.5),
       });
       value.setOrigin(0.5);
       this.values[res.key] = value;
       this.add(value);
 
-      // Threshold indicator below — darkCyan for subtle but readable
-      const threshold = scene.add.text(offsetX, s(17), "T:0", {
-        fontSize: fs(6),
-        color: HEX.darkCyan,
+      // Threshold indicator below
+      const threshold = scene.add.text(colX, s(26), "T:0", {
+        fontSize: fs(10),
+        color: HEX.pearlAqua,
         fontFamily: "monospace",
       });
       threshold.setOrigin(0.5);
       this.thresholdTexts[res.key] = threshold;
       this.add(threshold);
-
-      offsetX += ResourceBar.COLUMN_WIDTH;
     }
 
     scene.add.existing(this);
