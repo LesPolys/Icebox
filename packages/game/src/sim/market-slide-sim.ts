@@ -92,7 +92,6 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
 }
 
 // ── Build a controlled dual-row market ──────────────────────────────
-// Place hazards and events at known positions so we can observe them sliding to fallout
 
 function findCard(id: string): Card {
   const card = allCards.find((c) => c.id === id);
@@ -102,8 +101,8 @@ function findCard(id: string): Card {
 
 resetMarketRowCounter();
 
-// Physical row: hardware, repairs, environmental hazards
-const physicalLayout: string[] = [
+// Upper row: hardware, repairs, environmental hazards
+const upperLayout: string[] = [
   "nu-001",    // Slot 0: Emergency Rations (will fall out first)
   "hz-001",    // Slot 1: Power Surge (hazard)
   "vf-002",    // Slot 2: Overclock Protocol
@@ -112,8 +111,8 @@ const physicalLayout: string[] = [
   "ev-005",    // Slot 5: Harvest Festival (event)
 ];
 
-// Social row: policies, factions, cultural events
-const socialLayout: string[] = [
+// Lower row: policies, factions, cultural events
+const lowerLayout: string[] = [
   "ev-001",    // Slot 0: Resource Audit (event - will fall out first)
   "hz-005",    // Slot 1: Factional Agitator (hazard)
   "ev-003",    // Slot 2: Wildcat Strike (event)
@@ -132,8 +131,8 @@ function buildRow(layout: string[]): MarketRowState {
 }
 
 const market: TransitMarketState = {
-  physicalRow: buildRow(physicalLayout),
-  socialRow: buildRow(socialLayout),
+  upperRow: buildRow(upperLayout),
+  lowerRow: buildRow(lowerLayout),
   maxSlotsPerRow: MARKET_SLOTS_PER_ROW,
 };
 
@@ -169,8 +168,8 @@ function logRow(label: string, row: MarketRowState): void {
 }
 
 function logMarketState(market: TransitMarketState): void {
-  logRow("Physical Row", market.physicalRow);
-  logRow("Social Row", market.socialRow);
+  logRow("Upper Row", market.upperRow);
+  logRow("Lower Row", market.lowerRow);
 }
 
 function logMarketPassives(market: TransitMarketState): void {
@@ -237,8 +236,8 @@ for (let turn = 1; turn <= TURNS; turn++) {
   };
 
   // Handle fallout from both rows
-  state = handleFallout(state, slideResult.physicalFallout.card, "PHYSICAL");
-  state = handleFallout(state, slideResult.socialFallout.card, "SOCIAL");
+  state = handleFallout(state, slideResult.upperFallout.card, "UPPER");
+  state = handleFallout(state, slideResult.lowerFallout.card, "LOWER");
 
   // Handle claimed investments
   for (const claim of slideResult.claimedInvestments) {
@@ -264,8 +263,8 @@ for (let turn = 1; turn <= TURNS; turn++) {
         transitMarket: extraResult.market,
         worldDeck: extraResult.worldDeck,
       };
-      state = handleFallout(state, extraResult.physicalFallout.card, "PHYSICAL EXTRA");
-      state = handleFallout(state, extraResult.socialFallout.card, "SOCIAL EXTRA");
+      state = handleFallout(state, extraResult.upperFallout.card, "UPPER EXTRA");
+      state = handleFallout(state, extraResult.lowerFallout.card, "LOWER EXTRA");
     }
     logResources(state.resources);
   }

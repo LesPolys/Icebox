@@ -14,6 +14,34 @@ import { getMarketRowById } from "@icebox/shared";
  * Each row slides independently. Leftmost card falls out (fallout).
  */
 
+// ── Compact (fill gaps) ────────────────────────────────────────────
+
+/** Shift all non-null cards left within a row to fill gaps. Investments move with cards. */
+function compactRow(row: MarketRowState): MarketRowState {
+  const slots: (CardInstance | null)[] = [];
+  const investments: (ResourceCost | null)[] = [];
+  for (let i = 0; i < row.slots.length; i++) {
+    if (row.slots[i] !== null) {
+      slots.push(row.slots[i]);
+      investments.push(row.investments[i]);
+    }
+  }
+  while (slots.length < row.slots.length) {
+    slots.push(null);
+    investments.push(null);
+  }
+  return { slots, investments };
+}
+
+/** Compact both market rows — cards shift left to fill empty slots. */
+export function compactMarket(market: TransitMarketState): TransitMarketState {
+  return {
+    ...market,
+    upperRow: compactRow(market.upperRow),
+    lowerRow: compactRow(market.lowerRow),
+  };
+}
+
 // ── Row-level operations ────────────────────────────────────────────
 
 export interface RowSlideResult {
@@ -68,8 +96,8 @@ export function slideRow(
 export interface SlideResult {
   market: TransitMarketState;
   worldDeck: WorldDeckState;
-  physicalFallout: { card: CardInstance | null; investment: ResourceCost | null };
-  socialFallout: { card: CardInstance | null; investment: ResourceCost | null };
+  upperFallout: { card: CardInstance | null; investment: ResourceCost | null };
+  lowerFallout: { card: CardInstance | null; investment: ResourceCost | null };
   claimedInvestments: { faction: FactionId; resources: ResourceCost }[];
 }
 
@@ -80,17 +108,14 @@ export function slideMarket(
   market: TransitMarketState,
   worldDeck: WorldDeckState
 ): SlideResult {
-  // Slide physical row
-  const physResult = slideRow(market.physicalRow, worldDeck);
-  // Slide social row (using remaining world deck)
-  const socResult = slideRow(market.socialRow, physResult.worldDeck);
+  const upperResult = slideRow(market.upperRow, worldDeck);
+  const lowerResult = slideRow(market.lowerRow, upperResult.worldDeck);
 
-  // Calculate claimed investments (faction claims resources on fallout)
   const claimedInvestments: { faction: FactionId; resources: ResourceCost }[] = [];
 
   for (const { card, investment } of [
-    { card: physResult.falloutCard, investment: physResult.falloutInvestment },
-    { card: socResult.falloutCard, investment: socResult.falloutInvestment },
+    { card: upperResult.falloutCard, investment: upperResult.falloutInvestment },
+    { card: lowerResult.falloutCard, investment: lowerResult.falloutInvestment },
   ]) {
     if (card && investment && card.card.faction !== "neutral") {
       claimedInvestments.push({
@@ -102,13 +127,54 @@ export function slideMarket(
 
   return {
     market: {
-      physicalRow: physResult.row,
-      socialRow: socResult.row,
+      upperRow: upperResult.row,
+      lowerRow: lowerResult.row,
       maxSlotsPerRow: market.maxSlotsPerRow,
     },
-    worldDeck: socResult.worldDeck,
-    physicalFallout: { card: physResult.falloutCard, investment: physResult.falloutInvestment },
-    socialFallout: { card: socResult.falloutCard, investment: socResult.falloutInvestment },
+    worldDeck: lowerResult.worldDeck,
+    upperFallout: { card: upperResult.falloutCard, investment: upperResult.falloutInvestment },
+    lowerFallout: { card: lowerResult.falloutCard, investment: lowerResult.falloutInvestment },
+    claimedInvestments,
+  };
+}
+
+export interface SlideNoRefillResult {
+  market: TransitMarketState;
+  upperFallout: { card: CardInstance | null; investment: ResourceCost | null };
+  lowerFallout: { card: CardInstance | null; investment: ResourceCost | null };
+  claimedInvestments: { faction: FactionId; resources: ResourceCost }[];
+}
+
+/** Slide both rows left by 1 WITHOUT drawing new cards from world deck. */
+export function slideMarketNoRefill(market: TransitMarketState): SlideNoRefillResult {
+  const slideRowOnly = (row: MarketRowState) => {
+    const slots = [...row.slots];
+    const investments = [...row.investments];
+    const falloutCard = slots.shift() ?? null;
+    const falloutInvestment = investments.shift() ?? null;
+    if (falloutCard) falloutCard.zone = "discard";
+    slots.push(null);
+    investments.push(null);
+    return { row: { slots, investments } as MarketRowState, falloutCard, falloutInvestment };
+  };
+
+  const upperResult = slideRowOnly(market.upperRow);
+  const lowerResult = slideRowOnly(market.lowerRow);
+
+  const claimedInvestments: { faction: FactionId; resources: ResourceCost }[] = [];
+  for (const { card, investment } of [
+    { card: upperResult.falloutCard, investment: upperResult.falloutInvestment },
+    { card: lowerResult.falloutCard, investment: lowerResult.falloutInvestment },
+  ]) {
+    if (card && investment && card.card.faction !== "neutral") {
+      claimedInvestments.push({ faction: card.card.faction as FactionId, resources: investment });
+    }
+  }
+
+  return {
+    market: { upperRow: upperResult.row, lowerRow: lowerResult.row, maxSlotsPerRow: market.maxSlotsPerRow },
+    upperFallout: { card: upperResult.falloutCard, investment: upperResult.falloutInvestment },
+    lowerFallout: { card: lowerResult.falloutCard, investment: lowerResult.falloutInvestment },
     claimedInvestments,
   };
 }
@@ -129,11 +195,11 @@ export function slideMarketMultiple(
     const result = slideMarket(currentMarket, currentWorldDeck);
     currentMarket = result.market;
     currentWorldDeck = result.worldDeck;
-    if (result.physicalFallout.card) {
-      allFallout.push({ card: result.physicalFallout.card, row: "physical" });
+    if (result.upperFallout.card) {
+      allFallout.push({ card: result.upperFallout.card, row: "upper" });
     }
-    if (result.socialFallout.card) {
-      allFallout.push({ card: result.socialFallout.card, row: "social" });
+    if (result.lowerFallout.card) {
+      allFallout.push({ card: result.lowerFallout.card, row: "lower" });
     }
   }
 
@@ -165,16 +231,17 @@ export function acquireFromMarket(
   card.zone = "discard";
 
   const updatedRow: MarketRowState = { slots, investments };
-  const updatedMarket: TransitMarketState = rowId === "physical"
-    ? { ...market, physicalRow: updatedRow }
-    : { ...market, socialRow: updatedRow };
+  const updatedMarket: TransitMarketState = rowId === "upper"
+    ? { ...market, upperRow: updatedRow }
+    : { ...market, lowerRow: updatedRow };
 
   return { card, market: updatedMarket };
 }
 
 /**
  * Place an investment on a market slot.
- * Returns null if the slot is empty or already has an investment.
+ * Investments accumulate — multiple resources can be added to the same card.
+ * Returns null if the slot is empty.
  */
 export function investOnSlot(
   market: TransitMarketState,
@@ -186,29 +253,42 @@ export function investOnSlot(
 
   if (slotIndex < 0 || slotIndex >= market.maxSlotsPerRow) return null;
   if (!row.slots[slotIndex]) return null; // Can't invest on empty slot
-  if (row.investments[slotIndex]) return null; // Already invested
 
   const investments = [...row.investments];
-  investments[slotIndex] = { ...resource };
+  const existing = investments[slotIndex];
+  if (existing) {
+    // Accumulate onto existing investment
+    investments[slotIndex] = {
+      matter: (existing.matter ?? 0) + (resource.matter ?? 0),
+      energy: (existing.energy ?? 0) + (resource.energy ?? 0),
+      data: (existing.data ?? 0) + (resource.data ?? 0),
+      influence: (existing.influence ?? 0) + (resource.influence ?? 0),
+    };
+  } else {
+    investments[slotIndex] = { ...resource };
+  }
 
   const updatedRow: MarketRowState = { slots: [...row.slots], investments };
-  return rowId === "physical"
-    ? { ...market, physicalRow: updatedRow }
-    : { ...market, socialRow: updatedRow };
+  return rowId === "upper"
+    ? { ...market, upperRow: updatedRow }
+    : { ...market, lowerRow: updatedRow };
 }
 
 /**
- * Check if a card at a slot can be bought (all preceding slots have investments).
+ * Check if a card at a slot can be bought.
+ * Each preceding column (0..slotIndex-1) must have an investment in at least one row.
+ * When the target row's slot is empty, the other row's slot in that column counts.
  */
 export function canBuyFromSlot(
   market: TransitMarketState,
   rowId: MarketRowId,
   slotIndex: number
 ): boolean {
-  if (slotIndex === 0) return true; // Slot 0 doesn't need investments
-  const row = getMarketRowById(market, rowId);
+  if (slotIndex === 0) return true;
   for (let i = 0; i < slotIndex; i++) {
-    if (!row.investments[i]) return false;
+    if (!market.upperRow.investments[i] && !market.lowerRow.investments[i]) {
+      return false;
+    }
   }
   return true;
 }
@@ -235,11 +315,11 @@ export function fillMarket(
     return { slots, investments: [...row.investments] };
   };
 
-  const physicalRow = fillRow(market.physicalRow);
-  const socialRow = fillRow(market.socialRow);
+  const upperRow = fillRow(market.upperRow);
+  const lowerRow = fillRow(market.lowerRow);
 
   return {
-    market: { ...market, physicalRow, socialRow },
+    market: { ...market, upperRow, lowerRow },
     worldDeck: { drawPile },
   };
 }
@@ -267,8 +347,8 @@ export function flushMarket(
     flushedCards,
     market: {
       ...market,
-      physicalRow: flushRow(market.physicalRow),
-      socialRow: flushRow(market.socialRow),
+      upperRow: flushRow(market.upperRow),
+      lowerRow: flushRow(market.lowerRow),
     },
   };
 }
@@ -278,10 +358,10 @@ export function flushMarket(
  */
 export function getMarketCards(market: TransitMarketState): CardInstance[] {
   const cards: CardInstance[] = [];
-  for (const slot of market.physicalRow.slots) {
+  for (const slot of market.upperRow.slots) {
     if (slot) cards.push(slot);
   }
-  for (const slot of market.socialRow.slots) {
+  for (const slot of market.lowerRow.slots) {
     if (slot) cards.push(slot);
   }
   return cards;

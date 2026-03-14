@@ -189,8 +189,8 @@ export class CardForm {
             <label>Target Row</label>
             <select data-field="hazard.targetRow">
               <option value="" ${!c.hazard?.targetRow ? "selected" : ""}>(auto / faction-based)</option>
-              <option value="physical" ${c.hazard?.targetRow === "physical" ? "selected" : ""}>physical</option>
-              <option value="social" ${c.hazard?.targetRow === "social" ? "selected" : ""}>social</option>
+              <option value="upper" ${c.hazard?.targetRow === "upper" ? "selected" : ""}>upper</option>
+              <option value="lower" ${c.hazard?.targetRow === "lower" ? "selected" : ""}>lower</option>
             </select>
           </div>
           <div class="form-field">

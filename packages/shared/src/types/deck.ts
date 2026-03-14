@@ -23,19 +23,19 @@ export interface MarketRowState {
 
 /** The Transit Market (Conveyor): two rows of 6 slots each */
 export interface TransitMarketState {
-  /** Row A: Physical — hardware, repairs, environmental hazards */
-  physicalRow: MarketRowState;
-  /** Row B: Social — policies, factions, cultural events */
-  socialRow: MarketRowState;
+  /** Upper deck row */
+  upperRow: MarketRowState;
+  /** Lower deck row */
+  lowerRow: MarketRowState;
   /** Maximum number of slots per row */
   maxSlotsPerRow: number;
 }
 
-export type MarketRowId = "physical" | "social";
+export type MarketRowId = "upper" | "lower";
 
 /** Helper: get all market slots across both rows as a flat array */
 export function getAllMarketSlots(market: TransitMarketState): (CardInstance | null)[] {
-  return [...market.physicalRow.slots, ...market.socialRow.slots];
+  return [...market.upperRow.slots, ...market.lowerRow.slots];
 }
 
 /** Helper: get all non-null cards currently in the market */
@@ -45,7 +45,7 @@ export function getAllMarketCards(market: TransitMarketState): CardInstance[] {
 
 /** Helper: get a specific row by ID */
 export function getMarketRowById(market: TransitMarketState, rowId: MarketRowId): MarketRowState {
-  return rowId === "physical" ? market.physicalRow : market.socialRow;
+  return rowId === "upper" ? market.upperRow : market.lowerRow;
 }
 
 /** Helper: create an empty market row */

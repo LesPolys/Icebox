@@ -52,7 +52,7 @@ export interface GameState {
   /** The World Deck (cards available for market) */
   worldDeck: WorldDeckState;
 
-  /** The Transit Market (dual-row conveyor: physical + social) */
+  /** The Transit Market (dual-row conveyor: upper + lower) */
   transitMarket: TransitMarketState;
 
   /** The Mandate Deck (player's deck, hand, discard) */

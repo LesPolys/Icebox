@@ -19,7 +19,7 @@ export function getActiveMarketEffects(
   const results: { card: CardInstance; effect: CardEffect }[] = [];
 
   // Scan both rows
-  const allSlots = [...market.physicalRow.slots, ...market.socialRow.slots];
+  const allSlots = [...market.upperRow.slots, ...market.lowerRow.slots];
 
   for (const slot of allSlots) {
     if (!slot) continue;

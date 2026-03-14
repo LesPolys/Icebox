@@ -1,7 +1,7 @@
 import type { GameState, CardInstance, ResourceCost, MarketRowId } from "@icebox/shared";
 import { canAfford, spendResources, gainResources, AUTO_DRAW_COUNT, EXTRA_DRAW_COST, getMarketRowById } from "@icebox/shared";
 import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
-import { acquireFromMarket, slideMarket, canBuyFromSlot, investOnSlot } from "./MarketManager";
+import { acquireFromMarket, slideMarketNoRefill, compactMarket, fillMarket, investOnSlot } from "./MarketManager";
 import { resolveFallout } from "./FalloutHandler";
 import { getMarketCostModifier, isActionDisabled, getExtraSlideCount } from "./MarketEffectResolver";
 
@@ -30,14 +30,19 @@ export interface ActionResult {
  * Start a new turn: auto-draw, increment turn number.
  * If the mandate deck is completely empty (draw + discard), auto-transition to succession.
  */
-export function startTurn(state: GameState): GameState {
+export interface StartTurnResult {
+  state: GameState;
+  reshuffled: boolean;
+}
+
+export function startTurn(state: GameState): StartTurnResult {
   const s = structuredClone(state);
   s.turnNumber++;
 
   // Check if deck is completely empty -> auto-sleep
   if (s.mandateDeck.drawPile.length === 0 && s.mandateDeck.discardPile.length === 0 && s.mandateDeck.hand.length === 0) {
     s.phase = "succession";
-    return s;
+    return { state: s, reshuffled: false };
   }
 
   // Auto-draw
@@ -51,7 +56,7 @@ export function startTurn(state: GameState): GameState {
     }
   }
 
-  return s;
+  return { state: s, reshuffled: drawResult.reshuffled };
 }
 
 /**
@@ -130,11 +135,7 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
     return { success: false, state, message: "Empty market slot." };
   }
 
-  // Check investment requirement
-  if (!canBuyFromSlot(s.transitMarket, rowId, slotIndex)) {
-    return { success: false, state, message: "Must invest on all preceding slots before buying." };
-  }
-
+  // Investment gating is handled by the scene's purchase mode session tracking.
   // Calculate effective cost with hazard modifiers
   const costModifier = getMarketCostModifier(s.transitMarket);
   const baseCost = slot.card.cost;
@@ -179,7 +180,7 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
   return {
     success: true,
     state: s,
-    message: `${buyVerb} ${slot.card.name} from the ${rowId} market.`,
+    message: `${buyVerb} ${slot.card.name} from the ${rowId} row.`,
     effectsTriggered: slot.card.effects.filter((e) => e.timing === "on-play").map((e) => e.description),
   };
 }
@@ -207,7 +208,7 @@ function investAction(
   return {
     success: true,
     state: s,
-    message: `Invested on ${rowId} market slot ${slotIndex}.`,
+    message: `Invested on ${rowId} row slot ${slotIndex}.`,
   };
 }
 
@@ -325,10 +326,11 @@ function drawExtra(
   s.mandateDeck = result.deck;
 
   const drawnName = result.drawnCards.length > 0 ? result.drawnCards[0].card.name : "nothing";
+  const reshuffleMsg = result.reshuffled ? " Discard reshuffled into deck." : "";
   return {
     success: true,
     state: s,
-    message: `Drew ${drawnName}.`,
+    message: `Drew ${drawnName}.${reshuffleMsg}`,
   };
 }
 
@@ -336,16 +338,19 @@ function endTurn(state: GameState): ActionResult {
   let s = structuredClone(state);
   const allEffects: string[] = [];
 
+  // 1. Compact gaps — cards shift left to fill empty slots
+  s.transitMarket = compactMarket(s.transitMarket);
+
+  // 2. Slide (no refill) — leftmost card falls out
   const extraSlides = getExtraSlideCount(s.transitMarket);
   const totalSlides = 1 + extraSlides;
 
   for (let i = 0; i < totalSlides; i++) {
-    const slideResult = slideMarket(s.transitMarket, s.worldDeck);
+    const slideResult = slideMarketNoRefill(s.transitMarket);
     s.transitMarket = slideResult.market;
-    s.worldDeck = slideResult.worldDeck;
 
     // Resolve fallout from both rows
-    for (const falloutData of [slideResult.physicalFallout, slideResult.socialFallout]) {
+    for (const falloutData of [slideResult.upperFallout, slideResult.lowerFallout]) {
       if (falloutData.card) {
         const fallout = resolveFallout(s, falloutData.card);
         s = fallout.state;
@@ -356,7 +361,6 @@ function endTurn(state: GameState): ActionResult {
     // Handle claimed investments (faction gains presence)
     for (const claim of slideResult.claimedInvestments) {
       allEffects.push(`${claim.faction} claimed invested resources.`);
-      // Boost faction presence (simplified: add to global presence)
       if (s.globalFactionPresence[claim.faction] !== undefined) {
         const total = (claim.resources.matter ?? 0) + (claim.resources.energy ?? 0) +
                      (claim.resources.data ?? 0) + (claim.resources.influence ?? 0);
@@ -364,6 +368,11 @@ function endTurn(state: GameState): ActionResult {
       }
     }
   }
+
+  // 3. Refill empty slots from world deck (top row left-to-right, then bottom row)
+  const fillResult = fillMarket(s.transitMarket, s.worldDeck);
+  s.transitMarket = fillResult.market;
+  s.worldDeck = fillResult.worldDeck;
 
   if (extraSlides > 0) {
     allEffects.push(`Market slid ${totalSlides} times (${extraSlides} extra from hazards).`);

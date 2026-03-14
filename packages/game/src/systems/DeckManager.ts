@@ -9,6 +9,7 @@ import { shuffle } from "@icebox/shared";
 export interface DrawResult {
   drawnCards: CardInstance[];
   deck: MandateDeckState;
+  reshuffled: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ export function drawCards(deck: MandateDeckState, count: number): DrawResult {
   let discardPile = [...deck.discardPile];
   const hand = [...deck.hand];
   const drawn: CardInstance[] = [];
+  let reshuffled = false;
 
   for (let i = 0; i < count; i++) {
     // If draw pile is empty, shuffle discard into it
@@ -28,6 +30,7 @@ export function drawCards(deck: MandateDeckState, count: number): DrawResult {
       drawPile = shuffle(discardPile);
       drawPile.forEach((c) => (c.zone = "mandate-deck"));
       discardPile = [];
+      reshuffled = true;
     }
 
     const card = drawPile.shift()!;
@@ -39,6 +42,7 @@ export function drawCards(deck: MandateDeckState, count: number): DrawResult {
   return {
     drawnCards: drawn,
     deck: { drawPile, hand, discardPile },
+    reshuffled,
   };
 }
 

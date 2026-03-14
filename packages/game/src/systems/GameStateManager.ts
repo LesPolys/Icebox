@@ -41,22 +41,37 @@ export function createNewGameState(allCards: Card[]): GameState {
 
   const locationCards = allCards.filter((c) => c.type === "location");
   const starterIds = new Set(["vf-001", "sw-001", "ac-001"]);
-  const playableCards = allCards.filter(
-    (c) => c.type !== "location" && c.type !== "junk" && !starterIds.has(c.id)
+  // Mandate deck only gets actions, structures, and institutions.
+  // Hazards, events, and junk are world-deck-only (market effects).
+  const mandateTypes = new Set(["action", "structure", "institution"]);
+  const mandateEligible = allCards.filter(
+    (c) => mandateTypes.has(c.type) && !starterIds.has(c.id)
   );
 
-  const allInstances = playableCards.map((c) => {
+  // World deck gets everything except locations and starters
+  const worldEligible = allCards.filter(
+    (c) => c.type !== "location" && !starterIds.has(c.id) && !mandateTypes.has(c.type)
+  );
+
+  const mandateInstances = mandateEligible.map((c) => {
     const inst = createCardInstance(c);
-    inst.zone = "vault";
+    inst.zone = "mandate-deck";
     return inst;
   });
 
-  const shuffled = shuffle(allInstances);
-  const mandateCards = shuffled.slice(0, 8);
-  mandateCards.forEach((c) => (c.zone = "mandate-deck"));
+  const worldInstances = worldEligible.map((c) => {
+    const inst = createCardInstance(c);
+    inst.zone = "world-deck";
+    return inst;
+  });
 
-  const worldDeckCards = shuffled.slice(8);
-  worldDeckCards.forEach((c) => (c.zone = "world-deck"));
+  // Also add surplus mandate-eligible cards to the world deck
+  const shuffledMandate = shuffle(mandateInstances);
+  const mandateCards = shuffledMandate.slice(0, 8);
+  const surplusMandate = shuffledMandate.slice(8);
+  surplusMandate.forEach((c) => (c.zone = "world-deck"));
+
+  const worldDeckCards = [...worldInstances, ...surplusMandate];
 
   const sectorLocations = locationCards.slice(0, 3);
 
@@ -97,31 +112,31 @@ export function createNewGameState(allCards: Card[]): GameState {
 
   // Fill initial dual-row market
   const worldDeckShuffled = shuffle(worldDeckCards);
-  const physicalRow = createEmptyRow(MARKET_SLOTS_PER_ROW);
-  const socialRow = createEmptyRow(MARKET_SLOTS_PER_ROW);
+  const upperRow = createEmptyRow(MARKET_SLOTS_PER_ROW);
+  const lowerRow = createEmptyRow(MARKET_SLOTS_PER_ROW);
 
-  let physIdx = 0;
-  let socIdx = 0;
+  let upperIdx = 0;
+  let lowerIdx = 0;
   for (const card of worldDeckShuffled) {
     const row = getMarketRow(card.card);
-    if (row === "physical" && physIdx < MARKET_SLOTS_PER_ROW) {
+    if (row === "upper" && upperIdx < MARKET_SLOTS_PER_ROW) {
       card.zone = "transit-market";
-      physicalRow.slots[physIdx++] = card;
-    } else if (row === "social" && socIdx < MARKET_SLOTS_PER_ROW) {
+      upperRow.slots[upperIdx++] = card;
+    } else if (row === "lower" && lowerIdx < MARKET_SLOTS_PER_ROW) {
       card.zone = "transit-market";
-      socialRow.slots[socIdx++] = card;
-    } else if (physIdx < MARKET_SLOTS_PER_ROW) {
+      lowerRow.slots[lowerIdx++] = card;
+    } else if (upperIdx < MARKET_SLOTS_PER_ROW) {
       card.zone = "transit-market";
-      physicalRow.slots[physIdx++] = card;
-    } else if (socIdx < MARKET_SLOTS_PER_ROW) {
+      upperRow.slots[upperIdx++] = card;
+    } else if (lowerIdx < MARKET_SLOTS_PER_ROW) {
       card.zone = "transit-market";
-      socialRow.slots[socIdx++] = card;
+      lowerRow.slots[lowerIdx++] = card;
     } else {
       break;
     }
   }
 
-  const marketCount = physIdx + socIdx;
+  const marketCount = upperIdx + lowerIdx;
   const remainingWorldDeck = worldDeckShuffled.slice(marketCount);
 
   return {
@@ -132,8 +147,8 @@ export function createNewGameState(allCards: Card[]): GameState {
     vault: { cards: [] },
     worldDeck: { drawPile: remainingWorldDeck },
     transitMarket: {
-      physicalRow,
-      socialRow,
+      upperRow,
+      lowerRow,
       maxSlotsPerRow: MARKET_SLOTS_PER_ROW,
     },
     mandateDeck: {

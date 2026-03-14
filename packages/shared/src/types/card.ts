@@ -110,7 +110,7 @@ export interface LocationData {
 
 export interface HazardData {
   /** Which market row this hazard targets (for dual-row market) */
-  targetRow?: "physical" | "social";
+  targetRow?: "upper" | "lower";
   /** What happens when the player buys/suppresses this hazard */
   onBuy: "destroy" | "return-to-vault";
 }

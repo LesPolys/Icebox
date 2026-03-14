@@ -3,131 +3,221 @@ import type { ResourceTotals, EntropyThresholds } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
 
+/** Resource metadata — shared with MarketSlot for investment visuals. */
+export const RESOURCE_META = [
+  { key: "matter",    label: "MAT", color: "#e88a3a", numColor: 0xe88a3a, shape: "hexagon" },
+  { key: "energy",    label: "ENG", color: "#55cc55", numColor: 0x55cc55, shape: "circle" },
+  { key: "data",      label: "DAT", color: "#4488ff", numColor: 0x4488ff, shape: "diamond" },
+  { key: "influence", label: "INF", color: "#cc77dd", numColor: 0xcc77dd, shape: "square" },
+] as const;
+
+export type ResourceKey = (typeof RESOURCE_META)[number]["key"];
+
+/** Draw a resource shape into a Graphics object (reusable by MarketSlot etc). */
+export function drawResourceShape(
+  gfx: Phaser.GameObjects.Graphics,
+  shape: string,
+  cx: number,
+  cy: number,
+  size: number,
+  color: number,
+  fillAlpha = 0.25,
+  strokeAlpha = 0.8
+): void {
+  gfx.fillStyle(color, fillAlpha);
+  gfx.lineStyle(s(1.5), color, strokeAlpha);
+
+  switch (shape) {
+    case "hexagon": {
+      const points: { x: number; y: number }[] = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        points.push({ x: cx + size * Math.cos(angle), y: cy + size * Math.sin(angle) });
+      }
+      gfx.fillPoints(points, true);
+      gfx.strokePoints(points, true);
+      break;
+    }
+    case "circle":
+      gfx.fillCircle(cx, cy, size);
+      gfx.strokeCircle(cx, cy, size);
+      break;
+    case "diamond": {
+      const pts = [
+        { x: cx, y: cy - size },
+        { x: cx + size * 0.75, y: cy },
+        { x: cx, y: cy + size },
+        { x: cx - size * 0.75, y: cy },
+      ];
+      gfx.fillPoints(pts, true);
+      gfx.strokePoints(pts, true);
+      break;
+    }
+    case "square":
+      gfx.fillRect(cx - size * 0.75, cy - size * 0.75, size * 1.5, size * 1.5);
+      gfx.strokeRect(cx - size * 0.75, cy - size * 0.75, size * 1.5, size * 1.5);
+      break;
+  }
+}
+
 /**
  * HUD display for the 4 resources with unique shapes per resource.
  * Labels above values, each value inside a distinct shape.
+ * Shapes become draggable during purchase mode (setDraggable).
  */
 export class ResourceBar extends Phaser.GameObjects.Container {
   private labels: Record<string, Phaser.GameObjects.Text> = {};
   private values: Record<string, Phaser.GameObjects.Text> = {};
   private thresholdTexts: Record<string, Phaser.GameObjects.Text> = {};
   private shapes: Record<string, Phaser.GameObjects.Graphics> = {};
-
-  private static RESOURCES = [
-    { key: "matter",    label: "MAT", color: "#e88a3a", numColor: 0xe88a3a, shape: "hexagon" },
-    { key: "energy",    label: "ENG", color: "#55cc55", numColor: 0x55cc55, shape: "circle" },
-    { key: "data",      label: "DAT", color: "#4488ff", numColor: 0x4488ff, shape: "diamond" },
-    { key: "influence", label: "INF", color: "#cc77dd", numColor: 0xcc77dd, shape: "square" },
-  ];
+  private hitAreas: Record<string, Phaser.GameObjects.Rectangle> = {};
 
   private static SHAPE_SIZE = s(22);
   private static COLUMN_WIDTH = s(82);
+
+  // ── Drag state ──
+  private dragGhost: Phaser.GameObjects.Graphics | null = null;
+  private draggedResourceType: ResourceKey | null = null;
+  private dragging = false;
+  private glowTween: Phaser.Tweens.Tween | null = null;
+
+  /** Fired on pointerup after dragging a resource token. Scene hit-tests the position. */
+  public onResourceDropped: ((resourceType: ResourceKey, worldX: number, worldY: number) => void) | null = null;
+  /** Fired when a resource drag starts (for visual feedback elsewhere). */
+  public onDragStart: ((resourceType: ResourceKey) => void) | null = null;
+  /** Fired when a resource drag ends (regardless of drop target). */
+  public onDragEnd: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
 
     // Background
-    const totalW = ResourceBar.RESOURCES.length * ResourceBar.COLUMN_WIDTH + s(30);
+    const totalW = RESOURCE_META.length * ResourceBar.COLUMN_WIDTH + s(30);
     const bg = scene.add.rectangle(0, 0, totalW, s(78), NUM.midnightViolet, 0.85);
     bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.6);
     this.add(bg);
 
     // Center the columns within the bar
-    const startX = -((ResourceBar.RESOURCES.length - 1) * ResourceBar.COLUMN_WIDTH) / 2;
-    for (let i = 0; i < ResourceBar.RESOURCES.length; i++) {
-      const res = ResourceBar.RESOURCES[i];
+    const startX = -((RESOURCE_META.length - 1) * ResourceBar.COLUMN_WIDTH) / 2;
+    for (let i = 0; i < RESOURCE_META.length; i++) {
+      const res = RESOURCE_META[i];
       const colX = startX + i * ResourceBar.COLUMN_WIDTH;
 
       // Label above
       const label = scene.add.text(colX, s(-28), res.label, {
-        fontSize: fs(10),
-        color: HEX.pearlAqua,
-        fontFamily: "monospace",
-        fontStyle: "bold",
-      });
-      label.setOrigin(0.5);
+        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace", fontStyle: "bold",
+      }).setOrigin(0.5);
       this.labels[res.key] = label;
       this.add(label);
 
       // Shape icon (centered)
       const shapeGfx = scene.add.graphics();
-      this.drawShape(shapeGfx, res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
+      drawResourceShape(shapeGfx, res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
       shapeGfx.setPosition(colX, s(-2));
       this.shapes[res.key] = shapeGfx;
       this.add(shapeGfx);
 
-      // Value text centered in shape — stroke for readability
+      // Value text centered in shape
       const value = scene.add.text(colX, s(-3), "0", {
-        fontSize: fs(14),
-        color: "#ffffff",
-        fontFamily: "monospace",
-        fontStyle: "bold",
-        stroke: "#000000",
-        strokeThickness: s(2.5),
-      });
-      value.setOrigin(0.5);
+        fontSize: fs(14), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+        stroke: "#000000", strokeThickness: s(2.5),
+      }).setOrigin(0.5);
       this.values[res.key] = value;
       this.add(value);
 
       // Threshold indicator below
       const threshold = scene.add.text(colX, s(26), "T:0", {
-        fontSize: fs(10),
-        color: HEX.pearlAqua,
-        fontFamily: "monospace",
-      });
-      threshold.setOrigin(0.5);
+        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
+      }).setOrigin(0.5);
       this.thresholdTexts[res.key] = threshold;
       this.add(threshold);
+
+      // Invisible hit area for drag interaction
+      const hitSize = ResourceBar.SHAPE_SIZE * 2 + s(8);
+      const hit = scene.add.rectangle(colX, s(-2), hitSize, hitSize, 0x000000, 0);
+      hit.setInteractive({ useHandCursor: false, cursor: "grab" });
+      this.hitAreas[res.key] = hit;
+      this.add(hit);
+
+      // Wire drag on this hit area (always active)
+      hit.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+        this.startDrag(res.key as ResourceKey, pointer);
+      });
     }
+
+    // Scene-level move and up handlers for dragging
+    scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (!this.dragging || !this.dragGhost) return;
+      this.dragGhost.setPosition(pointer.worldX, pointer.worldY);
+    });
+
+    scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      if (!this.dragging || !this.draggedResourceType) return;
+      const resType = this.draggedResourceType;
+      this.endDrag();
+      if (this.onResourceDropped) {
+        this.onResourceDropped(resType, pointer.worldX, pointer.worldY);
+      }
+    });
 
     scene.add.existing(this);
   }
 
-  private drawShape(
-    gfx: Phaser.GameObjects.Graphics,
-    shape: string,
-    cx: number,
-    cy: number,
-    size: number,
-    color: number
-  ): void {
-    gfx.clear();
-    gfx.fillStyle(color, 0.25);
-    gfx.lineStyle(s(1.5), color, 0.8);
+  /** Show/hide the glow pulse indicating purchase mode is active. */
+  setDraggable(enabled: boolean): void {
+    if (enabled) {
+      this.startGlow();
+    } else {
+      this.stopGlow();
+    }
+  }
 
-    switch (shape) {
-      case "hexagon": {
-        const points: { x: number; y: number }[] = [];
-        for (let i = 0; i < 6; i++) {
-          const angle = (Math.PI / 3) * i - Math.PI / 6;
-          points.push({
-            x: cx + size * Math.cos(angle),
-            y: cy + size * Math.sin(angle),
-          });
-        }
-        gfx.fillPoints(points, true);
-        gfx.strokePoints(points, true);
-        break;
-      }
-      case "circle":
-        gfx.fillCircle(cx, cy, size);
-        gfx.strokeCircle(cx, cy, size);
-        break;
-      case "diamond": {
-        const pts = [
-          { x: cx, y: cy - size },
-          { x: cx + size * 0.75, y: cy },
-          { x: cx, y: cy + size },
-          { x: cx - size * 0.75, y: cy },
-        ];
-        gfx.fillPoints(pts, true);
-        gfx.strokePoints(pts, true);
-        break;
-      }
-      case "square":
-        gfx.fillRect(cx - size * 0.75, cy - size * 0.75, size * 1.5, size * 1.5);
-        gfx.strokeRect(cx - size * 0.75, cy - size * 0.75, size * 1.5, size * 1.5);
-        break;
+  private startDrag(resourceType: ResourceKey, pointer: Phaser.Input.Pointer): void {
+    this.dragging = true;
+    this.draggedResourceType = resourceType;
+
+    // Create ghost shape at pointer position
+    const meta = RESOURCE_META.find(r => r.key === resourceType)!;
+    const ghost = this.scene.add.graphics();
+    ghost.setDepth(800);
+    drawResourceShape(ghost, meta.shape, 0, 0, ResourceBar.SHAPE_SIZE * 1.3, meta.numColor, 0.5, 1);
+    ghost.setPosition(pointer.worldX, pointer.worldY);
+    this.dragGhost = ghost;
+
+    if (this.onDragStart) this.onDragStart(resourceType);
+  }
+
+  private endDrag(): void {
+    if (this.dragGhost) {
+      this.dragGhost.destroy();
+      this.dragGhost = null;
+    }
+    this.dragging = false;
+    this.draggedResourceType = null;
+    if (this.onDragEnd) this.onDragEnd();
+  }
+
+  private startGlow(): void {
+    this.stopGlow();
+    // Pulse the shape graphics to indicate draggability
+    const targets = RESOURCE_META.map(r => this.shapes[r.key]);
+    this.glowTween = this.scene.tweens.add({
+      targets,
+      alpha: { from: 1, to: 0.6 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  private stopGlow(): void {
+    if (this.glowTween) {
+      this.glowTween.destroy();
+      this.glowTween = null;
+    }
+    for (const res of RESOURCE_META) {
+      this.shapes[res.key].setAlpha(1);
     }
   }
 
@@ -139,7 +229,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       influence: thresholds.coup,
     };
 
-    for (const res of ResourceBar.RESOURCES) {
+    for (const res of RESOURCE_META) {
       const val = resources[res.key as keyof ResourceTotals];
       const thresh = thresholdMap[res.key];
 
@@ -149,10 +239,12 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       // Flash red if below threshold, redraw shape
       if (val < thresh) {
         this.values[res.key].setColor("#ff4444");
-        this.drawShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, 0xff4444);
+        this.shapes[res.key].clear();
+        drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, 0xff4444);
       } else {
         this.values[res.key].setColor("#ffffff");
-        this.drawShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
+        this.shapes[res.key].clear();
+        drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
       }
     }
   }

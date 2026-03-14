@@ -553,7 +553,7 @@
       "tags": ["hazard", "power", "physical"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "physical", "onBuy": "destroy" },
+      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
       "flavorText": "The lights flicker. Then the welders stop."
     },
     {
@@ -574,7 +574,7 @@
       "tags": ["hazard", "organic", "physical"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "physical", "onBuy": "destroy" },
+      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
       "flavorText": "Something got into the grain stores. Something hungry."
     },
     {
@@ -594,7 +594,7 @@
       "tags": ["hazard", "data", "social"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "social", "onBuy": "destroy" },
+      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
       "flavorText": "The archives are screaming. No one can read the logs."
     },
     {
@@ -614,7 +614,7 @@
       "tags": ["hazard", "trade", "social"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "social", "onBuy": "destroy" },
+      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
       "flavorText": "Everyone knows it exists. No one admits to shopping there."
     },
     {
@@ -634,7 +634,7 @@
       "tags": ["hazard", "political", "social"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "social", "onBuy": "destroy" },
+      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
       "flavorText": "They don't need weapons. They have words."
     },
     {
@@ -654,7 +654,7 @@
       "tags": ["hazard", "memory", "social"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "social", "onBuy": "destroy" },
+      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
       "flavorText": "They forget the names first. Then the faces. Then the mission."
     },
     {
@@ -674,7 +674,7 @@
       "tags": ["hazard", "structural", "physical"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "physical", "onBuy": "destroy" },
+      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
       "flavorText": "The bulkheads groan. They've been groaning for fifty years."
     },
     {
@@ -694,7 +694,7 @@
       "tags": ["hazard", "political", "social"],
       "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
       "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "social", "onBuy": "destroy" },
+      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
       "flavorText": "Every screen, every speaker. The message changes, but the volume never does."
     },
 

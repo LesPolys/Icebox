@@ -4,18 +4,18 @@ import type { MarketRowId } from "../types/deck.js";
 /**
  * Determines which market row a card should be assigned to.
  *
- * Row A (Physical): Matter/Energy focused — hardware, repairs, environmental hazards
- * Row B (Social): Data/Influence focused — policies, factions, cultural events
+ * Upper row: Matter/Energy focused — hardware, repairs, environmental hazards
+ * Lower row: Data/Influence focused — policies, factions, cultural events
  *
  * Assignment rules:
  * - Hazards: use targetRow from hazard data if specified, else derive from faction
  * - By faction resource pairing:
- *   - Void-Forged (M+E) → physical
- *   - Sowers (M+I) → physical
- *   - Gilded (M+D) → physical
- *   - Archival Core (E+D) → social
- *   - The Flux (E+I) → social
- *   - The Echoes (D+I) → social
+ *   - Void-Forged (M+E) → upper
+ *   - Sowers (M+I) → upper
+ *   - Gilded (M+D) → upper
+ *   - Archival Core (E+D) → lower
+ *   - The Flux (E+I) → lower
+ *   - The Echoes (D+I) → lower
  * - Neutral: use tags to determine, default to alternating
  */
 
@@ -32,25 +32,25 @@ export function getMarketRow(card: Card): MarketRowId {
     case "void-forged":
     case "sowers":
     case "gilded":
-      return "physical";
+      return "upper";
 
     case "archival-core":
     case "the-flux":
     case "the-echoes":
-      return "social";
+      return "lower";
 
     case "neutral":
     default: {
       // Use tags as hints
       const tags = card.tags;
       if (tags.includes("physical") || tags.includes("hull") || tags.includes("repair") || tags.includes("structural")) {
-        return "physical";
+        return "upper";
       }
       if (tags.includes("social") || tags.includes("political") || tags.includes("cultural")) {
-        return "social";
+        return "lower";
       }
       // Alternate neutral cards between rows
-      return (neutralCounter++ % 2 === 0) ? "physical" : "social";
+      return (neutralCounter++ % 2 === 0) ? "upper" : "lower";
     }
   }
 }

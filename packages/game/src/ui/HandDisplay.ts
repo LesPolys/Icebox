@@ -11,10 +11,16 @@ const MIN_HAND_WIDTH = s(300);
 /** Minimum pointer movement (px) before a click becomes a drag */
 const DRAG_THRESHOLD = s(6);
 
+/** Max interval (ms) between two clicks to count as double-click */
+const DOUBLE_CLICK_MS = 350;
+
 /**
  * Horizontal card layout for the player's hand.
  *
- * Click = select/deselect.  Drag (after threshold) = reorder.
+ * Single click = select/deselect + InfoPanel.
+ * Double-click = play card (fires onCardDoubleClicked).
+ * Drag within hand = reorder.
+ * Drag above hand zone = drag-out (fires onDragStarted / onCardDropped).
  * Hand tucks down when the mouse leaves the area.
  */
 export class HandDisplay extends Phaser.GameObjects.Container {
@@ -23,8 +29,14 @@ export class HandDisplay extends Phaser.GameObjects.Container {
   private handBg!: Phaser.GameObjects.Rectangle;
   private handBorder!: Phaser.GameObjects.Rectangle;
   private handLabel!: Phaser.GameObjects.Text;
+
+  // ── Public callbacks ──
   public onCardSelected: ((instanceId: string) => void) | null = null;
   public onCardHovered: ((instanceId: string | null) => void) | null = null;
+  public onCardDoubleClicked: ((instanceId: string) => void) | null = null;
+  public onCardDropped: ((instanceId: string, worldX: number, worldY: number) => void) | null = null;
+  public onDragStarted: ((instanceId: string) => void) | null = null;
+  public onDragEnded: (() => void) | null = null;
 
   // Pointer-down state (before we know if it's a click or drag)
   private pendingCard: CardSprite | null = null;
@@ -38,6 +50,14 @@ export class HandDisplay extends Phaser.GameObjects.Container {
   private dragStartIndex = -1;
   private dragLocalOffsetX = 0;
   private dragLocalOffsetY = 0;
+
+  // Drag-out-of-hand state
+  private draggedOutOfHand = false;
+  private dragOutFired = false;
+
+  // Double-click detection
+  private lastClickTime = 0;
+  private lastClickInstanceId: string | null = null;
 
   private handCards: CardInstance[] = [];
 
@@ -118,23 +138,72 @@ export class HandDisplay extends Phaser.GameObjects.Container {
       const localY = pointer.y - this.y;
       this.dragCard!.x = localX + this.dragLocalOffsetX;
       this.dragCard!.y = localY + this.dragLocalOffsetY;
-      this.checkReorder();
+
+      // Check if card has been dragged above the hand zone
+      if (pointer.y < this.handZoneTopY) {
+        if (!this.draggedOutOfHand) {
+          this.draggedOutOfHand = true;
+          this.dragOutFired = false;
+        }
+        if (!this.dragOutFired && this.dragCard) {
+          this.dragOutFired = true;
+          this.dragCard.setDragGhost(true);
+          if (this.onDragStarted) {
+            this.onDragStarted(this.dragCard.cardInstance.instanceId);
+          }
+        }
+        // Don't reorder when dragged out
+      } else {
+        // Back in hand zone — revert to reorder mode
+        if (this.draggedOutOfHand && this.dragCard) {
+          this.draggedOutOfHand = false;
+          this.dragOutFired = false;
+          this.dragCard.setDragGhost(false);
+          if (this.onDragEnded) this.onDragEnded();
+        }
+        this.checkReorder();
+      }
     });
 
-    scene.input.on("pointerup", () => {
+    scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
       if (this.dragging && this.dragCard) {
-        // ── End drag ──
+        if (this.draggedOutOfHand) {
+          // Card was dropped outside the hand — notify scene
+          const instanceId = this.dragCard.cardInstance.instanceId;
+          this.dragCard.setDragGhost(false);
+          if (this.onCardDropped) {
+            this.onCardDropped(instanceId, pointer.worldX, pointer.worldY);
+          }
+          if (this.onDragEnded) this.onDragEnded();
+        }
         this.finishDrag();
       } else if (this.pendingCard) {
-        // ── It was a click (no significant movement) → toggle selection ──
+        // It was a click (no significant movement) — check double-click
         const instanceId = this.pendingCard.cardInstance.instanceId;
-        this.toggleSelect(instanceId);
+        const now = Date.now();
+
+        if (
+          this.lastClickInstanceId === instanceId &&
+          now - this.lastClickTime < DOUBLE_CLICK_MS
+        ) {
+          // Double-click!
+          this.lastClickTime = 0;
+          this.lastClickInstanceId = null;
+          if (this.onCardDoubleClicked) this.onCardDoubleClicked(instanceId);
+        } else {
+          // Single click — toggle selection
+          this.lastClickTime = now;
+          this.lastClickInstanceId = instanceId;
+          this.toggleSelect(instanceId);
+        }
       }
 
-      // Reset pending state
+      // Reset pending/drag state
       this.pendingCard = null;
       this.pendingIndex = -1;
       this.dragging = false;
+      this.draggedOutOfHand = false;
+      this.dragOutFired = false;
     });
 
     scene.add.existing(this);
