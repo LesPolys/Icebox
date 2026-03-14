@@ -24,7 +24,7 @@ export function validateCard(card: unknown): ValidationError[] {
   }
 
   // CardType
-  const validTypes = ["location", "structure", "institution", "action", "event", "junk"];
+  const validTypes = ["location", "structure", "institution", "action", "event", "hazard", "junk"];
   if (!validTypes.includes(c.type as string)) {
     errors.push({ field: "type", message: `type must be one of: ${validTypes.join(", ")}` });
   }
@@ -86,6 +86,11 @@ export function validateCard(card: unknown): ValidationError[] {
   // Location-specific validation
   if (c.type === "location" && c.location == null) {
     errors.push({ field: "location", message: "location data is required for location-type cards" });
+  }
+
+  // Hazard-specific validation
+  if (c.type === "hazard" && c.hazard == null) {
+    errors.push({ field: "hazard", message: "hazard data is required for hazard-type cards" });
   }
 
   // Junk-specific validation

@@ -1,5 +1,6 @@
-import type { Card, CardType, CardTier, FactionId, EffectTiming, EffectType, DeathOutcome } from "@icebox/shared";
+import type { Card, CardType, CardTier, FactionId, EffectTiming, EffectType, DeathOutcome, JunkSource } from "@icebox/shared";
 import { ALL_FACTION_IDS } from "@icebox/shared";
+import type { MarketRowId } from "@icebox/shared";
 
 /**
  * Dynamic form for editing all card properties.
@@ -61,7 +62,7 @@ export class CardForm {
           <div class="form-field">
             <label>Type</label>
             <select data-field="type">
-              ${["location", "structure", "institution", "action", "event", "junk"]
+              ${["location", "structure", "institution", "action", "event", "hazard", "junk"]
                 .map((t) => `<option value="${t}" ${c.type === t ? "selected" : ""}>${t}</option>`)
                 .join("")}
             </select>
@@ -179,11 +180,83 @@ export class CardForm {
           </div>
         </div>
       </div>
+
+      ${c.type === "hazard" ? `
+      <div class="form-section">
+        <h3>Hazard Data</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Target Row</label>
+            <select data-field="hazard.targetRow">
+              <option value="" ${!c.hazard?.targetRow ? "selected" : ""}>(auto / faction-based)</option>
+              <option value="upper" ${c.hazard?.targetRow === "upper" ? "selected" : ""}>upper</option>
+              <option value="lower" ${c.hazard?.targetRow === "lower" ? "selected" : ""}>lower</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>On Buy</label>
+            <select data-field="hazard.onBuy">
+              <option value="destroy" ${c.hazard?.onBuy === "destroy" ? "selected" : ""}>destroy</option>
+              <option value="return-to-vault" ${c.hazard?.onBuy === "return-to-vault" ? "selected" : ""}>return-to-vault</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      ` : ""}
+
+      ${c.type === "location" ? `
+      <div class="form-section">
+        <h3>Location Data</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Sector</label>
+            <select data-field="location.sector">
+              <option value="0" ${c.location?.sector === 0 ? "selected" : ""}>0 — Engineering Core</option>
+              <option value="1" ${c.location?.sector === 1 ? "selected" : ""}>1 — Habitat Rings</option>
+              <option value="2" ${c.location?.sector === 2 ? "selected" : ""}>2 — Biosphere Sectors</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Structure Slots</label>
+            <input type="number" data-field="location.structureSlots" value="${c.location?.structureSlots ?? 3}" min="1" max="6" />
+          </div>
+        </div>
+      </div>
+      ` : ""}
+
+      ${c.type === "junk" ? `
+      <div class="form-section">
+        <h3>Junk Data</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Source</label>
+            <select data-field="junk.source">
+              ${(["hull-breach", "tech-decay", "factional-coup"] as const)
+                .map((s) => `<option value="${s}" ${c.junk?.source === s ? "selected" : ""}>${s}</option>`)
+                .join("")}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field"><label>Removal Matter</label><input type="number" data-field="junk.cost.matter" value="${c.junk?.removalCost?.matter ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Removal Energy</label><input type="number" data-field="junk.cost.energy" value="${c.junk?.removalCost?.energy ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Removal Data</label><input type="number" data-field="junk.cost.data" value="${c.junk?.removalCost?.data ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Removal Influence</label><input type="number" data-field="junk.cost.influence" value="${c.junk?.removalCost?.influence ?? 0}" min="0" /></div>
+        </div>
+      </div>
+      ` : ""}
     `;
 
     // Bind change events
     this.container.querySelectorAll("input, select, textarea").forEach((el) => {
-      el.addEventListener("input", () => this.collectFormData());
+      el.addEventListener("input", () => {
+        this.collectFormData();
+        // Re-render when type changes to show/hide type-specific sections
+        const field = (el as HTMLElement).dataset.field;
+        if (field === "type") {
+          this.render();
+        }
+      });
     });
   }
 
@@ -247,6 +320,40 @@ export class CardForm {
       c.effects = JSON.parse(val("effects") || "[]");
     } catch {
       // Keep existing effects if JSON is invalid
+    }
+
+    // Type-specific data
+    if (c.type === "hazard") {
+      const targetRow = val("hazard.targetRow") as MarketRowId | "";
+      c.hazard = {
+        targetRow: targetRow || undefined,
+        onBuy: (val("hazard.onBuy") as "destroy" | "return-to-vault") || "destroy",
+      };
+    } else {
+      delete c.hazard;
+    }
+
+    if (c.type === "location") {
+      c.location = {
+        sector: num("location.sector"),
+        structureSlots: num("location.structureSlots") || 3,
+      };
+    } else {
+      delete c.location;
+    }
+
+    if (c.type === "junk") {
+      const removalCost: Record<string, number> = {};
+      if (num("junk.cost.matter") > 0) removalCost.matter = num("junk.cost.matter");
+      if (num("junk.cost.energy") > 0) removalCost.energy = num("junk.cost.energy");
+      if (num("junk.cost.data") > 0) removalCost.data = num("junk.cost.data");
+      if (num("junk.cost.influence") > 0) removalCost.influence = num("junk.cost.influence");
+      c.junk = {
+        source: (val("junk.source") as JunkSource) || "hull-breach",
+        removalCost,
+      };
+    } else {
+      delete c.junk;
     }
 
     this.onChange?.(c);

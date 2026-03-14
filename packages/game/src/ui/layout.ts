@@ -22,9 +22,6 @@ export const LAYOUT = {
   // Left gutter
   phaseX: s(16),
   phaseY: s(20),
-  btnX: s(70),
-  btnStartY: s(105),
-  btnSpacing: s(34),
 
   // Market (6 cols × 2 rows)
   marketLabelY: s(14),
@@ -32,15 +29,15 @@ export const LAYOUT = {
   marketRow2Y: s(213),
   marketColSpacing: s(120),
 
+  // Resources (between market and play mat)
+  resourceY: s(315),
+
   // Sectors
-  sectorY: s(375),
+  sectorY: s(460),
   sectorSpacing: s(300),
 
-  // Resources
-  resourceY: s(495),
-
   // Hand
-  handY: s(630),
+  handY: s(665),
   handTuckOffset: s(60),
 
   // Right gutter
@@ -50,5 +47,15 @@ export const LAYOUT = {
   deckCountY: s(15),
 
   // Message
-  messageY: s(575),
+  messageY: s(625),
+
+  // Play mat (encloses sectors + hand)
+  playMatTop: s(370),
+  playMatBottom: s(720),
+  playMatW: s(1000),
+  playMatBtnRadius: s(36),
+
+  // Play zone (drop target for playing cards from hand)
+  playZoneY: s(600),
+  playZoneH: s(50),
 } as const;

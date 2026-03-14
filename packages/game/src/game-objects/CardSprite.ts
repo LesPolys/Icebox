@@ -25,6 +25,9 @@ export class CardSprite extends Phaser.GameObjects.Container {
   private originalY = 0;
   private marketMode = false;
   private baseScale = 1;
+  private dragGhostActive = false;
+  private affordableOverlay: Phaser.GameObjects.Graphics | null = null;
+  private isAffordable = true;
 
   constructor(scene: Phaser.Scene, x: number, y: number, cardInstance: CardInstance) {
     super(scene, x, y);
@@ -201,5 +204,43 @@ export class CardSprite extends Phaser.GameObjects.Container {
       ? `${this.cardInstance.remainingLifespan}`
       : "~";
     this.lifespanText.setText(lifespanStr);
+  }
+
+  /** Visual state for when this card is being dragged out of hand to a target. */
+  setDragGhost(enabled: boolean): void {
+    this.dragGhostActive = enabled;
+    if (enabled) {
+      this.setAlpha(0.6);
+      this.highlight.setStrokeStyle(s(4), NUM.darkCyan);
+      this.highlight.setFillStyle(NUM.darkCyan, 0.15);
+      this.highlight.setVisible(true);
+    } else {
+      this.setAlpha(1);
+      this.highlight.setStrokeStyle(s(4), NUM.darkCyan);
+      this.highlight.setFillStyle(NUM.darkCyan, 0.12);
+      if (!this.selected) this.highlight.setVisible(false);
+    }
+  }
+
+  /** Show/hide a red X overlay when the player can't afford this card. */
+  setAffordable(canAfford: boolean): void {
+    this.isAffordable = canAfford;
+    if (!canAfford) {
+      if (!this.affordableOverlay) {
+        const gfx = this.scene.add.graphics();
+        const hw = CARD_WIDTH * 0.3;
+        const hh = CARD_HEIGHT * 0.3;
+        gfx.lineStyle(s(4), 0xff3333, 0.7);
+        gfx.lineBetween(-hw, -hh, hw, hh);
+        gfx.lineBetween(hw, -hh, -hw, hh);
+        this.add(gfx);
+        this.affordableOverlay = gfx;
+      }
+      this.affordableOverlay.setVisible(true);
+    } else {
+      if (this.affordableOverlay) {
+        this.affordableOverlay.setVisible(false);
+      }
+    }
   }
 }

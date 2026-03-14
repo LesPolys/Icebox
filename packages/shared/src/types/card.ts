@@ -9,6 +9,7 @@ export type CardType =
   | "institution"   // persistent card representing social/political entities
   | "action"        // one-shot card played from hand
   | "event"         // triggered from market fallout or sleep
+  | "hazard"        // market parasite: passive negative while in market, buy=fix, fallout=catastrophe
   | "junk";         // negative card (hull breach, tech decay, factional coup)
 
 export type CardTier = 1 | 2 | 3; // 1=basic, 2=advanced, 3=legendary
@@ -105,6 +106,15 @@ export interface LocationData {
   passiveEffect?: CardEffect;
 }
 
+// ─── Hazard-Specific Fields ──────────────────────────────────────────
+
+export interface HazardData {
+  /** Which market row this hazard targets (for dual-row market) */
+  targetRow?: "upper" | "lower";
+  /** What happens when the player buys/suppresses this hazard */
+  onBuy: "destroy" | "return-to-vault";
+}
+
 // ─── Junk-Specific Fields ────────────────────────────────────────────
 
 export type JunkSource = "hull-breach" | "tech-decay" | "factional-coup";
@@ -148,6 +158,9 @@ export interface Card {
 
   /** Location-specific fields (only for type="location") */
   location?: LocationData;
+
+  /** Hazard-specific fields (only for type="hazard") */
+  hazard?: HazardData;
 
   /** Junk-specific fields (only for type="junk") */
   junk?: JunkData;

@@ -18,10 +18,14 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
   private cardSprites: CardSprite[] = [];
   private slotIndicators: Phaser.GameObjects.Rectangle[] = [];
 
+  private dropHighlightGfx: Phaser.GameObjects.Graphics;
+
   /** Callback fired when a sector card is hovered (for InfoPanel) */
   public onCardClicked: ((card: import("@icebox/shared").CardInstance) => void) | null = null;
   /** Callback fired when pointer leaves a sector card */
   public onCardUnhovered: (() => void) | null = null;
+  /** Callback fired on right-click of an installed card (for scrap) */
+  public onCardRightClicked: ((instanceId: string, sectorIndex: number) => void) | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sectorIndex: number) {
     super(scene, x, y);
@@ -62,6 +66,11 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
       this.slotsContainer.add(slot);
       this.slotIndicators.push(slot);
     }
+
+    // Drop highlight overlay (hidden by default)
+    this.dropHighlightGfx = scene.add.graphics();
+    this.dropHighlightGfx.setVisible(false);
+    this.add(this.dropHighlightGfx);
 
     // Interactive for slotting structures (click the sector zone)
     this.setSize(s(270), s(140));
@@ -110,6 +119,12 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
       sprite.on("pointerout", () => {
         if (this.onCardUnhovered) this.onCardUnhovered();
       });
+      // Right-click for scrap
+      sprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+        if (pointer.button === 2 && this.onCardRightClicked) {
+          this.onCardRightClicked(sector.installedCards[i].instanceId, this.sectorIndex);
+        }
+      });
 
       this.slotsContainer.add(sprite);
       this.cardSprites.push(sprite);
@@ -119,5 +134,22 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     for (let i = 0; i < this.slotIndicators.length; i++) {
       this.slotIndicators[i].setVisible(i >= sector.installedCards.length && i < sector.maxSlots);
     }
+  }
+
+  /** Show/hide a colored overlay indicating this sector is a valid/invalid drop target. */
+  setDropHighlight(active: boolean, valid: boolean): void {
+    this.dropHighlightGfx.clear();
+    if (!active) {
+      this.dropHighlightGfx.setVisible(false);
+      return;
+    }
+    const color = valid ? 0x44cc44 : 0xcc4444;
+    const w = s(270);
+    const h = s(140);
+    this.dropHighlightGfx.fillStyle(color, 0.1);
+    this.dropHighlightGfx.fillRoundedRect(-w / 2, -h / 2, w, h, s(6));
+    this.dropHighlightGfx.lineStyle(s(2), color, 0.6);
+    this.dropHighlightGfx.strokeRoundedRect(-w / 2, -h / 2, w, h, s(6));
+    this.dropHighlightGfx.setVisible(true);
   }
 }

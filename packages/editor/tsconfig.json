@@ -8,5 +8,6 @@
     },
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "../shared/src/**/*"]
+  "include": ["src/**/*"],
+  "references": [{ "path": "../shared" }]
 }

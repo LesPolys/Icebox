@@ -23,6 +23,31 @@ export interface EntropyThresholds {
   coup: number;
 }
 
+// ─── Game Rules (tunable gameplay constants) ────────────────────────
+
+export interface GameRules {
+  /** Cards in a full hand */
+  handSize: number;
+  /** Cards drawn at start of each turn */
+  drawPerTurn: number;
+  /** Resource cost to draw an extra card */
+  extraDrawCost: number;
+  /** Cards drawn on first turn after waking from cryosleep */
+  wakeDrawCount: number;
+  /** Fraction of cost returned when scrapping (0-1) */
+  scrapRefundRate: number;
+  /** Base market slides per end-of-turn */
+  baseSlidesPerTurn: number;
+  /** Minimum card tier vulnerable to tech decay */
+  techDecayMinTier: number;
+  /** Faction dominance ratio that triggers social collapse */
+  socialCollapseThreshold: number;
+  /** Hull damage per junk card from inertia breach */
+  hullDamagePerJunk: number;
+  /** Starting draw pile size for mandate deck */
+  startingDeckSize: number;
+}
+
 // ─── Game Phase ──────────────────────────────────────────────────────
 
 export type GamePhase =
@@ -52,7 +77,7 @@ export interface GameState {
   /** The World Deck (cards available for market) */
   worldDeck: WorldDeckState;
 
-  /** The Transit Market (6-slot conveyor) */
+  /** The Transit Market (dual-row conveyor: upper + lower) */
   transitMarket: TransitMarketState;
 
   /** The Mandate Deck (player's deck, hand, discard) */
@@ -73,11 +98,27 @@ export interface GameState {
   /** Current turn number within this watch */
   turnNumber: number;
 
-  /** Hand size limit */
-  handSize: number;
+  /** Tunable gameplay rules (can be modified by effects/laws) */
+  rules: GameRules;
 
   /** How many sleep cycles the player chose for current/last sleep */
   chosenSleepDuration: number;
+
+  /** Hull integrity percentage (0-100). Defeat at 0. */
+  hullIntegrity: number;
+
+  /** Years elapsed in the journey (0-1000). Victory at 1000 with hull > 0. */
+  yearsPassed: number;
+
+  /** Centuries of dominance per faction (for victory type calculation) */
+  dominanceHistory: Record<FactionId, number>;
+
+  /** Current global law set by the dominant faction. null if none. */
+  globalLaw: {
+    faction: FactionId;
+    description: string;
+    effectId: string;
+  } | null;
 
   /** Random seed for deterministic replay (optional) */
   seed?: number;

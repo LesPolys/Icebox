@@ -23,5 +23,5 @@ export interface ShipState {
 }
 
 /** Sector names for display */
-export const SECTOR_NAMES = ["Engineering", "Habitat", "Command"] as const;
+export const SECTOR_NAMES = ["Engineering", "Habitat", "Biosphere"] as const;
 export type SectorName = (typeof SECTOR_NAMES)[number];
