@@ -29,11 +29,25 @@ export class CardPreview {
       ? `⏳ ${card.aging.lifespan} cycles`
       : "∞ Immortal";
 
+    // Type-specific badge
+    let typeBadge = "";
+    if (card.type === "hazard") {
+      const row = card.hazard?.targetRow ?? "auto";
+      typeBadge = `<div style="color:#ff4444;font-size:10px;margin-top:2px">HAZARD | row: ${row} | onBuy: ${card.hazard?.onBuy ?? "?"}</div>`;
+    } else if (card.type === "location") {
+      typeBadge = `<div style="color:#44aaff;font-size:10px;margin-top:2px">LOCATION | sector: ${card.location?.sector ?? "?"} | slots: ${card.location?.structureSlots ?? "?"}</div>`;
+    } else if (card.type === "junk") {
+      typeBadge = `<div style="color:#888;font-size:10px;margin-top:2px">JUNK | source: ${card.junk?.source ?? "?"}</div>`;
+    } else if (card.type === "event") {
+      typeBadge = `<div style="color:#ffaa00;font-size:10px;margin-top:2px">EVENT</div>`;
+    }
+
     this.container.innerHTML = `
       <div class="preview-card" style="border-color: ${headerColor}">
         <div class="pc-header" style="background: ${headerColor}40">
           <div class="pc-name">${card.name || "Untitled Card"}</div>
           <div class="pc-type">${card.type ?? "?"} — T${card.tier ?? "?"}</div>
+          ${typeBadge}
         </div>
         <div class="pc-cost">${costParts.join(" ") || "Free"}</div>
         <div class="pc-effects">${effectsHtml || '<span style="color:#445566">No effects</span>'}</div>
