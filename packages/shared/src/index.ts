@@ -47,6 +47,7 @@ export type {
 } from "./types/deck.js";
 
 export type {
+  GameRules,
   EntropyThresholds,
   GamePhase,
   GameState,
@@ -82,6 +83,7 @@ export {
   STARTING_MANDATE_DECK_SIZE,
   MAX_ARCHIVE_SLOTS,
   calculateArchiveSlots,
+  createDefaultRules,
 } from "./constants/defaults.js";
 
 // ─── Enums / Constants from types ────────────────────────────────────

@@ -8,7 +8,6 @@ import type {
 import {
   STARTING_RESOURCES,
   STARTING_THRESHOLDS,
-  DEFAULT_HAND_SIZE,
   MARKET_SLOTS_PER_ROW,
   STARTING_HULL_INTEGRITY,
   DEFAULT_STRUCTURE_SLOTS,
@@ -18,6 +17,7 @@ import {
   getMarketRow,
   resetMarketRowCounter,
   createEmptyRow,
+  createDefaultRules,
 } from "@icebox/shared";
 
 /**
@@ -66,9 +66,10 @@ export function createNewGameState(allCards: Card[]): GameState {
   });
 
   // Also add surplus mandate-eligible cards to the world deck
+  const rules = createDefaultRules();
   const shuffledMandate = shuffle(mandateInstances);
-  const mandateCards = shuffledMandate.slice(0, 8);
-  const surplusMandate = shuffledMandate.slice(8);
+  const mandateCards = shuffledMandate.slice(0, rules.startingDeckSize);
+  const surplusMandate = shuffledMandate.slice(rules.startingDeckSize);
   surplusMandate.forEach((c) => (c.zone = "world-deck"));
 
   const worldDeckCards = [...worldInstances, ...surplusMandate];
@@ -161,7 +162,7 @@ export function createNewGameState(allCards: Card[]): GameState {
     ship: { sectors },
     globalFactionPresence: emptyFactionPresence(),
     turnNumber: 0,
-    handSize: DEFAULT_HAND_SIZE,
+    rules,
     chosenSleepDuration: 1,
     hullIntegrity: STARTING_HULL_INTEGRITY,
     yearsPassed: 0,

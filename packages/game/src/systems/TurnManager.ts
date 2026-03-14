@@ -1,5 +1,5 @@
 import type { GameState, CardInstance, ResourceCost, MarketRowId } from "@icebox/shared";
-import { canAfford, spendResources, gainResources, AUTO_DRAW_COUNT, EXTRA_DRAW_COST, getMarketRowById } from "@icebox/shared";
+import { canAfford, spendResources, gainResources, getMarketRowById } from "@icebox/shared";
 import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
 import { acquireFromMarket, slideMarketNoRefill, compactMarket, fillMarket, investOnSlot } from "./MarketManager";
 import { resolveFallout } from "./FalloutHandler";
@@ -45,8 +45,10 @@ export function startTurn(state: GameState): StartTurnResult {
     return { state: s, reshuffled: false };
   }
 
-  // Auto-draw
-  const drawResult = drawCards(s.mandateDeck, AUTO_DRAW_COUNT);
+  // Draw cards — full hand on wake (turn 1 with empty hand), otherwise normal draw
+  const isWake = s.turnNumber === 1 && s.mandateDeck.hand.length === 0;
+  const drawCount = isWake ? s.rules.wakeDrawCount : s.rules.drawPerTurn;
+  const drawResult = drawCards(s.mandateDeck, drawCount);
   s.mandateDeck = drawResult.deck;
 
   // Re-power all tableau cards at turn start
@@ -288,11 +290,12 @@ function scrapStructure(
 
   const cardInst = sector.installedCards[cardIdx];
   const cost = cardInst.card.cost;
+  const rate = s.rules.scrapRefundRate;
   const refund: ResourceCost = {
-    matter: Math.floor((cost.matter ?? 0) / 2),
-    energy: Math.floor((cost.energy ?? 0) / 2),
-    data: Math.floor((cost.data ?? 0) / 2),
-    influence: Math.floor((cost.influence ?? 0) / 2),
+    matter: Math.floor((cost.matter ?? 0) * rate),
+    energy: Math.floor((cost.energy ?? 0) * rate),
+    data: Math.floor((cost.data ?? 0) * rate),
+    influence: Math.floor((cost.influence ?? 0) * rate),
   };
   s.resources = gainResources(s.resources, refund);
 
@@ -316,7 +319,7 @@ function drawExtra(
   }
 
   const s = structuredClone(state);
-  const cost: ResourceCost = { [resourceType]: EXTRA_DRAW_COST };
+  const cost: ResourceCost = { [resourceType]: s.rules.extraDrawCost };
   if (!canAfford(s.resources, cost)) {
     return { success: false, state, message: "Cannot afford to draw." };
   }
@@ -343,7 +346,7 @@ function endTurn(state: GameState): ActionResult {
 
   // 2. Slide (no refill) — leftmost card falls out
   const extraSlides = getExtraSlideCount(s.transitMarket);
-  const totalSlides = 1 + extraSlides;
+  const totalSlides = s.rules.baseSlidesPerTurn + extraSlides;
 
   for (let i = 0; i < totalSlides; i++) {
     const slideResult = slideMarketNoRefill(s.transitMarket);

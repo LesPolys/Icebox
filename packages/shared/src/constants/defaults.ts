@@ -1,4 +1,5 @@
 import type { ResourceTotals } from "../types/resource.js";
+import type { GameRules } from "../types/game-state.js";
 
 /** Starting resources for a new game */
 export const STARTING_RESOURCES: ResourceTotals = {
@@ -53,4 +54,20 @@ export const MAX_ARCHIVE_SLOTS = 8;
 /** Calculate archive slots for a given sleep duration */
 export function calculateArchiveSlots(sleepDuration: number): number {
   return Math.min(MAX_ARCHIVE_SLOTS, sleepDuration + 1);
+}
+
+/** Create default game rules (canonical source for all tunable gameplay values) */
+export function createDefaultRules(): GameRules {
+  return {
+    handSize: DEFAULT_HAND_SIZE,
+    drawPerTurn: AUTO_DRAW_COUNT,
+    extraDrawCost: EXTRA_DRAW_COST,
+    wakeDrawCount: DEFAULT_HAND_SIZE,
+    scrapRefundRate: 0.5,
+    baseSlidesPerTurn: 1,
+    techDecayMinTier: 2,
+    socialCollapseThreshold: 0.9,
+    hullDamagePerJunk: HULL_DAMAGE_PER_JUNK,
+    startingDeckSize: 8,
+  };
 }

@@ -18,7 +18,6 @@ import type {
 import {
   STARTING_RESOURCES,
   STARTING_THRESHOLDS,
-  DEFAULT_HAND_SIZE,
   MARKET_SLOTS_PER_ROW,
   STARTING_HULL_INTEGRITY,
   ALL_FACTION_IDS,
@@ -26,6 +25,7 @@ import {
   createEmptyRow,
   getMarketRow,
   resetMarketRowCounter,
+  createDefaultRules,
 } from "@icebox/shared";
 import type { FactionId } from "@icebox/shared";
 
@@ -77,7 +77,7 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
     },
     globalFactionPresence: emptyFactionPresence(),
     turnNumber: 0,
-    handSize: DEFAULT_HAND_SIZE,
+    rules: createDefaultRules(),
     chosenSleepDuration: 1,
     hullIntegrity: STARTING_HULL_INTEGRITY,
     yearsPassed: 0,

@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import type { GameState, Card, MarketRowId, ResourceCost } from "@icebox/shared";
 import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMarketRowById, canAfford, gainResources } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
-import { drawCards } from "../systems/DeckManager";
+
 import { startTurn, executeAction, type PlayerAction } from "../systems/TurnManager";
 import { getMarketCostModifier, getExtraSlideCount } from "../systems/MarketEffectResolver";
 import { compactMarket, slideMarketNoRefill, fillMarket, investOnSlot } from "../systems/MarketManager";
@@ -71,8 +71,6 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.cardDefs = BootScene.cardDefinitions;
     if (data.newGame || !data.savedState) {
       this.gameState = createNewGameState(this.cardDefs);
-      const result = drawCards(this.gameState.mandateDeck, 5);
-      this.gameState.mandateDeck = result.deck;
     } else {
       this.gameState = data.savedState;
     }
@@ -81,6 +79,12 @@ export class ActiveWatchScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Reset arrays (Phaser reuses scene instances on restart)
+    this.marketSlots = [];
+    this.sectorDisplays = [];
+    this.marketColPositions = [];
+    this.purchaseMode = null;
+
     // Disable browser right-click menu for right-click interactions
     this.input.mouse?.disableContextMenu();
 

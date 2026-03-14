@@ -43,7 +43,7 @@ export function checkDefeat(state: GameState): DefeatResult | null {
   if (totalPresence > 0) {
     for (const fid of ALL_FACTION_IDS) {
       const ratio = state.globalFactionPresence[fid] / totalPresence;
-      if (ratio >= 0.9) { // 90%+ dominance triggers coup
+      if (ratio >= state.rules.socialCollapseThreshold) {
         return {
           defeated: true,
           reason: "social-collapse",

@@ -12,7 +12,6 @@ import {
   RESOURCE_DRAIN_PER_CYCLE,
   DOMINANT_FACTION_CARDS_PER_CYCLE,
   WEAKEST_FACTION_REMOVAL_PER_CYCLE,
-  HULL_DAMAGE_PER_JUNK,
   YEARS_PER_SLEEP,
   calculateArchiveSlots,
   shuffle,
@@ -346,7 +345,7 @@ function processInertiaCheck(
       }
     }
     // Hull damage from junk
-    const hullDamage = junkCount * HULL_DAMAGE_PER_JUNK;
+    const hullDamage = junkCount * s.rules.hullDamagePerJunk;
     s.hullIntegrity = Math.max(0, s.hullIntegrity - hullDamage);
 
     events.push({
@@ -385,7 +384,7 @@ function processInertiaCheck(
     const vulnerable = s.worldDeck.drawPile
       .filter(
         (c) =>
-          c.card.tier >= 2 &&
+          c.card.tier >= s.rules.techDecayMinTier &&
           c.card.cryosleep.decayVulnerability.includes("data")
       )
       .sort((a, b) => a.card.cryosleep.survivalPriority - b.card.cryosleep.survivalPriority);
