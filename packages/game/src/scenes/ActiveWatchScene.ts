@@ -1148,12 +1148,14 @@ export class ActiveWatchScene extends Phaser.Scene {
       if (!oldMap.has(id)) newFis.push(snap.fi);
     }
 
-    // Sort: upper row left→right, then lower row left→right
+    // Sort: column-by-column, top then bottom, left to right
     newFis.sort((a, b) => {
+      const aCol = a % MARKET_SLOTS_PER_ROW;
+      const bCol = b % MARKET_SLOTS_PER_ROW;
+      if (aCol !== bCol) return aCol - bCol;
       const aRow = a < MARKET_SLOTS_PER_ROW ? 0 : 1;
       const bRow = b < MARKET_SLOTS_PER_ROW ? 0 : 1;
-      if (aRow !== bRow) return aRow - bRow;
-      return a - b;
+      return aRow - bRow;
     });
 
     this.refreshMarketDisplay();
