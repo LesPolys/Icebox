@@ -10,17 +10,29 @@ import type {
   GraveyardState,
 } from "./deck.js";
 
-// ─── Entropy Thresholds ──────────────────────────────────────────────
+// ─── Entropy Gauge ───────────────────────────────────────────────────
 
-export interface EntropyThresholds {
-  /** Below this Matter total, Hull Breach junk enters the mandate */
-  hullBreach: number;
-  /** Below this Energy total, tableau cards lose power */
-  powerDown: number;
-  /** Below this Data total, advanced cards decay from world deck */
-  techDecay: number;
-  /** Below this Influence total, factions stage coups */
-  coup: number;
+export interface EntropyBreakpoint {
+  /** Entropy level that triggers this breakpoint */
+  threshold: number;
+  /** Effect identifier for the consequence */
+  effect: string;
+  /** Player-facing description of what happens */
+  description: string;
+}
+
+// ─── Ship's Era (Societal State Machine) ────────────────────────────
+
+/** The ship's societal state, determined by reserves + entropy at sleep time */
+export type EraState = "Zenith" | "Unraveling" | "Struggle" | "Ascension";
+
+export interface EraModifiers {
+  /** +/- to base market slides per turn */
+  marketSlideModifier: number;
+  /** Multiplier for entropy reduction costs (maintenance) */
+  maintenanceCostModifier: number;
+  /** +/- turns to construction time */
+  constructionTimeModifier: number;
 }
 
 // ─── Game Rules (tunable gameplay constants) ────────────────────────
@@ -68,8 +80,11 @@ export interface GameState {
   /** Player resources */
   resources: ResourceTotals;
 
-  /** Entropy thresholds (escalate each sleep cycle) */
-  entropyThresholds: EntropyThresholds;
+  /** Unified entropy gauge (0 to maxEntropy) */
+  entropy: number;
+
+  /** Maximum entropy before catastrophic failure */
+  maxEntropy: number;
 
   /** The Vault (all possible cards for this timeline) */
   vault: VaultState;
@@ -119,6 +134,12 @@ export interface GameState {
     description: string;
     effectId: string;
   } | null;
+
+  /** Current societal era of the ship */
+  era: EraState;
+
+  /** Active era modifiers for the current watch */
+  eraModifiers: EraModifiers;
 
   /** Random seed for deterministic replay (optional) */
   seed?: number;

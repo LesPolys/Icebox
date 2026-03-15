@@ -28,6 +28,7 @@ export function calculateSectorPresence(
   // Installed structures/institutions contribute
   for (const cardInst of sector.installedCards) {
     if (!cardInst.powered) continue; // depowered cards don't count
+    if (cardInst.underConstruction) continue; // under-construction cards don't count
     for (const icon of cardInst.card.factionIcons) {
       presence[icon] += cardInst.card.cryosleep.factionWeight;
     }
@@ -103,9 +104,10 @@ export function calculateWorldScore(
     }
   }
 
-  // Tableau cards
+  // Tableau cards (skip under-construction)
   for (const sector of ship.sectors) {
     for (const cardInst of sector.installedCards) {
+      if (cardInst.underConstruction) continue;
       for (const icon of cardInst.card.factionIcons) {
         score[icon] += cardInst.card.cryosleep.factionWeight;
       }

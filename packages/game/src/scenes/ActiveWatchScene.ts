@@ -8,7 +8,6 @@ import { getMarketCostModifier, getExtraSlideCount } from "../systems/MarketEffe
 import { compactMarket, slideMarketNoRefill, fillMarket, investOnSlot } from "../systems/MarketManager";
 import { resolveFallout } from "../systems/FalloutHandler";
 import { updateShipPresence, calculateGlobalPresence } from "../systems/FactionTracker";
-import { saveGame } from "../systems/SaveManager";
 import { ResourceBar, type ResourceKey, drawResourceShape, RESOURCE_META } from "../game-objects/ResourceBar";
 import { MarketSlot } from "../game-objects/MarketSlot";
 import { SectorDisplay } from "../game-objects/SectorDisplay";
@@ -20,8 +19,10 @@ import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
 import { CardSprite } from "../game-objects/CardSprite";
+import { EntropyGauge } from "../ui/EntropyGauge";
+import { EraDisplay } from "../ui/EraDisplay";
+import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
-import { SuccessionScene } from "./SuccessionScene";
 import { MAIN_CX, LAYOUT, s, fontSize } from "../ui/layout";
 
 export class ActiveWatchScene extends Phaser.Scene {
@@ -40,6 +41,9 @@ export class ActiveWatchScene extends Phaser.Scene {
   private actionLog!: ActionLog;
   private messagePanel!: MessagePanel;
   private deckCountText!: Phaser.GameObjects.Text;
+  private entropyGauge!: EntropyGauge;
+  private eraDisplay!: EraDisplay;
+  private eraTheme!: EraTheme;
   private worldDeckCountText!: Phaser.GameObjects.Text;
   private playerDeckCountText!: Phaser.GameObjects.Text;
   private playerDiscardCountText!: Phaser.GameObjects.Text;
@@ -56,6 +60,7 @@ export class ActiveWatchScene extends Phaser.Scene {
   private marketColPositions: number[] = [];
   private deckPileX = 0;
   private deckPileY = 0;
+  private marketBoxLeft = 0;
 
   // Player deck/discard positions (world coords, set in createPlayerPiles)
   private playerDeckPileX = 0;
@@ -76,6 +81,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
     this.gameState.ship = updateShipPresence(this.gameState.ship);
     this.gameState.globalFactionPresence = calculateGlobalPresence(this.gameState.ship);
+    (this as any).__restartData = { newGame: false, savedState: this.gameState };
   }
 
   create(): void {
@@ -93,19 +99,14 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.playMat.onEndTurn = () => {
       this.animatedEndTurn();
     };
-    this.playMat.onSleep = () => {
-      this.doAction({ type: "enter-cryosleep" });
-      if (this.gameState.phase === "succession") {
-        saveGame(this.gameState);
-        this.scene.start(SuccessionScene.KEY, {
-          gameState: this.gameState, cardDefs: this.cardDefs,
-        });
-      }
-    };
 
     // ─── Left gutter: Phase indicator + Action log ───
     this.phaseIndicator = new PhaseIndicator(this, LAYOUT.phaseX, LAYOUT.phaseY);
     this.actionLog = new ActionLog(this);
+
+    // ─── Era environmental theme ───
+    this.eraTheme = new EraTheme(this);
+    this.eraTheme.applyTheme(this.gameState.era);
 
     // ─── Right gutter: Deck count + Info panel ───
     this.deckCountText = this.add.text(LAYOUT.deckCountX, LAYOUT.deckCountY, "", {
@@ -115,6 +116,16 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // ─── Main area ───
     this.createMarket();
+
+    // ─── Left of market: Era display ───
+    const marketTopY = LAYOUT.marketRow1Y - s(30);
+    this.eraDisplay = new EraDisplay(this, 0, 0);
+    this.eraDisplay.setPosition(this.marketBoxLeft - this.eraDisplay.boxW - s(12), marketTopY);
+
+    // ─── Right of market deck: Entropy gauge (vertically centered on market) ───
+    const marketMidY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
+    this.entropyGauge = new EntropyGauge(this, this.deckPileX + s(55), marketMidY - s(55));
+
     this.createSectors();
 
     this.resourceBar = new ResourceBar(this, MAIN_CX, LAYOUT.resourceY);
@@ -182,6 +193,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     // Box background — starts below the badge row
     const boxPadX = s(40);
     const boxLeft = cx - 2.5 * cs - boxPadX;
+    this.marketBoxLeft = boxLeft;
     const boxTop = badgeY + badgeR + s(4);
     const boxW = 5 * cs + boxPadX * 2;
     const boxH = LAYOUT.marketRow2Y - LAYOUT.marketRow1Y + s(120);
@@ -255,7 +267,19 @@ export class ActiveWatchScene extends Phaser.Scene {
       }
 
       if (slotIndex === 0) {
-        // Column 0 has no preceding slots — buy directly
+        // Column 0 has no preceding slots — buy directly if affordable
+        const costMod = getMarketCostModifier(this.gameState.transitMarket);
+        const baseCost = slot.cardSprite.cardInstance.card.cost;
+        const effectiveCost: ResourceCost = {
+          matter: (baseCost.matter ?? 0) + (costMod.matter ?? 0),
+          energy: (baseCost.energy ?? 0) + (costMod.energy ?? 0),
+          data: (baseCost.data ?? 0) + (costMod.data ?? 0),
+          influence: (baseCost.influence ?? 0) + (costMod.influence ?? 0),
+        };
+        if (!canAfford(this.gameState.resources, effectiveCost)) {
+          this.showMessage("Can't afford this card!", "#cc4444");
+          return;
+        }
         this.animateBuyToDiscard(row, slotIndex);
         this.doAction({ type: "buy-from-market", row, slotIndex });
       } else {
@@ -1163,7 +1187,6 @@ export class ActiveWatchScene extends Phaser.Scene {
   private doAction(action: PlayerAction): void {
     const handBefore = new Set(this.gameState.mandateDeck.hand.map(c => c.instanceId));
     const handPositions = this.handDisplay.getCardWorldPositions();
-
     const result = executeAction(this.gameState, action);
     if (result.success) {
       this.gameState = result.state;
@@ -1208,8 +1231,9 @@ export class ActiveWatchScene extends Phaser.Scene {
   private refreshAll(): void {
     this.gameState.ship = updateShipPresence(this.gameState.ship);
     this.gameState.globalFactionPresence = calculateGlobalPresence(this.gameState.ship);
+    (this as any).__restartData = { newGame: false, savedState: this.gameState };
 
-    this.resourceBar.update(this.gameState.resources, this.gameState.entropyThresholds);
+    this.resourceBar.update(this.gameState.resources);
     this.phaseIndicator.update(this.gameState.phase, this.gameState.turnNumber, this.gameState.totalSleepCycles);
 
     const allSlots = getAllMarketSlots(this.gameState.transitMarket);
@@ -1249,6 +1273,12 @@ export class ActiveWatchScene extends Phaser.Scene {
     // Update world deck count
     const worldDeckCount = this.gameState.worldDeck.drawPile.length;
     this.worldDeckCountText.setText(`${worldDeckCount} cards`);
+
+    // Entropy gauge
+    this.entropyGauge.setValue(this.gameState.entropy);
+
+    // Era display
+    this.eraDisplay.update(this.gameState.era, this.gameState.eraModifiers);
   }
 
   /**

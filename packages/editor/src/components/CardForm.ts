@@ -1,4 +1,4 @@
-import type { Card, CardType, CardTier, FactionId, EffectTiming, EffectType, DeathOutcome, JunkSource } from "@icebox/shared";
+import type { Card, CardType, CardTier, FactionId, EffectTiming, EffectType, DeathOutcome, JunkSource, PrimaryCategoryTag, AttributeTag, SkillTag } from "@icebox/shared";
 import { ALL_FACTION_IDS } from "@icebox/shared";
 import type { MarketRowId } from "@icebox/shared";
 
@@ -62,7 +62,7 @@ export class CardForm {
           <div class="form-field">
             <label>Type</label>
             <select data-field="type">
-              ${["location", "structure", "institution", "action", "event", "hazard", "junk"]
+              ${["location", "structure", "institution", "action", "event", "hazard", "junk", "crew"]
                 .map((t) => `<option value="${t}" ${c.type === t ? "selected" : ""}>${t}</option>`)
                 .join("")}
             </select>
@@ -145,6 +145,21 @@ export class CardForm {
 
       <div class="form-section">
         <h3>Tags & Text</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Primary Category</label>
+            <select data-field="primaryTag">
+              <option value="" ${!c.primaryTag ? "selected" : ""}>(none)</option>
+              ${(["Machine", "Organic", "Law", "Tech"] as const)
+                .map((t) => `<option value="${t}" ${c.primaryTag === t ? "selected" : ""}>${t}</option>`)
+                .join("")}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Attribute Tags (comma-separated)</label>
+            <input type="text" data-field="attributeTags" value="${(c.attributeTags ?? []).join(", ")}" placeholder="Hazard, Persistent, Fragile, Heavy" />
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-field">
             <label>Tags (comma-separated)</label>
@@ -245,6 +260,98 @@ export class CardForm {
         </div>
       </div>
       ` : ""}
+
+      ${c.type === "crew" ? `
+      <div class="form-section">
+        <h3>Crew Data</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Skill Tag</label>
+            <select data-field="crew.skillTag">
+              ${(["Engineer", "Botanist", "Orator", "Logic"] as const)
+                .map((s) => `<option value="${s}" ${c.crew?.skillTag === s ? "selected" : ""}>${s}</option>`)
+                .join("")}
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Max Stress (3-5)</label>
+            <input type="number" data-field="crew.maxStress" value="${c.crew?.maxStress ?? 3}" min="3" max="5" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Expert Ability Description</label>
+            <textarea data-field="crew.expertAbilityDescription">${c.crew?.expertAbilityDescription ?? ""}</textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field"><label>Reassign Matter</label><input type="number" data-field="crew.reassign.matter" value="${c.crew?.reassignCost?.matter ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Reassign Energy</label><input type="number" data-field="crew.reassign.energy" value="${c.crew?.reassignCost?.energy ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Reassign Data</label><input type="number" data-field="crew.reassign.data" value="${c.crew?.reassignCost?.data ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Reassign Influence</label><input type="number" data-field="crew.reassign.influence" value="${c.crew?.reassignCost?.influence ?? 1}" min="0" /></div>
+        </div>
+      </div>
+      ` : ""}
+
+      ${c.type === "structure" ? `
+      <div class="form-section">
+        <h3>Construction (optional)</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Completion Time (turns, 0=instant)</label>
+            <input type="number" data-field="construction.completionTime" value="${c.construction?.completionTime ?? 0}" min="0" />
+          </div>
+          <div class="form-field">
+            <label>Fast-Trackable</label>
+            <select data-field="construction.fastTrackable">
+              <option value="false" ${!c.construction?.fastTrackable ? "selected" : ""}>No</option>
+              <option value="true" ${c.construction?.fastTrackable ? "selected" : ""}>Yes</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Fast-Track Entropy</label>
+            <input type="number" data-field="construction.fastTrackEntropy" value="${c.construction?.fastTrackEntropy ?? 2}" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field"><label>Required Matter</label><input type="number" data-field="construction.req.matter" value="${c.construction?.resourceRequirement?.matter ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Required Energy</label><input type="number" data-field="construction.req.energy" value="${c.construction?.resourceRequirement?.energy ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Required Data</label><input type="number" data-field="construction.req.data" value="${c.construction?.resourceRequirement?.data ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Required Influence</label><input type="number" data-field="construction.req.influence" value="${c.construction?.resourceRequirement?.influence ?? 0}" min="0" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-field"><label>Fast-Track Matter</label><input type="number" data-field="construction.ft.matter" value="${c.construction?.fastTrackCost?.matter ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Fast-Track Energy</label><input type="number" data-field="construction.ft.energy" value="${c.construction?.fastTrackCost?.energy ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Fast-Track Data</label><input type="number" data-field="construction.ft.data" value="${c.construction?.fastTrackCost?.data ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Fast-Track Influence</label><input type="number" data-field="construction.ft.influence" value="${c.construction?.fastTrackCost?.influence ?? 0}" min="0" /></div>
+        </div>
+      </div>
+      ` : ""}
+
+      ${c.type === "event" || c.type === "hazard" ? `
+      <div class="form-section">
+        <h3>Crisis Data (optional)</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Is Crisis (triggers cryosleep)</label>
+            <select data-field="crisis.isCrisis">
+              <option value="false" ${!c.crisis?.isCrisis ? "selected" : ""}>No</option>
+              <option value="true" ${c.crisis?.isCrisis ? "selected" : ""}>Yes</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Reactive Entropy Penalty</label>
+            <input type="number" data-field="crisis.reactiveEntropyPenalty" value="${c.crisis?.reactiveEntropyPenalty ?? 5}" min="0" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field"><label>Proactive Matter</label><input type="number" data-field="crisis.proactive.matter" value="${c.crisis?.proactiveCost?.matter ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Proactive Energy</label><input type="number" data-field="crisis.proactive.energy" value="${c.crisis?.proactiveCost?.energy ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Proactive Data</label><input type="number" data-field="crisis.proactive.data" value="${c.crisis?.proactiveCost?.data ?? 0}" min="0" /></div>
+          <div class="form-field"><label>Proactive Influence</label><input type="number" data-field="crisis.proactive.influence" value="${c.crisis?.proactiveCost?.influence ?? 0}" min="0" /></div>
+        </div>
+      </div>
+      ` : ""}
     `;
 
     // Bind change events
@@ -310,6 +417,17 @@ export class CardForm {
     if (num("cryosleep.inertia.data") > 0) c.cryosleep.inertiaContribution.data = num("cryosleep.inertia.data");
     if (num("cryosleep.inertia.influence") > 0) c.cryosleep.inertiaContribution.influence = num("cryosleep.inertia.influence");
 
+    // Primary category tag
+    const primaryTag = val("primaryTag") as PrimaryCategoryTag | "";
+    c.primaryTag = primaryTag || undefined;
+
+    // Attribute tags
+    const attrTagStr = val("attributeTags");
+    c.attributeTags = attrTagStr
+      ? attrTagStr.split(",").map((t) => t.trim()).filter(Boolean) as AttributeTag[]
+      : undefined;
+    if (c.attributeTags && c.attributeTags.length === 0) c.attributeTags = undefined;
+
     c.tags = val("tags").split(",").map((t) => t.trim()).filter(Boolean);
     c.factionIcons = val("factionIcons").split(",").map((t) => t.trim()).filter(Boolean) as FactionId[];
     c.flavorText = val("flavorText") || undefined;
@@ -354,6 +472,73 @@ export class CardForm {
       };
     } else {
       delete c.junk;
+    }
+
+    // Crew-specific data
+    if (c.type === "crew") {
+      const reassignCost: Record<string, number> = {};
+      if (num("crew.reassign.matter") > 0) reassignCost.matter = num("crew.reassign.matter");
+      if (num("crew.reassign.energy") > 0) reassignCost.energy = num("crew.reassign.energy");
+      if (num("crew.reassign.data") > 0) reassignCost.data = num("crew.reassign.data");
+      if (num("crew.reassign.influence") > 0) reassignCost.influence = num("crew.reassign.influence");
+      c.crew = {
+        skillTag: (val("crew.skillTag") as SkillTag) || "Engineer",
+        maxStress: Math.max(3, Math.min(5, num("crew.maxStress") || 3)),
+        expertAbilityDescription: val("crew.expertAbilityDescription") || "",
+        reassignCost: Object.keys(reassignCost).length > 0 ? reassignCost : undefined,
+      };
+    } else {
+      delete c.crew;
+    }
+
+    // Construction data (optional for structures)
+    if (c.type === "structure") {
+      const completionTime = num("construction.completionTime");
+      const reqCost: Record<string, number> = {};
+      if (num("construction.req.matter") > 0) reqCost.matter = num("construction.req.matter");
+      if (num("construction.req.energy") > 0) reqCost.energy = num("construction.req.energy");
+      if (num("construction.req.data") > 0) reqCost.data = num("construction.req.data");
+      if (num("construction.req.influence") > 0) reqCost.influence = num("construction.req.influence");
+      const ftCost: Record<string, number> = {};
+      if (num("construction.ft.matter") > 0) ftCost.matter = num("construction.ft.matter");
+      if (num("construction.ft.energy") > 0) ftCost.energy = num("construction.ft.energy");
+      if (num("construction.ft.data") > 0) ftCost.data = num("construction.ft.data");
+      if (num("construction.ft.influence") > 0) ftCost.influence = num("construction.ft.influence");
+      const hasReqs = completionTime > 0 || Object.keys(reqCost).length > 0;
+      if (hasReqs) {
+        c.construction = {
+          completionTime: completionTime > 0 ? completionTime : undefined,
+          resourceRequirement: Object.keys(reqCost).length > 0 ? reqCost : undefined,
+          fastTrackable: val("construction.fastTrackable") === "true",
+          fastTrackCost: Object.keys(ftCost).length > 0 ? ftCost : undefined,
+          fastTrackEntropy: num("construction.fastTrackEntropy") || undefined,
+        };
+      } else {
+        delete c.construction;
+      }
+    } else {
+      delete c.construction;
+    }
+
+    // Crisis data (optional for events/hazards)
+    if (c.type === "event" || c.type === "hazard") {
+      const isCrisis = val("crisis.isCrisis") === "true";
+      if (isCrisis) {
+        const proactiveCost: Record<string, number> = {};
+        if (num("crisis.proactive.matter") > 0) proactiveCost.matter = num("crisis.proactive.matter");
+        if (num("crisis.proactive.energy") > 0) proactiveCost.energy = num("crisis.proactive.energy");
+        if (num("crisis.proactive.data") > 0) proactiveCost.data = num("crisis.proactive.data");
+        if (num("crisis.proactive.influence") > 0) proactiveCost.influence = num("crisis.proactive.influence");
+        c.crisis = {
+          isCrisis: true,
+          proactiveCost: Object.keys(proactiveCost).length > 0 ? proactiveCost : undefined,
+          reactiveEntropyPenalty: num("crisis.reactiveEntropyPenalty") || undefined,
+        };
+      } else {
+        delete c.crisis;
+      }
+    } else {
+      delete c.crisis;
     }
 
     this.onChange?.(c);

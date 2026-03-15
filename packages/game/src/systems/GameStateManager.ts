@@ -7,7 +7,10 @@ import type {
 } from "@icebox/shared";
 import {
   STARTING_RESOURCES,
-  STARTING_THRESHOLDS,
+  STARTING_ENTROPY,
+  MAX_ENTROPY,
+  STARTING_ERA,
+  ERA_MODIFIERS,
   MARKET_SLOTS_PER_ROW,
   STARTING_HULL_INTEGRITY,
   DEFAULT_STRUCTURE_SLOTS,
@@ -24,13 +27,20 @@ import {
  * Creates a CardInstance from a Card definition.
  */
 export function createCardInstance(card: Card): CardInstance {
-  return {
+  const instance: CardInstance = {
     card,
     instanceId: generateInstanceId(),
     remainingLifespan: card.aging.lifespan,
     powered: true,
     zone: "vault",
   };
+
+  // Initialize crew-specific state
+  if (card.type === "crew" && card.crew) {
+    instance.currentStress = card.crew.maxStress;
+  }
+
+  return instance;
 }
 
 /**
@@ -41,9 +51,9 @@ export function createNewGameState(allCards: Card[]): GameState {
 
   const locationCards = allCards.filter((c) => c.type === "location");
   const starterIds = new Set(["vf-001", "sw-001", "ac-001"]);
-  // Mandate deck only gets actions, structures, and institutions.
+  // Mandate deck gets actions, structures, institutions, and crew.
   // Hazards, events, and junk are world-deck-only (market effects).
-  const mandateTypes = new Set(["action", "structure", "institution"]);
+  const mandateTypes = new Set(["action", "structure", "institution", "crew"]);
   const mandateEligible = allCards.filter(
     (c) => mandateTypes.has(c.type) && !starterIds.has(c.id)
   );
@@ -144,7 +154,8 @@ export function createNewGameState(allCards: Card[]): GameState {
     phase: "active-watch",
     totalSleepCycles: 0,
     resources: { ...STARTING_RESOURCES },
-    entropyThresholds: { ...STARTING_THRESHOLDS },
+    entropy: STARTING_ENTROPY,
+    maxEntropy: MAX_ENTROPY,
     vault: { cards: [] },
     worldDeck: { drawPile: remainingWorldDeck },
     transitMarket: {
@@ -172,6 +183,8 @@ export function createNewGameState(allCards: Card[]): GameState {
       return h;
     })(),
     globalLaw: null,
+    era: STARTING_ERA,
+    eraModifiers: { ...ERA_MODIFIERS[STARTING_ERA] },
     seed: Math.floor(Math.random() * 2147483647),
   };
 }

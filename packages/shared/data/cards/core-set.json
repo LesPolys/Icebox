@@ -12,11 +12,32 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["sector", "engineering"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "matter": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
-      "location": { "sector": 0, "structureSlots": 3 },
-      "flavorText": "The beating heart of the ship. Every bolt, every weld — a prayer to the void."
+      "tags": [
+        "sector",
+        "engineering"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 10,
+        "factionWeight": 0
+      },
+      "location": {
+        "sector": 0,
+        "structureSlots": 3
+      },
+      "flavorText": "The beating heart of the ship. Every bolt, every weld — a prayer to the void.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
     {
       "id": "loc-002",
@@ -28,11 +49,32 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["sector", "habitat"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
-      "location": { "sector": 1, "structureSlots": 3 },
-      "flavorText": "Green corridors and simulated sunlight. Almost enough to forget where you are."
+      "tags": [
+        "sector",
+        "habitat"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 10,
+        "factionWeight": 0
+      },
+      "location": {
+        "sector": 1,
+        "structureSlots": 3
+      },
+      "flavorText": "Green corridors and simulated sunlight. Almost enough to forget where you are.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
     {
       "id": "loc-003",
@@ -44,13 +86,34 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["sector", "biosphere"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "energy": 1, "influence": 1 }, "decayVulnerability": [], "survivalPriority": 10, "factionWeight": 0 },
-      "location": { "sector": 2, "structureSlots": 3 },
-      "flavorText": "Engineered wilderness. The trees don't know they're in a tin can."
+      "tags": [
+        "sector",
+        "biosphere"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1,
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 10,
+        "factionWeight": 0
+      },
+      "location": {
+        "sector": 2,
+        "structureSlots": 3
+      },
+      "flavorText": "Engineered wilderness. The trees don't know they're in a tin can.",
+      "primaryTag": "Organic",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
-
     {
       "id": "vf-001",
       "name": "Weld-Rig Alpha",
@@ -58,16 +121,61 @@
       "faction": "void-forged",
       "tier": 1,
       "art": "cards/vf-weld-rig",
-      "cost": { "matter": 2, "energy": 1 },
-      "resourceGain": { "matter": 1 },
+      "cost": {
+        "matter": 2,
+        "energy": 1
+      },
+      "resourceGain": {
+        "matter": 1
+      },
       "effects": [
-        { "id": "vf-001-p", "timing": "passive", "description": "Structures in this sector cost 1 less Matter.", "type": "modify-cost", "params": { "resource": "matter", "amount": -1, "scope": "sector" } }
+        {
+          "id": "vf-001-p",
+          "timing": "passive",
+          "description": "Structures in this sector cost 1 less Matter.",
+          "type": "modify-cost",
+          "params": {
+            "resource": "matter",
+            "amount": -1,
+            "scope": "sector"
+          }
+        }
       ],
-      "factionIcons": ["void-forged"],
-      "tags": ["repair", "infrastructure"],
-      "aging": { "lifespan": 4, "decayConditions": [{ "type": "resource-below", "params": { "resource": "energy", "threshold": 2 }, "description": "Shuts down if energy drops below 2." }], "onDeath": "transform", "transformInto": "vf-001b" },
-      "cryosleep": { "inertiaContribution": { "matter": 2 }, "decayVulnerability": ["energy"], "survivalPriority": 3, "factionWeight": 1 },
-      "flavorText": "Every seam it closes opens a question: how long until the next one?"
+      "factionIcons": [
+        "void-forged"
+      ],
+      "tags": [
+        "repair",
+        "infrastructure"
+      ],
+      "aging": {
+        "lifespan": 4,
+        "decayConditions": [
+          {
+            "type": "resource-below",
+            "params": {
+              "resource": "energy",
+              "threshold": 2
+            },
+            "description": "Shuts down if energy drops below 2."
+          }
+        ],
+        "onDeath": "transform",
+        "transformInto": "vf-001b"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 2
+        },
+        "decayVulnerability": [
+          "energy"
+        ],
+        "survivalPriority": 3,
+        "factionWeight": 1
+      },
+      "flavorText": "Every seam it closes opens a question: how long until the next one?",
+      "primaryTag": "Machine",
+      "attributeTags": []
     },
     {
       "id": "vf-001b",
@@ -79,11 +187,32 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["wreckage", "scrap"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "junk": { "source": "hull-breach", "removalCost": { "matter": 1 } },
-      "flavorText": "Useful parts, if you know where to look."
+      "tags": [
+        "wreckage",
+        "scrap"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "junk": {
+        "source": "hull-breach",
+        "removalCost": {
+          "matter": 1
+        }
+      },
+      "flavorText": "Useful parts, if you know where to look.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "vf-002",
@@ -92,16 +221,49 @@
       "faction": "void-forged",
       "tier": 1,
       "art": "cards/vf-overclock",
-      "cost": { "energy": 2 },
-      "resourceGain": { "matter": 3 },
+      "cost": {
+        "energy": 2
+      },
+      "resourceGain": {
+        "matter": 3
+      },
       "effects": [
-        { "id": "vf-002-p", "timing": "on-play", "description": "Gain 3 Matter, but add 1 Hull Breach to your discard.", "type": "add-junk", "params": { "junkSource": "hull-breach", "count": 1 } }
+        {
+          "id": "vf-002-p",
+          "timing": "on-play",
+          "description": "Gain 3 Matter, but add 1 Hull Breach to your discard.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "hull-breach",
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["void-forged"],
-      "tags": ["overclock", "risk"],
-      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": ["matter"], "survivalPriority": 2, "factionWeight": 1 },
-      "flavorText": "Push it past the red line. We'll deal with the consequences later."
+      "factionIcons": [
+        "void-forged"
+      ],
+      "tags": [
+        "overclock",
+        "risk"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1
+        },
+        "decayVulnerability": [
+          "matter"
+        ],
+        "survivalPriority": 2,
+        "factionWeight": 1
+      },
+      "flavorText": "Push it past the red line. We'll deal with the consequences later.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "vf-003",
@@ -110,15 +272,43 @@
       "faction": "void-forged",
       "tier": 1,
       "art": "cards/vf-hull-patch",
-      "cost": { "matter": 1 },
+      "cost": {
+        "matter": 1
+      },
       "effects": [
-        { "id": "vf-003-p", "timing": "on-play", "description": "Remove 1 Junk card from your hand or discard.", "type": "remove-junk", "params": { "count": 1 } }
+        {
+          "id": "vf-003-p",
+          "timing": "on-play",
+          "description": "Remove 1 Junk card from your hand or discard.",
+          "type": "remove-junk",
+          "params": {
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["void-forged"],
-      "tags": ["repair", "crew"],
-      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "matter": 1 }, "decayVulnerability": [], "survivalPriority": 4, "factionWeight": 1 },
-      "flavorText": "They work in silence. The hull speaks loud enough."
+      "factionIcons": [
+        "void-forged"
+      ],
+      "tags": [
+        "repair",
+        "crew"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 4,
+        "factionWeight": 1
+      },
+      "flavorText": "They work in silence. The hull speaks loud enough.",
+      "primaryTag": "Machine",
+      "attributeTags": []
     },
     {
       "id": "vf-004",
@@ -127,17 +317,62 @@
       "faction": "void-forged",
       "tier": 2,
       "art": "cards/vf-scrapyard",
-      "cost": { "matter": 3, "energy": 2 },
+      "cost": {
+        "matter": 3,
+        "energy": 2
+      },
       "effects": [
-        { "id": "vf-004-p", "timing": "passive", "description": "At the start of each turn, you may remove 1 Junk from your hand for free.", "type": "remove-junk", "params": { "count": 1, "costOverride": {} } }
+        {
+          "id": "vf-004-p",
+          "timing": "passive",
+          "description": "At the start of each turn, you may remove 1 Junk from your hand for free.",
+          "type": "remove-junk",
+          "params": {
+            "count": 1,
+            "costOverride": {}
+          }
+        }
       ],
-      "factionIcons": ["void-forged", "void-forged"],
-      "tags": ["repair", "infrastructure", "scrap"],
-      "aging": { "lifespan": 6, "decayConditions": [{ "type": "resource-below", "params": { "resource": "energy", "threshold": 3 }, "description": "Cannot operate without sufficient power." }], "onDeath": "transform", "transformInto": "vf-001b" },
-      "cryosleep": { "inertiaContribution": { "matter": 3 }, "decayVulnerability": ["energy"], "survivalPriority": 5, "factionWeight": 2 },
-      "flavorText": "One ship's junk is another generation's salvation."
+      "factionIcons": [
+        "void-forged",
+        "void-forged"
+      ],
+      "tags": [
+        "repair",
+        "infrastructure",
+        "scrap"
+      ],
+      "aging": {
+        "lifespan": 6,
+        "decayConditions": [
+          {
+            "type": "resource-below",
+            "params": {
+              "resource": "energy",
+              "threshold": 3
+            },
+            "description": "Cannot operate without sufficient power."
+          }
+        ],
+        "onDeath": "transform",
+        "transformInto": "vf-001b"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 3
+        },
+        "decayVulnerability": [
+          "energy"
+        ],
+        "survivalPriority": 5,
+        "factionWeight": 2
+      },
+      "flavorText": "One ship's junk is another generation's salvation.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Heavy"
+      ]
     },
-
     {
       "id": "sw-001",
       "name": "Hydroponics Bay",
@@ -145,16 +380,63 @@
       "faction": "sowers",
       "tier": 1,
       "art": "cards/sw-hydroponics",
-      "cost": { "matter": 2, "influence": 1 },
-      "resourceGain": { "matter": 1 },
+      "cost": {
+        "matter": 2,
+        "influence": 1
+      },
+      "resourceGain": {
+        "matter": 1
+      },
       "effects": [
-        { "id": "sw-001-p", "timing": "passive", "description": "Gain +1 Influence at the start of each turn.", "type": "gain-resource", "params": { "resource": "influence", "amount": 1, "timing": "turn-start" } }
+        {
+          "id": "sw-001-p",
+          "timing": "passive",
+          "description": "Gain +1 Influence at the start of each turn.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "influence",
+            "amount": 1,
+            "timing": "turn-start"
+          }
+        }
       ],
-      "factionIcons": ["sowers"],
-      "tags": ["growth", "food", "infrastructure"],
-      "aging": { "lifespan": 5, "decayConditions": [{ "type": "resource-below", "params": { "resource": "matter", "threshold": 2 }, "description": "Withers without raw materials for nutrient cycling." }], "onDeath": "transform", "transformInto": "sw-001b" },
-      "cryosleep": { "inertiaContribution": { "matter": 1, "influence": 1 }, "decayVulnerability": ["matter"], "survivalPriority": 4, "factionWeight": 1 },
-      "flavorText": "The roots remember soil, even if the children don't."
+      "factionIcons": [
+        "sowers"
+      ],
+      "tags": [
+        "growth",
+        "food",
+        "infrastructure"
+      ],
+      "aging": {
+        "lifespan": 5,
+        "decayConditions": [
+          {
+            "type": "resource-below",
+            "params": {
+              "resource": "matter",
+              "threshold": 2
+            },
+            "description": "Withers without raw materials for nutrient cycling."
+          }
+        ],
+        "onDeath": "transform",
+        "transformInto": "sw-001b"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 1,
+          "influence": 1
+        },
+        "decayVulnerability": [
+          "matter"
+        ],
+        "survivalPriority": 4,
+        "factionWeight": 1
+      },
+      "flavorText": "The roots remember soil, even if the children don't.",
+      "primaryTag": "Organic",
+      "attributeTags": []
     },
     {
       "id": "sw-001b",
@@ -166,11 +448,33 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["ruin", "organic"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "junk": { "source": "hull-breach", "removalCost": { "matter": 1, "influence": 1 } },
-      "flavorText": "Nature reclaims what it was never truly given."
+      "tags": [
+        "ruin",
+        "organic"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "junk": {
+        "source": "hull-breach",
+        "removalCost": {
+          "matter": 1,
+          "influence": 1
+        }
+      },
+      "flavorText": "Nature reclaims what it was never truly given.",
+      "primaryTag": "Organic",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "sw-002",
@@ -179,14 +483,37 @@
       "faction": "sowers",
       "tier": 1,
       "art": "cards/sw-gathering",
-      "cost": { "influence": 1 },
-      "resourceGain": { "influence": 2, "matter": 1 },
+      "cost": {
+        "influence": 1
+      },
+      "resourceGain": {
+        "influence": 2,
+        "matter": 1
+      },
       "effects": [],
-      "factionIcons": ["sowers"],
-      "tags": ["social", "community"],
-      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
-      "flavorText": "In the sharing of bread, they share a future."
+      "factionIcons": [
+        "sowers"
+      ],
+      "tags": [
+        "social",
+        "community"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 2,
+        "factionWeight": 1
+      },
+      "flavorText": "In the sharing of bread, they share a future.",
+      "primaryTag": "Organic",
+      "attributeTags": []
     },
     {
       "id": "sw-003",
@@ -195,17 +522,55 @@
       "faction": "sowers",
       "tier": 2,
       "art": "cards/sw-root-network",
-      "cost": { "matter": 2, "influence": 2 },
+      "cost": {
+        "matter": 2,
+        "influence": 2
+      },
       "effects": [
-        { "id": "sw-003-p", "timing": "passive", "description": "Sowers cards in this sector gain +1 lifespan when played.", "type": "extend-lifespan", "params": { "factionFilter": "sowers", "scope": "sector", "amount": 1 } }
+        {
+          "id": "sw-003-p",
+          "timing": "passive",
+          "description": "Sowers cards in this sector gain +1 lifespan when played.",
+          "type": "extend-lifespan",
+          "params": {
+            "factionFilter": "sowers",
+            "scope": "sector",
+            "amount": 1
+          }
+        }
       ],
-      "factionIcons": ["sowers", "sowers"],
-      "tags": ["growth", "network", "rooted"],
-      "aging": { "lifespan": 7, "decayConditions": [], "onDeath": "transform", "transformInto": "sw-001b" },
-      "cryosleep": { "inertiaContribution": { "matter": 1, "influence": 2 }, "decayVulnerability": ["matter"], "survivalPriority": 5, "factionWeight": 2 },
-      "flavorText": "What connects us is deeper than steel."
+      "factionIcons": [
+        "sowers",
+        "sowers"
+      ],
+      "tags": [
+        "growth",
+        "network",
+        "rooted"
+      ],
+      "aging": {
+        "lifespan": 7,
+        "decayConditions": [],
+        "onDeath": "transform",
+        "transformInto": "sw-001b"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 1,
+          "influence": 2
+        },
+        "decayVulnerability": [
+          "matter"
+        ],
+        "survivalPriority": 5,
+        "factionWeight": 2
+      },
+      "flavorText": "What connects us is deeper than steel.",
+      "primaryTag": "Organic",
+      "attributeTags": [
+        "Heavy"
+      ]
     },
-
     {
       "id": "gl-001",
       "name": "Supply Cache",
@@ -213,16 +578,51 @@
       "faction": "gilded",
       "tier": 1,
       "art": "cards/gl-supply-cache",
-      "cost": { "matter": 2, "data": 1 },
-      "resourceGain": { "matter": 2 },
+      "cost": {
+        "matter": 2,
+        "data": 1
+      },
+      "resourceGain": {
+        "matter": 2
+      },
       "effects": [
-        { "id": "gl-001-p", "timing": "passive", "description": "Cards you buy from the market cost 1 less Matter.", "type": "modify-cost", "params": { "resource": "matter", "amount": -1, "scope": "market" } }
+        {
+          "id": "gl-001-p",
+          "timing": "passive",
+          "description": "Cards you buy from the market cost 1 less Matter.",
+          "type": "modify-cost",
+          "params": {
+            "resource": "matter",
+            "amount": -1,
+            "scope": "market"
+          }
+        }
       ],
-      "factionIcons": ["gilded"],
-      "tags": ["hoarding", "supply"],
-      "aging": { "lifespan": 5, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "matter": 2 }, "decayVulnerability": ["data"], "survivalPriority": 3, "factionWeight": 1 },
-      "flavorText": "Ownership is a fiction. Possession is fact."
+      "factionIcons": [
+        "gilded"
+      ],
+      "tags": [
+        "hoarding",
+        "supply"
+      ],
+      "aging": {
+        "lifespan": 5,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "matter": 2
+        },
+        "decayVulnerability": [
+          "data"
+        ],
+        "survivalPriority": 3,
+        "factionWeight": 1
+      },
+      "flavorText": "Ownership is a fiction. Possession is fact.",
+      "primaryTag": "Machine",
+      "attributeTags": []
     },
     {
       "id": "gl-002",
@@ -231,16 +631,47 @@
       "faction": "gilded",
       "tier": 1,
       "art": "cards/gl-audit",
-      "cost": { "data": 1 },
-      "resourceGain": { "data": 1, "matter": 1 },
+      "cost": {
+        "data": 1
+      },
+      "resourceGain": {
+        "data": 1,
+        "matter": 1
+      },
       "effects": [
-        { "id": "gl-002-p", "timing": "on-play", "description": "Draw 1 card.", "type": "draw-cards", "params": { "count": 1 } }
+        {
+          "id": "gl-002-p",
+          "timing": "on-play",
+          "description": "Draw 1 card.",
+          "type": "draw-cards",
+          "params": {
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["gilded"],
-      "tags": ["inventory", "control"],
-      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
-      "flavorText": "Every gram accounted for. Every gram leveraged."
+      "factionIcons": [
+        "gilded"
+      ],
+      "tags": [
+        "inventory",
+        "control"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 2,
+        "factionWeight": 1
+      },
+      "flavorText": "Every gram accounted for. Every gram leveraged.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "gl-003",
@@ -249,18 +680,61 @@
       "faction": "gilded",
       "tier": 2,
       "art": "cards/gl-embargo",
-      "cost": { "matter": 1, "data": 2 },
+      "cost": {
+        "matter": 1,
+        "data": 2
+      },
       "effects": [
-        { "id": "gl-003-f", "timing": "on-fallout", "description": "All market cards cost +2 of any resource next turn.", "type": "modify-cost", "params": { "amount": 2, "scope": "market", "duration": 1 } },
-        { "id": "gl-003-p", "timing": "on-play", "description": "Gain 3 Data.", "type": "gain-resource", "params": { "resource": "data", "amount": 3 } }
+        {
+          "id": "gl-003-f",
+          "timing": "on-fallout",
+          "description": "All market cards cost +2 of any resource next turn.",
+          "type": "modify-cost",
+          "params": {
+            "amount": 2,
+            "scope": "market",
+            "duration": 1
+          }
+        },
+        {
+          "id": "gl-003-p",
+          "timing": "on-play",
+          "description": "Gain 3 Data.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "data",
+            "amount": 3
+          }
+        }
       ],
-      "factionIcons": ["gilded", "gilded"],
-      "tags": ["trade", "control", "embargo"],
-      "aging": { "lifespan": 4, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 2 }, "decayVulnerability": ["influence"], "survivalPriority": 4, "factionWeight": 2 },
-      "flavorText": "The Gilded don't close doors. They charge admission."
+      "factionIcons": [
+        "gilded",
+        "gilded"
+      ],
+      "tags": [
+        "trade",
+        "control",
+        "embargo"
+      ],
+      "aging": {
+        "lifespan": 4,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 2
+        },
+        "decayVulnerability": [
+          "influence"
+        ],
+        "survivalPriority": 4,
+        "factionWeight": 2
+      },
+      "flavorText": "The Gilded don't close doors. They charge admission.",
+      "primaryTag": "Law",
+      "attributeTags": []
     },
-
     {
       "id": "ac-001",
       "name": "Mission Archive",
@@ -268,15 +742,48 @@
       "faction": "archival-core",
       "tier": 1,
       "art": "cards/ac-mission-archive",
-      "cost": { "energy": 1, "data": 2 },
+      "cost": {
+        "energy": 1,
+        "data": 2
+      },
       "effects": [
-        { "id": "ac-001-p", "timing": "passive", "description": "Cards in this sector are immune to Tech Decay.", "type": "modify-threshold", "params": { "type": "techDecay", "scope": "sector", "immune": true } }
+        {
+          "id": "ac-001-p",
+          "timing": "passive",
+          "description": "Cards in this sector are protected from entropy decay effects.",
+          "type": "prevent-damage",
+          "params": {
+            "scope": "sector",
+            "source": "entropy"
+          }
+        }
       ],
-      "factionIcons": ["archival-core"],
-      "tags": ["archive", "preservation", "mission"],
-      "aging": { "lifespan": 8, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 3 }, "decayVulnerability": ["energy"], "survivalPriority": 6, "factionWeight": 1 },
-      "flavorText": "The mission parameters have not changed. The crew has."
+      "factionIcons": [
+        "archival-core"
+      ],
+      "tags": [
+        "archive",
+        "preservation",
+        "mission"
+      ],
+      "aging": {
+        "lifespan": 8,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 3
+        },
+        "decayVulnerability": [
+          "energy"
+        ],
+        "survivalPriority": 6,
+        "factionWeight": 1
+      },
+      "flavorText": "The mission parameters have not changed. The crew has.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ac-002",
@@ -285,16 +792,48 @@
       "faction": "archival-core",
       "tier": 1,
       "art": "cards/ac-diagnostic",
-      "cost": { "energy": 1 },
-      "resourceGain": { "data": 2 },
+      "cost": {
+        "energy": 1
+      },
+      "resourceGain": {
+        "data": 2
+      },
       "effects": [
-        { "id": "ac-002-p", "timing": "on-play", "description": "Draw 2 cards, then discard 1.", "type": "draw-cards", "params": { "count": 2, "thenDiscard": 1 } }
+        {
+          "id": "ac-002-p",
+          "timing": "on-play",
+          "description": "Draw 2 cards, then discard 1.",
+          "type": "draw-cards",
+          "params": {
+            "count": 2,
+            "thenDiscard": 1
+          }
+        }
       ],
-      "factionIcons": ["archival-core"],
-      "tags": ["scan", "precision"],
-      "aging": { "lifespan": 3, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "energy": 1, "data": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 1 },
-      "flavorText": "Every anomaly catalogued. Every deviation noted."
+      "factionIcons": [
+        "archival-core"
+      ],
+      "tags": [
+        "scan",
+        "precision"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1,
+          "data": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 2,
+        "factionWeight": 1
+      },
+      "flavorText": "Every anomaly catalogued. Every deviation noted.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ac-003",
@@ -303,17 +842,59 @@
       "faction": "archival-core",
       "tier": 2,
       "art": "cards/ac-compliance",
-      "cost": { "energy": 2, "data": 2 },
+      "cost": {
+        "energy": 2,
+        "data": 2
+      },
       "effects": [
-        { "id": "ac-003-p", "timing": "passive", "description": "Lock the rightmost market slot — its card cannot be bought or fall out.", "type": "lock-market-slot", "params": { "slot": 5 } }
+        {
+          "id": "ac-003-p",
+          "timing": "passive",
+          "description": "Lock the rightmost market slot — its card cannot be bought or fall out.",
+          "type": "lock-market-slot",
+          "params": {
+            "slot": 5
+          }
+        }
       ],
-      "factionIcons": ["archival-core", "archival-core"],
-      "tags": ["law", "control", "compliance"],
-      "aging": { "lifespan": 6, "decayConditions": [{ "type": "faction-dominance", "params": { "rivalFaction": "the-flux" }, "description": "Dissolved if The Flux gains sector dominance." }], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 2 }, "decayVulnerability": ["influence"], "survivalPriority": 5, "factionWeight": 2 },
-      "flavorText": "The directive was clear. The interpretation was not."
+      "factionIcons": [
+        "archival-core",
+        "archival-core"
+      ],
+      "tags": [
+        "law",
+        "control",
+        "compliance"
+      ],
+      "aging": {
+        "lifespan": 6,
+        "decayConditions": [
+          {
+            "type": "faction-dominance",
+            "params": {
+              "rivalFaction": "the-flux"
+            },
+            "description": "Dissolved if The Flux gains sector dominance."
+          }
+        ],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 2
+        },
+        "decayVulnerability": [
+          "influence"
+        ],
+        "survivalPriority": 5,
+        "factionWeight": 2
+      },
+      "flavorText": "The directive was clear. The interpretation was not.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
-
     {
       "id": "fx-001",
       "name": "Cascade Surge",
@@ -321,16 +902,50 @@
       "faction": "the-flux",
       "tier": 1,
       "art": "cards/fx-cascade",
-      "cost": { "energy": 2 },
-      "resourceGain": { "energy": 1, "influence": 2 },
+      "cost": {
+        "energy": 2
+      },
+      "resourceGain": {
+        "energy": 1,
+        "influence": 2
+      },
       "effects": [
-        { "id": "fx-001-p", "timing": "on-play", "description": "Slide the market 1 extra slot to the left.", "type": "shift-faction", "params": { "marketSlide": 1 } }
+        {
+          "id": "fx-001-p",
+          "timing": "on-play",
+          "description": "Slide the market 1 extra slot to the left.",
+          "type": "shift-faction",
+          "params": {
+            "marketSlide": 1
+          }
+        }
       ],
-      "factionIcons": ["the-flux"],
-      "tags": ["chaos", "surge", "market"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 1 },
-      "flavorText": "Change is the only constant between the stars."
+      "factionIcons": [
+        "the-flux"
+      ],
+      "tags": [
+        "chaos",
+        "surge",
+        "market"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 1,
+        "factionWeight": 1
+      },
+      "flavorText": "Change is the only constant between the stars.",
+      "primaryTag": "Tech",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
     {
       "id": "fx-002",
@@ -339,15 +954,60 @@
       "faction": "the-flux",
       "tier": 1,
       "art": "cards/fx-voltage-cult",
-      "cost": { "energy": 1, "influence": 2 },
+      "cost": {
+        "energy": 1,
+        "influence": 2
+      },
       "effects": [
-        { "id": "fx-002-p", "timing": "passive", "description": "When any card falls out of the market, gain 1 Energy.", "type": "gain-resource", "params": { "resource": "energy", "amount": 1, "trigger": "on-fallout" } }
+        {
+          "id": "fx-002-p",
+          "timing": "passive",
+          "description": "When any card falls out of the market, gain 1 Energy.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "energy",
+            "amount": 1,
+            "trigger": "on-fallout"
+          }
+        }
       ],
-      "factionIcons": ["the-flux"],
-      "tags": ["cult", "energy", "chaos"],
-      "aging": { "lifespan": 3, "decayConditions": [{ "type": "no-presence-in-sector", "params": { "faction": "the-flux" }, "description": "Disbands without Flux presence in the sector." }], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "energy": 1, "influence": 1 }, "decayVulnerability": ["data"], "survivalPriority": 3, "factionWeight": 1 },
-      "flavorText": "They worship the spark. The spark does not care."
+      "factionIcons": [
+        "the-flux"
+      ],
+      "tags": [
+        "cult",
+        "energy",
+        "chaos"
+      ],
+      "aging": {
+        "lifespan": 3,
+        "decayConditions": [
+          {
+            "type": "no-presence-in-sector",
+            "params": {
+              "faction": "the-flux"
+            },
+            "description": "Disbands without Flux presence in the sector."
+          }
+        ],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1,
+          "influence": 1
+        },
+        "decayVulnerability": [
+          "data"
+        ],
+        "survivalPriority": 3,
+        "factionWeight": 1
+      },
+      "flavorText": "They worship the spark. The spark does not care.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
     {
       "id": "fx-003",
@@ -356,18 +1016,62 @@
       "faction": "the-flux",
       "tier": 2,
       "art": "cards/fx-revolution",
-      "cost": { "energy": 2, "influence": 2 },
+      "cost": {
+        "energy": 2,
+        "influence": 2
+      },
       "effects": [
-        { "id": "fx-003-p", "timing": "on-play", "description": "Change the dominant faction of one sector to The Flux.", "type": "shift-faction", "params": { "targetFaction": "the-flux", "scope": "sector" } },
-        { "id": "fx-003-f", "timing": "on-fallout", "description": "All players lose 2 Influence. Gain 2 Energy.", "type": "spend-resource", "params": { "resource": "influence", "amount": 2, "gainResource": "energy", "gainAmount": 2 } }
+        {
+          "id": "fx-003-p",
+          "timing": "on-play",
+          "description": "Change the dominant faction of one sector to The Flux.",
+          "type": "shift-faction",
+          "params": {
+            "targetFaction": "the-flux",
+            "scope": "sector"
+          }
+        },
+        {
+          "id": "fx-003-f",
+          "timing": "on-fallout",
+          "description": "All players lose 2 Influence. Gain 2 Energy.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "influence",
+            "amount": 2,
+            "gainResource": "energy",
+            "gainAmount": 2
+          }
+        }
       ],
-      "factionIcons": ["the-flux", "the-flux"],
-      "tags": ["revolution", "chaos", "faction-shift"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 2, "factionWeight": 2 },
-      "flavorText": "Every ship has a breaking point. The Flux calls it a beginning."
+      "factionIcons": [
+        "the-flux",
+        "the-flux"
+      ],
+      "tags": [
+        "revolution",
+        "chaos",
+        "faction-shift"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 2,
+        "factionWeight": 2
+      },
+      "flavorText": "Every ship has a breaking point. The Flux calls it a beginning.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
-
     {
       "id": "ec-001",
       "name": "Memory Vault",
@@ -375,15 +1079,46 @@
       "faction": "the-echoes",
       "tier": 1,
       "art": "cards/ec-memory-vault",
-      "cost": { "data": 2, "influence": 1 },
+      "cost": {
+        "data": 2,
+        "influence": 1
+      },
       "effects": [
-        { "id": "ec-001-p", "timing": "passive", "description": "Cards in this sector gain +1 lifespan.", "type": "extend-lifespan", "params": { "scope": "sector", "amount": 1 } }
+        {
+          "id": "ec-001-p",
+          "timing": "passive",
+          "description": "Cards in this sector gain +1 lifespan.",
+          "type": "extend-lifespan",
+          "params": {
+            "scope": "sector",
+            "amount": 1
+          }
+        }
       ],
-      "factionIcons": ["the-echoes"],
-      "tags": ["memory", "preservation"],
-      "aging": { "lifespan": 8, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 1, "influence": 1 }, "decayVulnerability": [], "survivalPriority": 5, "factionWeight": 1 },
-      "flavorText": "Every face, every name. The Echoes forget nothing."
+      "factionIcons": [
+        "the-echoes"
+      ],
+      "tags": [
+        "memory",
+        "preservation"
+      ],
+      "aging": {
+        "lifespan": 8,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 1,
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 5,
+        "factionWeight": 1
+      },
+      "flavorText": "Every face, every name. The Echoes forget nothing.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ec-002",
@@ -392,16 +1127,49 @@
       "faction": "the-echoes",
       "tier": 1,
       "art": "cards/ec-rite",
-      "cost": { "influence": 1 },
-      "resourceGain": { "data": 1, "influence": 1 },
+      "cost": {
+        "influence": 1
+      },
+      "resourceGain": {
+        "data": 1,
+        "influence": 1
+      },
       "effects": [
-        { "id": "ec-002-p", "timing": "on-play", "description": "Extend the lifespan of 1 card in your tableau by 2 cycles.", "type": "extend-lifespan", "params": { "target": "tableau-choice", "amount": 2 } }
+        {
+          "id": "ec-002-p",
+          "timing": "on-play",
+          "description": "Extend the lifespan of 1 card in your tableau by 2 cycles.",
+          "type": "extend-lifespan",
+          "params": {
+            "target": "tableau-choice",
+            "amount": 2
+          }
+        }
       ],
-      "factionIcons": ["the-echoes"],
-      "tags": ["ritual", "preservation", "morale"],
-      "aging": { "lifespan": 4, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 3, "factionWeight": 1 },
-      "flavorText": "We carry them with us. They carry us forward."
+      "factionIcons": [
+        "the-echoes"
+      ],
+      "tags": [
+        "ritual",
+        "preservation",
+        "morale"
+      ],
+      "aging": {
+        "lifespan": 4,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 3,
+        "factionWeight": 1
+      },
+      "flavorText": "We carry them with us. They carry us forward.",
+      "primaryTag": "Law",
+      "attributeTags": []
     },
     {
       "id": "ec-003",
@@ -410,18 +1178,60 @@
       "faction": "the-echoes",
       "tier": 2,
       "art": "cards/ec-chronicle",
-      "cost": { "data": 2, "influence": 2 },
+      "cost": {
+        "data": 2,
+        "influence": 2
+      },
       "effects": [
-        { "id": "ec-003-p", "timing": "on-sleep", "description": "Archive 1 extra card during Succession.", "type": "gain-resource", "params": { "archiveSlots": 1 } },
-        { "id": "ec-003-d", "timing": "on-death", "description": "When destroyed, add 2 Echoes cards from the Vault to the World Deck.", "type": "shift-faction", "params": { "faction": "the-echoes", "addFromVault": 2 } }
+        {
+          "id": "ec-003-p",
+          "timing": "on-sleep",
+          "description": "Archive 1 extra card during Succession.",
+          "type": "gain-resource",
+          "params": {
+            "archiveSlots": 1
+          }
+        },
+        {
+          "id": "ec-003-d",
+          "timing": "on-death",
+          "description": "When destroyed, add 2 Echoes cards from the Vault to the World Deck.",
+          "type": "shift-faction",
+          "params": {
+            "faction": "the-echoes",
+            "addFromVault": 2
+          }
+        }
       ],
-      "factionIcons": ["the-echoes", "the-echoes"],
-      "tags": ["chronicle", "legacy", "persistence"],
-      "aging": { "lifespan": 10, "decayConditions": [], "onDeath": "return-to-vault" },
-      "cryosleep": { "inertiaContribution": { "data": 2, "influence": 2 }, "decayVulnerability": [], "survivalPriority": 7, "factionWeight": 2 },
-      "flavorText": "Every ending is an entry. Every entry, an ending."
+      "factionIcons": [
+        "the-echoes",
+        "the-echoes"
+      ],
+      "tags": [
+        "chronicle",
+        "legacy",
+        "persistence"
+      ],
+      "aging": {
+        "lifespan": 10,
+        "decayConditions": [],
+        "onDeath": "return-to-vault"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 2,
+          "influence": 2
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 7,
+        "factionWeight": 2
+      },
+      "flavorText": "Every ending is an entry. Every entry, an ending.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Persistent"
+      ]
     },
-
     {
       "id": "jk-001",
       "name": "Hull Breach",
@@ -432,11 +1242,32 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["damage", "hull"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "junk": { "source": "hull-breach", "removalCost": { "matter": 2 } },
-      "flavorText": "The void doesn't knock. It just comes in."
+      "tags": [
+        "damage",
+        "hull"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "junk": {
+        "source": "hull-breach",
+        "removalCost": {
+          "matter": 2
+        }
+      },
+      "flavorText": "The void doesn't knock. It just comes in.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "jk-002",
@@ -448,11 +1279,32 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["damage", "tech"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "junk": { "source": "tech-decay", "removalCost": { "data": 2 } },
-      "flavorText": "Error. Error. Error. The logs are full of ghosts."
+      "tags": [
+        "damage",
+        "tech"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "junk": {
+        "source": "tech-decay",
+        "removalCost": {
+          "data": 2
+        }
+      },
+      "flavorText": "Error. Error. Error. The logs are full of ghosts.",
+      "primaryTag": "Tech",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "jk-003",
@@ -464,13 +1316,33 @@
       "cost": {},
       "effects": [],
       "factionIcons": [],
-      "tags": ["damage", "political"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "junk": { "source": "factional-coup", "removalCost": { "influence": 2 } },
-      "flavorText": "Someone is always listening. Someone is always writing."
+      "tags": [
+        "damage",
+        "political"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "junk": {
+        "source": "factional-coup",
+        "removalCost": {
+          "influence": 2
+        }
+      },
+      "flavorText": "Someone is always listening. Someone is always writing.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
-
     {
       "id": "nu-001",
       "name": "Emergency Rations",
@@ -479,13 +1351,32 @@
       "tier": 1,
       "art": "cards/nu-rations",
       "cost": {},
-      "resourceGain": { "matter": 1, "energy": 1 },
+      "resourceGain": {
+        "matter": 1,
+        "energy": 1
+      },
       "effects": [],
       "factionIcons": [],
-      "tags": ["supply", "basic"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
-      "flavorText": "Nutrient paste. Day 4,380. Still tastes like hope. Barely."
+      "tags": [
+        "supply",
+        "basic"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 1,
+        "factionWeight": 0
+      },
+      "flavorText": "Nutrient paste. Day 4,380. Still tastes like hope. Barely.",
+      "primaryTag": "Organic",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
     {
       "id": "nu-002",
@@ -495,13 +1386,34 @@
       "tier": 1,
       "art": "cards/nu-power-cell",
       "cost": {},
-      "resourceGain": { "energy": 2 },
+      "resourceGain": {
+        "energy": 2
+      },
       "effects": [],
       "factionIcons": [],
-      "tags": ["supply", "basic", "energy"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": { "energy": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
-      "flavorText": "A full cell is a promise. An empty one is a prayer."
+      "tags": [
+        "supply",
+        "basic",
+        "energy"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "energy": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 1,
+        "factionWeight": 0
+      },
+      "flavorText": "A full cell is a promise. An empty one is a prayer.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
     {
       "id": "nu-003",
@@ -511,13 +1423,34 @@
       "tier": 1,
       "art": "cards/nu-data-fragment",
       "cost": {},
-      "resourceGain": { "data": 2 },
+      "resourceGain": {
+        "data": 2
+      },
       "effects": [],
       "factionIcons": [],
-      "tags": ["supply", "basic", "data"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": { "data": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
-      "flavorText": "Corrupted. Partial. Still worth more than silence."
+      "tags": [
+        "supply",
+        "basic",
+        "data"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "data": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 1,
+        "factionWeight": 0
+      },
+      "flavorText": "Corrupted. Partial. Still worth more than silence.",
+      "primaryTag": "Tech",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
     {
       "id": "nu-004",
@@ -527,15 +1460,35 @@
       "tier": 1,
       "art": "cards/nu-morale",
       "cost": {},
-      "resourceGain": { "influence": 2 },
+      "resourceGain": {
+        "influence": 2
+      },
       "effects": [],
       "factionIcons": [],
-      "tags": ["supply", "basic", "social"],
-      "aging": { "lifespan": 2, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": { "influence": 1 }, "decayVulnerability": [], "survivalPriority": 1, "factionWeight": 0 },
-      "flavorText": "A song from Earth. No one remembers the words. Everyone hums along."
+      "tags": [
+        "supply",
+        "basic",
+        "social"
+      ],
+      "aging": {
+        "lifespan": 2,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {
+          "influence": 1
+        },
+        "decayVulnerability": [],
+        "survivalPriority": 1,
+        "factionWeight": 0
+      },
+      "flavorText": "A song from Earth. No one remembers the words. Everyone hums along.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Fragile"
+      ]
     },
-
     {
       "id": "hz-001",
       "name": "Power Surge",
@@ -543,18 +1496,67 @@
       "faction": "neutral",
       "tier": 1,
       "art": "cards/hz-power-surge",
-      "cost": { "energy": 2 },
+      "cost": {
+        "energy": 2
+      },
       "effects": [
-        { "id": "hz-001-passive", "timing": "passive", "description": "Action abilities on structures are disabled.", "type": "lock-market-slot", "params": { "disableActions": true, "scope": "structures" } },
-        { "id": "hz-001-buy", "timing": "on-play", "description": "Gain 2 Energy.", "type": "gain-resource", "params": { "resource": "energy", "amount": 2 } },
-        { "id": "hz-001-fallout", "timing": "on-fallout", "description": "Add 2 Hull Breach junk to your deck.", "type": "add-junk", "params": { "junkSource": "hull-breach", "count": 2 } }
+        {
+          "id": "hz-001-passive",
+          "timing": "passive",
+          "description": "Action abilities on structures are disabled.",
+          "type": "lock-market-slot",
+          "params": {
+            "disableActions": true,
+            "scope": "structures"
+          }
+        },
+        {
+          "id": "hz-001-buy",
+          "timing": "on-play",
+          "description": "Gain 2 Energy.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "energy",
+            "amount": 2
+          }
+        },
+        {
+          "id": "hz-001-fallout",
+          "timing": "on-fallout",
+          "description": "Add 2 Hull Breach junk to your deck.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "hull-breach",
+            "count": 2
+          }
+        }
       ],
       "factionIcons": [],
-      "tags": ["hazard", "power", "physical"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
-      "flavorText": "The lights flicker. Then the welders stop."
+      "tags": [
+        "hazard",
+        "power",
+        "physical"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "upper",
+        "onBuy": "destroy"
+      },
+      "flavorText": "The lights flicker. Then the welders stop.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-002",
@@ -563,19 +1565,72 @@
       "faction": "sowers",
       "tier": 1,
       "art": "cards/hz-cargo-infestation",
-      "cost": { "matter": 3 },
+      "cost": {
+        "matter": 3
+      },
       "effects": [
-        { "id": "hz-002-passive", "timing": "passive", "description": "All cards in the market cost +1 Matter.", "type": "modify-cost", "params": { "resource": "matter", "amount": 1, "scope": "market" } },
-        { "id": "hz-002-buy", "timing": "on-play", "description": "Gain 1 Matter and remove 1 Junk from your deck.", "type": "remove-junk", "params": { "count": 1 } },
-        { "id": "hz-002-fallout", "timing": "on-fallout", "description": "Add 1 Junk to your deck and lose 2 Matter.", "type": "add-junk", "params": { "junkSource": "hull-breach", "count": 1 } }
+        {
+          "id": "hz-002-passive",
+          "timing": "passive",
+          "description": "All cards in the market cost +1 Matter.",
+          "type": "modify-cost",
+          "params": {
+            "resource": "matter",
+            "amount": 1,
+            "scope": "market"
+          }
+        },
+        {
+          "id": "hz-002-buy",
+          "timing": "on-play",
+          "description": "Gain 1 Matter and remove 1 Junk from your deck.",
+          "type": "remove-junk",
+          "params": {
+            "count": 1
+          }
+        },
+        {
+          "id": "hz-002-fallout",
+          "timing": "on-fallout",
+          "description": "Add 1 Junk to your deck and lose 2 Matter.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "hull-breach",
+            "count": 1
+          }
+        }
       ],
-      "resourceGain": { "matter": 1 },
-      "factionIcons": ["sowers"],
-      "tags": ["hazard", "organic", "physical"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
-      "flavorText": "Something got into the grain stores. Something hungry."
+      "resourceGain": {
+        "matter": 1
+      },
+      "factionIcons": [
+        "sowers"
+      ],
+      "tags": [
+        "hazard",
+        "organic",
+        "physical"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "upper",
+        "onBuy": "destroy"
+      },
+      "flavorText": "Something got into the grain stores. Something hungry.",
+      "primaryTag": "Organic",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-003",
@@ -584,18 +1639,67 @@
       "faction": "archival-core",
       "tier": 2,
       "art": "cards/hz-data-corruption",
-      "cost": { "data": 3 },
+      "cost": {
+        "data": 3
+      },
       "effects": [
-        { "id": "hz-003-passive", "timing": "passive", "description": "Cannot draw extra cards.", "type": "lock-market-slot", "params": { "disableDrawExtra": true } },
-        { "id": "hz-003-buy", "timing": "on-play", "description": "Draw 2 cards.", "type": "draw-cards", "params": { "count": 2 } },
-        { "id": "hz-003-fallout", "timing": "on-fallout", "description": "Lose 3 Data.", "type": "spend-resource", "params": { "resource": "data", "amount": 3 } }
+        {
+          "id": "hz-003-passive",
+          "timing": "passive",
+          "description": "Cannot draw extra cards.",
+          "type": "lock-market-slot",
+          "params": {
+            "disableDrawExtra": true
+          }
+        },
+        {
+          "id": "hz-003-buy",
+          "timing": "on-play",
+          "description": "Draw 2 cards.",
+          "type": "draw-cards",
+          "params": {
+            "count": 2
+          }
+        },
+        {
+          "id": "hz-003-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 3 Data.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "data",
+            "amount": 3
+          }
+        }
       ],
-      "factionIcons": ["archival-core"],
-      "tags": ["hazard", "data", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
-      "flavorText": "The archives are screaming. No one can read the logs."
+      "factionIcons": [
+        "archival-core"
+      ],
+      "tags": [
+        "hazard",
+        "data",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "lower",
+        "onBuy": "destroy"
+      },
+      "flavorText": "The archives are screaming. No one can read the logs.",
+      "primaryTag": "Tech",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-004",
@@ -604,18 +1708,70 @@
       "faction": "gilded",
       "tier": 2,
       "art": "cards/hz-black-market",
-      "cost": { "data": 2, "influence": 1 },
+      "cost": {
+        "data": 2,
+        "influence": 1
+      },
       "effects": [
-        { "id": "hz-004-passive", "timing": "passive", "description": "All market purchases cost +2 of any resource.", "type": "modify-cost", "params": { "amount": 2, "scope": "market" } },
-        { "id": "hz-004-buy", "timing": "on-play", "description": "Gain 3 Data.", "type": "gain-resource", "params": { "resource": "data", "amount": 3 } },
-        { "id": "hz-004-fallout", "timing": "on-fallout", "description": "Lose 2 Data and 2 Influence.", "type": "spend-resource", "params": { "resource": "data", "amount": 2 } }
+        {
+          "id": "hz-004-passive",
+          "timing": "passive",
+          "description": "All market purchases cost +2 of any resource.",
+          "type": "modify-cost",
+          "params": {
+            "amount": 2,
+            "scope": "market"
+          }
+        },
+        {
+          "id": "hz-004-buy",
+          "timing": "on-play",
+          "description": "Gain 3 Data.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "data",
+            "amount": 3
+          }
+        },
+        {
+          "id": "hz-004-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 2 Data and 2 Influence.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "data",
+            "amount": 2
+          }
+        }
       ],
-      "factionIcons": ["gilded"],
-      "tags": ["hazard", "trade", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
-      "flavorText": "Everyone knows it exists. No one admits to shopping there."
+      "factionIcons": [
+        "gilded"
+      ],
+      "tags": [
+        "hazard",
+        "trade",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "lower",
+        "onBuy": "destroy"
+      },
+      "flavorText": "Everyone knows it exists. No one admits to shopping there.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-005",
@@ -624,18 +1780,68 @@
       "faction": "the-flux",
       "tier": 1,
       "art": "cards/hz-agitator",
-      "cost": { "influence": 2 },
+      "cost": {
+        "influence": 2
+      },
       "effects": [
-        { "id": "hz-005-passive", "timing": "passive", "description": "Market slides 1 extra slot at end of turn.", "type": "shift-faction", "params": { "extraSlide": 1 } },
-        { "id": "hz-005-buy", "timing": "on-play", "description": "Gain 2 Influence.", "type": "gain-resource", "params": { "resource": "influence", "amount": 2 } },
-        { "id": "hz-005-fallout", "timing": "on-fallout", "description": "Lose 3 Influence and add 1 Sedition Pamphlet.", "type": "add-junk", "params": { "junkSource": "factional-coup", "count": 1 } }
+        {
+          "id": "hz-005-passive",
+          "timing": "passive",
+          "description": "Market slides 1 extra slot at end of turn.",
+          "type": "shift-faction",
+          "params": {
+            "extraSlide": 1
+          }
+        },
+        {
+          "id": "hz-005-buy",
+          "timing": "on-play",
+          "description": "Gain 2 Influence.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "influence",
+            "amount": 2
+          }
+        },
+        {
+          "id": "hz-005-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 3 Influence and add 1 Sedition Pamphlet.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "factional-coup",
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["the-flux"],
-      "tags": ["hazard", "political", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
-      "flavorText": "They don't need weapons. They have words."
+      "factionIcons": [
+        "the-flux"
+      ],
+      "tags": [
+        "hazard",
+        "political",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "lower",
+        "onBuy": "destroy"
+      },
+      "flavorText": "They don't need weapons. They have words.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-006",
@@ -644,18 +1850,71 @@
       "faction": "the-echoes",
       "tier": 2,
       "art": "cards/hz-memory-plague",
-      "cost": { "data": 2, "influence": 2 },
+      "cost": {
+        "data": 2,
+        "influence": 2
+      },
       "effects": [
-        { "id": "hz-006-passive", "timing": "passive", "description": "All tableau cards have -1 effective lifespan.", "type": "extend-lifespan", "params": { "scope": "tableau", "amount": -1 } },
-        { "id": "hz-006-buy", "timing": "on-play", "description": "Extend all tableau card lifespans by 1.", "type": "extend-lifespan", "params": { "scope": "tableau", "amount": 1 } },
-        { "id": "hz-006-fallout", "timing": "on-fallout", "description": "All tier-1 tableau cards lose 2 lifespan.", "type": "extend-lifespan", "params": { "scope": "tableau", "tierFilter": 1, "amount": -2 } }
+        {
+          "id": "hz-006-passive",
+          "timing": "passive",
+          "description": "All tableau cards have -1 effective lifespan.",
+          "type": "extend-lifespan",
+          "params": {
+            "scope": "tableau",
+            "amount": -1
+          }
+        },
+        {
+          "id": "hz-006-buy",
+          "timing": "on-play",
+          "description": "Extend all tableau card lifespans by 1.",
+          "type": "extend-lifespan",
+          "params": {
+            "scope": "tableau",
+            "amount": 1
+          }
+        },
+        {
+          "id": "hz-006-fallout",
+          "timing": "on-fallout",
+          "description": "All tier-1 tableau cards lose 2 lifespan.",
+          "type": "extend-lifespan",
+          "params": {
+            "scope": "tableau",
+            "tierFilter": 1,
+            "amount": -2
+          }
+        }
       ],
-      "factionIcons": ["the-echoes"],
-      "tags": ["hazard", "memory", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
-      "flavorText": "They forget the names first. Then the faces. Then the mission."
+      "factionIcons": [
+        "the-echoes"
+      ],
+      "tags": [
+        "hazard",
+        "memory",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "lower",
+        "onBuy": "destroy"
+      },
+      "flavorText": "They forget the names first. Then the faces. Then the mission.",
+      "primaryTag": "Tech",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-007",
@@ -664,18 +1923,71 @@
       "faction": "void-forged",
       "tier": 1,
       "art": "cards/hz-structural-fatigue",
-      "cost": { "matter": 2, "energy": 1 },
+      "cost": {
+        "matter": 2,
+        "energy": 1
+      },
       "effects": [
-        { "id": "hz-007-passive", "timing": "passive", "description": "Slotting structures costs +1 Energy.", "type": "modify-cost", "params": { "resource": "energy", "amount": 1, "scope": "slotting" } },
-        { "id": "hz-007-buy", "timing": "on-play", "description": "Gain 2 Matter.", "type": "gain-resource", "params": { "resource": "matter", "amount": 2 } },
-        { "id": "hz-007-fallout", "timing": "on-fallout", "description": "Depower 2 lowest-priority structures.", "type": "spend-resource", "params": { "depower": 2, "scope": "structures" } }
+        {
+          "id": "hz-007-passive",
+          "timing": "passive",
+          "description": "Slotting structures costs +1 Energy.",
+          "type": "modify-cost",
+          "params": {
+            "resource": "energy",
+            "amount": 1,
+            "scope": "slotting"
+          }
+        },
+        {
+          "id": "hz-007-buy",
+          "timing": "on-play",
+          "description": "Gain 2 Matter.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "matter",
+            "amount": 2
+          }
+        },
+        {
+          "id": "hz-007-fallout",
+          "timing": "on-fallout",
+          "description": "Depower 2 lowest-priority structures.",
+          "type": "spend-resource",
+          "params": {
+            "depower": 2,
+            "scope": "structures"
+          }
+        }
       ],
-      "factionIcons": ["void-forged"],
-      "tags": ["hazard", "structural", "physical"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "upper", "onBuy": "destroy" },
-      "flavorText": "The bulkheads groan. They've been groaning for fifty years."
+      "factionIcons": [
+        "void-forged"
+      ],
+      "tags": [
+        "hazard",
+        "structural",
+        "physical"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "upper",
+        "onBuy": "destroy"
+      },
+      "flavorText": "The bulkheads groan. They've been groaning for fifty years.",
+      "primaryTag": "Machine",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
     {
       "id": "hz-008",
@@ -684,20 +1996,68 @@
       "faction": "neutral",
       "tier": 2,
       "art": "cards/hz-propaganda-flood",
-      "cost": { "influence": 3 },
+      "cost": {
+        "influence": 3
+      },
       "effects": [
-        { "id": "hz-008-passive", "timing": "passive", "description": "Cannot gain Influence from card effects.", "type": "lock-market-slot", "params": { "disableInfluenceGain": true } },
-        { "id": "hz-008-buy", "timing": "on-play", "description": "Gain 3 Influence.", "type": "gain-resource", "params": { "resource": "influence", "amount": 3 } },
-        { "id": "hz-008-fallout", "timing": "on-fallout", "description": "Dominant faction presence -2 in each sector.", "type": "gain-presence", "params": { "target": "dominant", "amount": -2, "scope": "all-sectors" } }
+        {
+          "id": "hz-008-passive",
+          "timing": "passive",
+          "description": "Cannot gain Influence from card effects.",
+          "type": "lock-market-slot",
+          "params": {
+            "disableInfluenceGain": true
+          }
+        },
+        {
+          "id": "hz-008-buy",
+          "timing": "on-play",
+          "description": "Gain 3 Influence.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "influence",
+            "amount": 3
+          }
+        },
+        {
+          "id": "hz-008-fallout",
+          "timing": "on-fallout",
+          "description": "Dominant faction presence -2 in each sector.",
+          "type": "gain-presence",
+          "params": {
+            "target": "dominant",
+            "amount": -2,
+            "scope": "all-sectors"
+          }
+        }
       ],
       "factionIcons": [],
-      "tags": ["hazard", "political", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 0 },
-      "hazard": { "targetRow": "lower", "onBuy": "destroy" },
-      "flavorText": "Every screen, every speaker. The message changes, but the volume never does."
+      "tags": [
+        "hazard",
+        "political",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 0
+      },
+      "hazard": {
+        "targetRow": "lower",
+        "onBuy": "destroy"
+      },
+      "flavorText": "Every screen, every speaker. The message changes, but the volume never does.",
+      "primaryTag": "Law",
+      "attributeTags": [
+        "Hazard"
+      ]
     },
-
     {
       "id": "ev-001",
       "name": "Resource Audit",
@@ -705,16 +2065,53 @@
       "faction": "gilded",
       "tier": 1,
       "art": "cards/ev-resource-audit",
-      "cost": { "data": 1 },
+      "cost": {
+        "data": 1
+      },
       "effects": [
-        { "id": "ev-001-buy", "timing": "on-play", "description": "Gain 3 Matter.", "type": "gain-resource", "params": { "resource": "matter", "amount": 3 } },
-        { "id": "ev-001-fallout", "timing": "on-fallout", "description": "Lose 2 Influence.", "type": "spend-resource", "params": { "resource": "influence", "amount": 2 } }
+        {
+          "id": "ev-001-buy",
+          "timing": "on-play",
+          "description": "Gain 3 Matter.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "matter",
+            "amount": 3
+          }
+        },
+        {
+          "id": "ev-001-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 2 Influence.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "influence",
+            "amount": 2
+          }
+        }
       ],
-      "factionIcons": ["gilded"],
-      "tags": ["event", "audit", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 1 },
-      "flavorText": "The ledgers don't lie. But they can be rearranged."
+      "factionIcons": [
+        "gilded"
+      ],
+      "tags": [
+        "event",
+        "audit",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 1
+      },
+      "flavorText": "The ledgers don't lie. But they can be rearranged.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ev-002",
@@ -723,16 +2120,52 @@
       "faction": "archival-core",
       "tier": 1,
       "art": "cards/ev-emergency-broadcast",
-      "cost": { "energy": 2 },
+      "cost": {
+        "energy": 2
+      },
       "effects": [
-        { "id": "ev-002-buy", "timing": "on-play", "description": "Draw 3 cards.", "type": "draw-cards", "params": { "count": 3 } },
-        { "id": "ev-002-fallout", "timing": "on-fallout", "description": "Lose 2 Energy. All market cards cost +1 next turn.", "type": "spend-resource", "params": { "resource": "energy", "amount": 2 } }
+        {
+          "id": "ev-002-buy",
+          "timing": "on-play",
+          "description": "Draw 3 cards.",
+          "type": "draw-cards",
+          "params": {
+            "count": 3
+          }
+        },
+        {
+          "id": "ev-002-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 2 Energy. All market cards cost +1 next turn.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "energy",
+            "amount": 2
+          }
+        }
       ],
-      "factionIcons": ["archival-core"],
-      "tags": ["event", "broadcast", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 1 },
-      "flavorText": "All channels. All frequencies. Someone is listening."
+      "factionIcons": [
+        "archival-core"
+      ],
+      "tags": [
+        "event",
+        "broadcast",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 1
+      },
+      "flavorText": "All channels. All frequencies. Someone is listening.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ev-003",
@@ -741,17 +2174,57 @@
       "faction": "the-flux",
       "tier": 2,
       "art": "cards/ev-wildcat-strike",
-      "cost": { "influence": 2 },
+      "cost": {
+        "influence": 2
+      },
       "effects": [
-        { "id": "ev-003-buy", "timing": "on-play", "description": "Gain 2 Energy and 2 Influence.", "type": "gain-resource", "params": { "resource": "energy", "amount": 2 } },
-        { "id": "ev-003-fallout", "timing": "on-fallout", "description": "Lose 3 Energy. Add 1 Sedition Pamphlet.", "type": "add-junk", "params": { "junkSource": "factional-coup", "count": 1 } }
+        {
+          "id": "ev-003-buy",
+          "timing": "on-play",
+          "description": "Gain 2 Energy and 2 Influence.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "energy",
+            "amount": 2
+          }
+        },
+        {
+          "id": "ev-003-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 3 Energy. Add 1 Sedition Pamphlet.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "factional-coup",
+            "count": 1
+          }
+        }
       ],
-      "resourceGain": { "influence": 2 },
-      "factionIcons": ["the-flux", "the-flux"],
-      "tags": ["event", "revolution", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 2 },
-      "flavorText": "The corridors go dark. Not from a power failure — from a choice."
+      "resourceGain": {
+        "influence": 2
+      },
+      "factionIcons": [
+        "the-flux",
+        "the-flux"
+      ],
+      "tags": [
+        "event",
+        "revolution",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 2
+      },
+      "flavorText": "The corridors go dark. Not from a power failure — from a choice.",
+      "primaryTag": "Law",
+      "attributeTags": []
     },
     {
       "id": "ev-004",
@@ -760,16 +2233,55 @@
       "faction": "the-echoes",
       "tier": 1,
       "art": "cards/ev-ancestral-memory",
-      "cost": { "influence": 1, "data": 1 },
+      "cost": {
+        "influence": 1,
+        "data": 1
+      },
       "effects": [
-        { "id": "ev-004-buy", "timing": "on-play", "description": "Extend lifespan of 2 tableau cards by 2.", "type": "extend-lifespan", "params": { "target": "tableau-choice", "count": 2, "amount": 2 } },
-        { "id": "ev-004-fallout", "timing": "on-fallout", "description": "The oldest tableau card dies immediately.", "type": "remove-card", "params": { "target": "oldest-tableau", "count": 1 } }
+        {
+          "id": "ev-004-buy",
+          "timing": "on-play",
+          "description": "Extend lifespan of 2 tableau cards by 2.",
+          "type": "extend-lifespan",
+          "params": {
+            "target": "tableau-choice",
+            "count": 2,
+            "amount": 2
+          }
+        },
+        {
+          "id": "ev-004-fallout",
+          "timing": "on-fallout",
+          "description": "The oldest tableau card dies immediately.",
+          "type": "remove-card",
+          "params": {
+            "target": "oldest-tableau",
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["the-echoes"],
-      "tags": ["event", "memory", "social"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 1 },
-      "flavorText": "The dead speak. The living are finally quiet enough to listen."
+      "factionIcons": [
+        "the-echoes"
+      ],
+      "tags": [
+        "event",
+        "memory",
+        "social"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 1
+      },
+      "flavorText": "The dead speak. The living are finally quiet enough to listen.",
+      "primaryTag": "Tech",
+      "attributeTags": []
     },
     {
       "id": "ev-005",
@@ -778,17 +2290,56 @@
       "faction": "sowers",
       "tier": 1,
       "art": "cards/ev-harvest-festival",
-      "cost": { "matter": 1 },
+      "cost": {
+        "matter": 1
+      },
       "effects": [
-        { "id": "ev-005-buy", "timing": "on-play", "description": "Gain 2 Matter and 2 Influence.", "type": "gain-resource", "params": { "resource": "matter", "amount": 2 } },
-        { "id": "ev-005-fallout", "timing": "on-fallout", "description": "Lose 1 Matter per structure in your tableau.", "type": "spend-resource", "params": { "resource": "matter", "amountPerStructure": true } }
+        {
+          "id": "ev-005-buy",
+          "timing": "on-play",
+          "description": "Gain 2 Matter and 2 Influence.",
+          "type": "gain-resource",
+          "params": {
+            "resource": "matter",
+            "amount": 2
+          }
+        },
+        {
+          "id": "ev-005-fallout",
+          "timing": "on-fallout",
+          "description": "Lose 1 Matter per structure in your tableau.",
+          "type": "spend-resource",
+          "params": {
+            "resource": "matter",
+            "amountPerStructure": true
+          }
+        }
       ],
-      "resourceGain": { "influence": 2 },
-      "factionIcons": ["sowers"],
-      "tags": ["event", "harvest", "physical"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 1 },
-      "flavorText": "For one night, the Habitat smells like Earth."
+      "resourceGain": {
+        "influence": 2
+      },
+      "factionIcons": [
+        "sowers"
+      ],
+      "tags": [
+        "event",
+        "harvest",
+        "physical"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 1
+      },
+      "flavorText": "For one night, the Habitat smells like Earth.",
+      "primaryTag": "Organic",
+      "attributeTags": []
     },
     {
       "id": "ev-006",
@@ -797,16 +2348,54 @@
       "faction": "void-forged",
       "tier": 2,
       "art": "cards/ev-hull-scan",
-      "cost": { "matter": 2, "energy": 1 },
+      "cost": {
+        "matter": 2,
+        "energy": 1
+      },
       "effects": [
-        { "id": "ev-006-buy", "timing": "on-play", "description": "Remove 2 Junk cards from your mandate deck.", "type": "remove-junk", "params": { "count": 2 } },
-        { "id": "ev-006-fallout", "timing": "on-fallout", "description": "Add 1 Hull Breach junk. Lose 2 Matter.", "type": "add-junk", "params": { "junkSource": "hull-breach", "count": 1 } }
+        {
+          "id": "ev-006-buy",
+          "timing": "on-play",
+          "description": "Remove 2 Junk cards from your mandate deck.",
+          "type": "remove-junk",
+          "params": {
+            "count": 2
+          }
+        },
+        {
+          "id": "ev-006-fallout",
+          "timing": "on-fallout",
+          "description": "Add 1 Hull Breach junk. Lose 2 Matter.",
+          "type": "add-junk",
+          "params": {
+            "junkSource": "hull-breach",
+            "count": 1
+          }
+        }
       ],
-      "factionIcons": ["void-forged", "void-forged"],
-      "tags": ["event", "hull", "physical"],
-      "aging": { "lifespan": null, "decayConditions": [], "onDeath": "destroy" },
-      "cryosleep": { "inertiaContribution": {}, "decayVulnerability": [], "survivalPriority": 0, "factionWeight": 2 },
-      "flavorText": "The scan reveals what the crew already knows: the ship is dying."
+      "factionIcons": [
+        "void-forged",
+        "void-forged"
+      ],
+      "tags": [
+        "event",
+        "hull",
+        "physical"
+      ],
+      "aging": {
+        "lifespan": null,
+        "decayConditions": [],
+        "onDeath": "destroy"
+      },
+      "cryosleep": {
+        "inertiaContribution": {},
+        "decayVulnerability": [],
+        "survivalPriority": 0,
+        "factionWeight": 2
+      },
+      "flavorText": "The scan reveals what the crew already knows: the ship is dying.",
+      "primaryTag": "Machine",
+      "attributeTags": []
     }
   ]
 }

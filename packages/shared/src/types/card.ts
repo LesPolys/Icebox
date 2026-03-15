@@ -10,9 +10,63 @@ export type CardType =
   | "action"        // one-shot card played from hand
   | "event"         // triggered from market fallout or sleep
   | "hazard"        // market parasite: passive negative while in market, buy=fix, fallout=catastrophe
-  | "junk";         // negative card (hull breach, tech decay, factional coup)
+  | "junk"          // negative card (hull breach, tech decay, factional coup)
+  | "crew";         // attachment card played onto structures, has stress system
 
 export type CardTier = 1 | 2 | 3; // 1=basic, 2=advanced, 3=legendary
+
+// ─── Tag System ─────────────────────────────────────────────────────
+
+/** Primary category: defines what a card IS */
+export type PrimaryCategoryTag = "Machine" | "Organic" | "Law" | "Tech";
+
+/** Attribute tags: modify how a card behaves */
+export type AttributeTag = "Hazard" | "Persistent" | "Fragile" | "Heavy";
+
+// ─── Crew System ────────────────────────────────────────────────────
+
+/** Skill specializations for crew archetypes */
+export type SkillTag = "Engineer" | "Botanist" | "Orator" | "Logic";
+
+/** Crew sleep fate choices during cryosleep */
+export type CrewSleepChoice = "natural" | "cryo-pod" | "mentorship" | "digital-archive";
+
+export interface CrewData {
+  /** Skill archetype */
+  skillTag: SkillTag;
+  /** Maximum stress before burnout (3-5) */
+  maxStress: number;
+  /** Description of the expert ability unlocked when manning a structure */
+  expertAbilityDescription: string;
+  /** Cost to reassign this crew to another structure. Defaults to { influence: 1 } */
+  reassignCost?: ResourceCost;
+}
+
+// ─── Construction System ────────────────────────────────────────────
+
+export interface ConstructionData {
+  /** Turns to auto-complete. 0 or undefined = no time requirement */
+  completionTime?: number;
+  /** Resources that must be contributed to complete construction */
+  resourceRequirement?: ResourceCost;
+  /** Whether this structure can be fast-tracked */
+  fastTrackable: boolean;
+  /** Resource cost per turn skipped via fast-track */
+  fastTrackCost?: ResourceCost;
+  /** Entropy generated per turn skipped via fast-track */
+  fastTrackEntropy?: number;
+}
+
+// ─── Crisis System ──────────────────────────────────────────────────
+
+export interface CrisisData {
+  /** Whether this card triggers cryosleep */
+  isCrisis: boolean;
+  /** Cost to proactively resolve the crisis (sleep on your terms) */
+  proactiveCost?: ResourceCost;
+  /** Entropy added when crisis forces reactive sleep (slot 0 fallout) */
+  reactiveEntropyPenalty?: number;
+}
 
 // ─── Effect System ───────────────────────────────────────────────────
 
@@ -24,7 +78,9 @@ export type EffectTiming =
   | "on-sleep"      // triggers during cryosleep
   | "on-wake"       // triggers when waking from cryosleep
   | "on-acquire"    // when bought from market
-  | "on-death";     // when this card dies (aging/decay)
+  | "on-death"      // when this card dies (aging/decay)
+  | "on-manned"     // when a crew member is attached to this structure
+  | "on-burnout";   // when a crew member reaches 0 stress
 
 /** Known effect types for the EffectResolver */
 export type EffectType =
@@ -37,9 +93,13 @@ export type EffectType =
   | "modify-cost"
   | "shift-faction"
   | "lock-market-slot"
-  | "modify-threshold"
+  | "modify-entropy"
+  | "reduce-entropy"
   | "extend-lifespan"
-  | "gain-presence";
+  | "gain-presence"
+  | "prevent-damage"
+  | "peek-deck"
+  | "apply-stress";
 
 export interface CardEffect {
   id: string;
@@ -56,7 +116,8 @@ export interface EffectCondition {
     | "resource-threshold"
     | "sector-control"
     | "card-in-tableau"
-    | "sleep-count";
+    | "sleep-count"
+    | "entropy-above";
   params: Record<string, unknown>;
 }
 
@@ -144,6 +205,12 @@ export interface Card {
   /** Faction icons for World Score tallying during flush */
   factionIcons: FactionId[];
 
+  /** Primary category tag — defines what this card IS */
+  primaryTag?: PrimaryCategoryTag;
+
+  /** Attribute tags — modify how this card behaves */
+  attributeTags?: AttributeTag[];
+
   /** Freeform tags for filtering and effect targeting */
   tags: string[];
 
@@ -165,6 +232,15 @@ export interface Card {
   /** Junk-specific fields (only for type="junk") */
   junk?: JunkData;
 
+  /** Crew-specific fields (only for type="crew") */
+  crew?: CrewData;
+
+  /** Construction rules (only for type="structure", optional) */
+  construction?: ConstructionData;
+
+  /** Crisis trigger data (for event/hazard cards that trigger cryosleep) */
+  crisis?: CrisisData;
+
   flavorText?: string;
 
   /** Editor-only notes, stripped in production builds */
@@ -185,6 +261,20 @@ export interface CardInstance {
   powered: boolean;
   /** Which zone this card is currently in */
   zone: CardZone;
+
+  // ─── Crew state (only for type="crew") ──────────────────────────
+  /** Current stress level. Initialized to maxStress, decrements toward 0. */
+  currentStress?: number;
+  /** Instance ID of the structure this crew is attached to */
+  attachedTo?: string;
+
+  // ─── Construction state (only for type="structure") ─────────────
+  /** Whether this structure is under construction (face-down) */
+  underConstruction?: boolean;
+  /** Turns of construction progress elapsed */
+  constructionProgress?: number;
+  /** Resources contributed toward construction so far */
+  constructionResourcesAdded?: ResourceCost;
 }
 
 export type CardZone =
@@ -196,4 +286,5 @@ export type CardZone =
   | "discard"          // player's discard pile
   | "tableau"          // installed in a sector
   | "legacy-archive"   // permanently archived
-  | "graveyard";       // dead cards
+  | "graveyard"        // dead cards
+  | "attached";        // crew attached to a structure

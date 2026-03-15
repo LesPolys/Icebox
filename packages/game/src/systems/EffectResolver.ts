@@ -1,5 +1,6 @@
 import type { GameState, CardEffect, CardInstance, FactionId } from "@icebox/shared";
 import { gainResources, spendResources, ALL_FACTION_IDS } from "@icebox/shared";
+import { applyStress } from "./CrewManager";
 import { drawCards } from "./DeckManager";
 import { slideMarketMultiple } from "./MarketManager";
 
@@ -51,9 +52,18 @@ export function resolveEffect(
     case "lock-market-slot":
       // Passive — tracked by MarketEffectResolver
       return { state, message: `Lock/disable active: ${effect.description}` };
-    case "modify-threshold":
-      // Passive — tracked by AgingManager
-      return { state, message: `Threshold modifier active: ${effect.description}` };
+    case "modify-entropy":
+      return resolveModifyEntropy(state, effect);
+    case "reduce-entropy":
+      return resolveReduceEntropy(state, effect);
+    case "prevent-damage":
+      // Passive — tracked by damage resolution systems
+      return { state, message: `Damage prevention active: ${effect.description}` };
+    case "peek-deck":
+      // Passive — tracked by UI layer (reveals top N of world deck)
+      return { state, message: `Deck peek active: ${effect.description}` };
+    case "apply-stress":
+      return resolveApplyStress(state, effect);
     case "gain-presence":
       return resolveGainPresence(state, effect);
     default:
@@ -247,6 +257,44 @@ function resolveShiftFaction(state: GameState, effect: CardEffect): EffectResult
   return { state, message: `Faction shift: ${effect.description}` };
 }
 
+function resolveModifyEntropy(state: GameState, effect: CardEffect): EffectResult {
+  const s = structuredClone(state);
+  const amount = (effect.params.amount as number) ?? 0;
+  s.entropy = Math.max(0, Math.min(s.maxEntropy, s.entropy + amount));
+  return {
+    state: s,
+    message: `Entropy ${amount >= 0 ? "+" : ""}${amount} (now ${s.entropy}).`,
+  };
+}
+
+function resolveReduceEntropy(state: GameState, effect: CardEffect): EffectResult {
+  const s = structuredClone(state);
+  const amount = (effect.params.amount as number) ?? 0;
+  const reduction = Math.abs(amount);
+  s.entropy = Math.max(0, s.entropy - reduction);
+  return {
+    state: s,
+    message: `Entropy reduced by ${reduction} (now ${s.entropy}).`,
+  };
+}
+
+function resolveApplyStress(state: GameState, effect: CardEffect): EffectResult {
+  const targetId = effect.params.targetInstanceId as string | undefined;
+  const amount = (effect.params.amount as number) ?? 1;
+
+  if (!targetId) {
+    return { state, message: `Apply stress: no target specified.` };
+  }
+
+  const result = applyStress(state, targetId, amount);
+  return {
+    state: result.state,
+    message: result.burnedOut
+      ? `Applied ${amount} stress — crew burned out!`
+      : `Applied ${amount} stress to crew.`,
+  };
+}
+
 function resolveGainPresence(state: GameState, effect: CardEffect): EffectResult {
   const s = structuredClone(state);
   const amount = (effect.params.amount as number) ?? 0;
@@ -295,6 +343,10 @@ function evaluateCondition(
     case "sleep-count": {
       const threshold = condition.params.threshold as number;
       return state.totalSleepCycles >= threshold;
+    }
+    case "entropy-above": {
+      const threshold = condition.params.threshold as number;
+      return state.entropy >= threshold;
     }
     default:
       return true; // Unknown conditions pass by default

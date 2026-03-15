@@ -1,5 +1,6 @@
 import type { GameState, CardInstance } from "@icebox/shared";
 import { resolveEffect } from "./EffectResolver";
+import { applyStressToSector } from "./CrewManager";
 
 /**
  * Handles fallout resolution when a card slides off the market (exits Slot 0).
@@ -13,6 +14,8 @@ export interface FalloutResult {
   messages: string[];
   /** Whether the card was destroyed (hazards/events) vs added to discard (manifest) */
   destroyed: boolean;
+  /** Whether this fallout triggered a reactive cryosleep (crisis card) */
+  triggersReactiveSleep: boolean;
 }
 
 /**
@@ -24,7 +27,26 @@ export function resolveFallout(
 ): FalloutResult {
   const messages: string[] = [];
   let current = state;
+  let triggersReactiveSleep = false;
   const cardType = falloutCard.card.type;
+
+  // Check if this is a crisis card — triggers reactive cryosleep
+  if (falloutCard.card.crisis?.isCrisis) {
+    triggersReactiveSleep = true;
+    const penalty = falloutCard.card.crisis.reactiveEntropyPenalty ?? 0;
+    if (penalty > 0) {
+      const s = structuredClone(current);
+      s.entropy = Math.min(s.maxEntropy, s.entropy + penalty);
+      current = s;
+      messages.push(
+        `[CRISIS] ${falloutCard.card.name} triggers reactive cryosleep! Entropy +${penalty} (now ${current.entropy}).`
+      );
+    } else {
+      messages.push(
+        `[CRISIS] ${falloutCard.card.name} triggers reactive cryosleep!`
+      );
+    }
+  }
 
   // Get on-fallout effects
   const falloutEffects = falloutCard.card.effects.filter(
@@ -37,6 +59,20 @@ export function resolveFallout(
     const result = resolveEffect(current, effect, falloutCard);
     current = result.state;
     messages.push(`  -> ${result.message}`);
+  }
+
+  // Apply stress to crew when hazards fall out
+  if (cardType === "hazard") {
+    // Apply 1 stress to all crew in all sectors (hazard fallout is ship-wide)
+    for (let sectorIdx = 0; sectorIdx < current.ship.sectors.length; sectorIdx++) {
+      const stressResult = applyStressToSector(current, sectorIdx, 1);
+      current = stressResult.state;
+      if (stressResult.affectedCrew > 0) {
+        messages.push(
+          `  Hazard stress: ${stressResult.affectedCrew} crew affected in sector ${sectorIdx}.`
+        );
+      }
+    }
   }
 
   // Determine card fate based on type
@@ -76,5 +112,6 @@ export function resolveFallout(
     state: current,
     messages,
     destroyed: isDestroyable,
+    triggersReactiveSleep,
   };
 }

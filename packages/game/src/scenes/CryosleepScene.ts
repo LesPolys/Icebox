@@ -58,6 +58,7 @@ export class CryosleepScene extends Phaser.Scene {
     sleepDuration: number;
     archivedCardIds: string[];
   }): void {
+    (this as any).__restartData = data;
     this.gameState = data.gameState;
     this.cardDefs = data.cardDefs;
     this.sleepDuration = data.sleepDuration;
@@ -230,7 +231,7 @@ export class CryosleepScene extends Phaser.Scene {
     y += header.height + s(12);
 
     // Group events by category
-    const inertia = group.events.filter(e => e.type === "inertia-breach");
+    const entropyBP = group.events.filter(e => e.type === "entropy-breakpoint");
     const flush = group.events.find(e => e.type === "market-flush");
     const worldScore = group.events.find(e => e.type === "world-score");
     const adds = group.events.filter(e => e.type === "transformation-add");
@@ -238,23 +239,20 @@ export class CryosleepScene extends Phaser.Scene {
     const law = group.events.find(e => e.type === "global-law-set");
     const deaths = group.events.filter(e => e.type === "card-death");
     const transforms = group.events.filter(e => e.type === "card-transform");
-    const thresholds = group.events.find(e => e.type === "threshold-escalation");
+    const entropyEsc = group.events.find(e => e.type === "entropy-escalation");
     const drain = group.events.find(e => e.type === "resource-drain");
     const hull = group.events.find(e => e.type === "hull-damage");
     const defeat = group.events.find(e => e.type === "defeat");
     const victory = group.events.find(e => e.type === "victory");
+    const crewMortality = group.events.filter(e => e.type === "crew-mortality" || e.type === "crew-cryo-pod" || e.type === "crew-mentorship" || e.type === "crew-digital-archive");
+    const eraTransition = group.events.find(e => e.type === "era-transition");
 
-    // ── Inertia Breaches ──
-    if (inertia.length > 0) {
-      y = this.addSection(y, "INERTIA BREACHES", "#cc6644");
-      for (const ev of inertia) {
+    // ── Entropy Breakpoints ──
+    if (entropyBP.length > 0) {
+      y = this.addSection(y, "ENTROPY BREAKPOINTS", "#cc6644");
+      for (const ev of entropyBP) {
         const d = ev.data;
-        let line = `${(d.resource as string).toUpperCase()}: deficit ${d.deficit}`;
-        if (d.junkAdded) line += ` — ${d.junkAdded} junk injected`;
-        if (d.depowered) line += ` — ${d.depowered} cards depowered`;
-        if (d.decayed) line += ` — ${d.decayed} cards decayed`;
-        if (d.coupsTriggered) line += ` — ${d.coupsTriggered} coups triggered`;
-        const t = this.addText(s(8), y, line, { fontSize: fs(9), color: "#cc8866" });
+        const t = this.addText(s(8), y, `${d.effect}: ${d.description}`, { fontSize: fs(9), color: "#cc8866" });
         y += t.height + s(4);
       }
       y += s(8);
@@ -327,13 +325,12 @@ export class CryosleepScene extends Phaser.Scene {
       y += s(8);
     }
 
-    // ── Entropy: Thresholds, Drain, Hull ──
-    if (thresholds || drain || hull) {
+    // ── Entropy: Escalation, Drain, Hull ──
+    if (entropyEsc || drain || hull) {
       y = this.addSection(y, "ENTROPY", "#8866aa");
-      if (thresholds) {
-        const th = thresholds.data.newThresholds as Record<string, number>;
+      if (entropyEsc) {
         const t = this.addText(s(8), y,
-          `Thresholds: Hull ${th.hullBreach} | Power ${th.powerDown} | Tech ${th.techDecay} | Coup ${th.coup}`, {
+          `Entropy: ${entropyEsc.data.entropy} / ${entropyEsc.data.maxEntropy}`, {
           fontSize: fs(9), color: "#9988bb",
         });
         y += t.height + s(4);

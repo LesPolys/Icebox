@@ -3,7 +3,10 @@ import { canAfford, spendResources, gainResources, getMarketRowById } from "@ice
 import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
 import { acquireFromMarket, slideMarketNoRefill, compactMarket, fillMarket, investOnSlot } from "./MarketManager";
 import { resolveFallout } from "./FalloutHandler";
+import { resolveEffect } from "./EffectResolver";
 import { getMarketCostModifier, isActionDisabled, getExtraSlideCount } from "./MarketEffectResolver";
+import { attachCrew, reassignCrew } from "./CrewManager";
+import { advanceAllConstruction, beginConstruction, contributeResources, fastTrack } from "./ConstructionManager";
 
 /**
  * Pure logic for managing the Active Watch turn flow.
@@ -16,8 +19,12 @@ export type PlayerAction =
   | { type: "slot-structure"; instanceId: string; sectorIndex: number }
   | { type: "scrap-structure"; instanceId: string; sectorIndex: number }
   | { type: "draw-extra"; resourceType: "matter" | "energy" | "data" | "influence" }
-  | { type: "pass" }
-  | { type: "enter-cryosleep" };
+  | { type: "attach-crew"; crewInstanceId: string; structureInstanceId: string; sectorIndex: number }
+  | { type: "reassign-crew"; crewInstanceId: string; newStructureInstanceId: string; newSectorIndex: number }
+  | { type: "contribute-resources"; structureInstanceId: string; resources: ResourceCost }
+  | { type: "fast-track"; structureInstanceId: string; turnsToSkip: number }
+  | { type: "resolve-crisis"; row: MarketRowId; slotIndex: number }
+  | { type: "pass" };
 
 export interface ActionResult {
   success: boolean;
@@ -36,14 +43,8 @@ export interface StartTurnResult {
 }
 
 export function startTurn(state: GameState): StartTurnResult {
-  const s = structuredClone(state);
+  let s = structuredClone(state);
   s.turnNumber++;
-
-  // Check if deck is completely empty -> auto-sleep
-  if (s.mandateDeck.drawPile.length === 0 && s.mandateDeck.discardPile.length === 0 && s.mandateDeck.hand.length === 0) {
-    s.phase = "succession";
-    return { state: s, reshuffled: false };
-  }
 
   // Draw cards — full hand on wake (turn 1 with empty hand), otherwise normal draw
   const isWake = s.turnNumber === 1 && s.mandateDeck.hand.length === 0;
@@ -57,6 +58,9 @@ export function startTurn(state: GameState): StartTurnResult {
       card.powered = true;
     }
   }
+
+  // Advance construction progress on all under-construction structures
+  s = advanceAllConstruction(s);
 
   return { state: s, reshuffled: drawResult.reshuffled };
 }
@@ -81,15 +85,31 @@ export function executeAction(
       return scrapStructure(state, action.instanceId, action.sectorIndex);
     case "draw-extra":
       return drawExtra(state, action.resourceType);
+    case "attach-crew": {
+      const r = attachCrew(state, action.crewInstanceId, action.structureInstanceId, action.sectorIndex);
+      return { success: r.success, state: r.state, message: r.message };
+    }
+    case "reassign-crew": {
+      const r = reassignCrew(state, action.crewInstanceId, action.newStructureInstanceId, action.newSectorIndex);
+      return { success: r.success, state: r.state, message: r.message };
+    }
+    case "contribute-resources": {
+      const r = contributeResources(state, action.structureInstanceId, action.resources);
+      return { success: r.success, state: r.state, message: r.message };
+    }
+    case "fast-track": {
+      const r = fastTrack(state, action.structureInstanceId, action.turnsToSkip);
+      return { success: r.success, state: r.state, message: r.message };
+    }
+    case "resolve-crisis":
+      return resolveCrisis(state, action.row, action.slotIndex);
     case "pass":
       return endTurn(state);
-    case "enter-cryosleep":
-      return initiateCryosleep(state);
   }
 }
 
 function playCard(state: GameState, instanceId: string): ActionResult {
-  const s = structuredClone(state);
+  let s = structuredClone(state);
   const cardIdx = s.mandateDeck.hand.findIndex((c) => c.instanceId === instanceId);
 
   if (cardIdx === -1) {
@@ -120,16 +140,24 @@ function playCard(state: GameState, instanceId: string): ActionResult {
 
   s.mandateDeck = discardFromHand(s.mandateDeck, instanceId);
 
+  // Execute on-play effects mechanically
+  const effectMessages: string[] = [];
+  for (const effect of card.effects.filter((e) => e.timing === "on-play")) {
+    const result = resolveEffect(s, effect, cardInst);
+    s = result.state;
+    effectMessages.push(result.message);
+  }
+
   return {
     success: true,
     state: s,
     message: `Played ${card.name}.`,
-    effectsTriggered: card.effects.filter((e) => e.timing === "on-play").map((e) => e.description),
+    effectsTriggered: effectMessages,
   };
 }
 
 function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number): ActionResult {
-  const s = structuredClone(state);
+  let s = structuredClone(state);
   const row = getMarketRowById(s.transitMarket, rowId);
   const slot = row.slots[slotIndex];
 
@@ -178,12 +206,20 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
     }
   }
 
+  // Execute on-play effects mechanically
+  const effectMessages: string[] = [];
+  for (const effect of slot.card.effects.filter((e) => e.timing === "on-play")) {
+    const effResult = resolveEffect(s, effect, result.card ?? slot);
+    s = effResult.state;
+    effectMessages.push(effResult.message);
+  }
+
   const buyVerb = isHazardOrEvent ? "Resolved" : "Acquired";
   return {
     success: true,
     state: s,
     message: `${buyVerb} ${slot.card.name} from the ${rowId} row.`,
-    effectsTriggered: slot.card.effects.filter((e) => e.timing === "on-play").map((e) => e.description),
+    effectsTriggered: effectMessages,
   };
 }
 
@@ -258,6 +294,20 @@ function slotStructure(
 
   if (cardInst.card.resourceGain) {
     s.resources = gainResources(s.resources, cardInst.card.resourceGain);
+  }
+
+  // Check if structure requires construction
+  if (cardInst.card.type === "structure" && cardInst.card.construction) {
+    s.mandateDeck.hand.splice(cardIdx, 1);
+    // Use ConstructionManager to handle placing face-down
+    // Re-add to hand temporarily, then use beginConstruction which pulls from hand
+    s.mandateDeck.hand.push(cardInst);
+    const conResult = beginConstruction(s, instanceId, sectorIndex);
+    return {
+      success: conResult.success,
+      state: conResult.state,
+      message: conResult.message,
+    };
   }
 
   s.mandateDeck.hand.splice(cardIdx, 1);
@@ -346,7 +396,8 @@ function endTurn(state: GameState): ActionResult {
 
   // 2. Slide (no refill) — leftmost card falls out
   const extraSlides = getExtraSlideCount(s.transitMarket);
-  const totalSlides = s.rules.baseSlidesPerTurn + extraSlides;
+  const eraSlideModifier = s.eraModifiers?.marketSlideModifier ?? 0;
+  const totalSlides = Math.max(0, s.rules.baseSlidesPerTurn + extraSlides + eraSlideModifier);
 
   for (let i = 0; i < totalSlides; i++) {
     const slideResult = slideMarketNoRefill(s.transitMarket);
@@ -389,13 +440,45 @@ function endTurn(state: GameState): ActionResult {
   };
 }
 
-function initiateCryosleep(state: GameState): ActionResult {
+/**
+ * Proactively resolve a crisis card in the market.
+ * Pay the proactive cost to trigger cryosleep on your terms.
+ */
+function resolveCrisis(
+  state: GameState,
+  rowId: MarketRowId,
+  slotIndex: number
+): ActionResult {
   const s = structuredClone(state);
+  const row = getMarketRowById(s.transitMarket, rowId);
+  const slot = row.slots[slotIndex];
+
+  if (!slot) {
+    return { success: false, state, message: "Empty market slot." };
+  }
+
+  if (!slot.card.crisis?.isCrisis) {
+    return { success: false, state, message: "This card is not a crisis." };
+  }
+
+  const proactiveCost = slot.card.crisis.proactiveCost ?? {};
+  if (!canAfford(s.resources, proactiveCost)) {
+    return { success: false, state, message: "Cannot afford to resolve this crisis." };
+  }
+
+  s.resources = spendResources(s.resources, proactiveCost);
+
+  // Remove crisis card from market
+  row.slots[slotIndex] = null;
+  slot.zone = "graveyard";
+  s.graveyard.cards.push(slot);
+
+  // Trigger succession (proactive sleep — no entropy penalty)
   s.phase = "succession";
 
   return {
     success: true,
     state: s,
-    message: "Entering Succession phase...",
+    message: `Crisis resolved: ${slot.card.name}. Entering Succession phase...`,
   };
 }

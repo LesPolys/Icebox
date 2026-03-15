@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { ResourceTotals, EntropyThresholds } from "@icebox/shared";
+import type { ResourceTotals } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
 
@@ -228,31 +228,16 @@ export class ResourceBar extends Phaser.GameObjects.Container {
     }
   }
 
-  update(resources: ResourceTotals, thresholds: EntropyThresholds): void {
-    const thresholdMap: Record<string, number> = {
-      matter: thresholds.hullBreach,
-      energy: thresholds.powerDown,
-      data: thresholds.techDecay,
-      influence: thresholds.coup,
-    };
-
+  update(resources: ResourceTotals): void {
     for (const res of RESOURCE_META) {
       const val = resources[res.key as keyof ResourceTotals];
-      const thresh = thresholdMap[res.key];
 
       this.values[res.key].setText(String(val));
-      this.thresholdTexts[res.key].setText(`T:${thresh}`);
+      this.thresholdTexts[res.key].setText("");
 
-      // Flash red if below threshold, redraw shape
-      if (val < thresh) {
-        this.values[res.key].setColor("#ff4444");
-        this.shapes[res.key].clear();
-        drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, 0xff4444);
-      } else {
-        this.values[res.key].setColor("#ffffff");
-        this.shapes[res.key].clear();
-        drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
-      }
+      this.values[res.key].setColor("#ffffff");
+      this.shapes[res.key].clear();
+      drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
     }
   }
 }

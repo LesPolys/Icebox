@@ -4,14 +4,11 @@ import { s, fontSize as fs, LAYOUT, MAIN_CX } from "./layout";
 
 /**
  * Visual "play mat" enclosing the sectors and hand area.
- * Contains two large circular buttons:
- *   - SLEEP (above discard pile)
- *   - END TURN (above deck pile)
+ * Contains END TURN button above the deck pile.
  * Buttons are added directly to the scene at high depth so the hand never covers them.
  */
 export class PlayMat extends Phaser.GameObjects.Container {
   public onEndTurn: (() => void) | null = null;
-  public onSleep: (() => void) | null = null;
 
   private bgGfx: Phaser.GameObjects.Graphics;
   private highlightTween: Phaser.Tweens.Tween | null = null;
@@ -35,23 +32,11 @@ export class PlayMat extends Phaser.GameObjects.Container {
     this.drawBg(false);
     this.add(this.bgGfx);
 
-    // Action buttons — positioned above player discard (left) and deck (right) piles
-    // Created as direct scene objects at high depth so hand cards can't cover them
+    // Action button — positioned above player deck (right) pile
+    // Created as direct scene object at high depth so hand cards can't cover it
     const r = LAYOUT.playMatBtnRadius;
     const pileOffsetX = w / 2 + s(55); // matches createPlayerPiles offset
     const btnY = top + r + s(8);       // above the play mat area
-
-    this.createCircleBtn(
-      scene,
-      cx - pileOffsetX,
-      btnY,
-      r,
-      "❄",
-      0x4488cc,
-      () => { if (this.onSleep) this.onSleep(); },
-      Math.round(r * 4 / 3),
-      "Enter Cryosleep — skip to Succession phase"
-    );
 
     this.createCircleBtn(
       scene,
