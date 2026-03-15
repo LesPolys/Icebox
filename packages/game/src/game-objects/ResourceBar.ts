@@ -72,8 +72,8 @@ export class ResourceBar extends Phaser.GameObjects.Container {
   private shapes: Record<string, Phaser.GameObjects.Graphics> = {};
   private hitAreas: Record<string, Phaser.GameObjects.Rectangle> = {};
 
-  private static SHAPE_SIZE = s(22);
-  private static COLUMN_WIDTH = s(82);
+  private static SHAPE_SIZE = s(18);
+  private static COLUMN_WIDTH = s(70);
 
   // ── Drag state ──
   private dragGhost: Phaser.GameObjects.Graphics | null = null;
@@ -93,7 +93,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
     // Background
     const totalW = RESOURCE_META.length * ResourceBar.COLUMN_WIDTH + s(30);
-    const bg = scene.add.rectangle(0, 0, totalW, s(78), NUM.midnightViolet, 0.85);
+    const bg = scene.add.rectangle(0, 0, totalW, s(65), NUM.midnightViolet, 0.85);
     bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.6);
     this.add(bg);
 

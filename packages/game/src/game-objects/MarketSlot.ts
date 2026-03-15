@@ -6,7 +6,7 @@ import { drawResourceShape, RESOURCE_META } from "./ResourceBar";
 import { s } from "../ui/layout";
 
 /** Scale applied to market cards so they fit cleanly in columns. */
-const MARKET_CARD_SCALE = 0.55;
+const MARKET_CARD_SCALE = 0.72;
 
 type PurchaseHighlight = "target" | "needs-invest" | "invested" | null;
 
@@ -150,8 +150,8 @@ export class MarketSlot extends Phaser.GameObjects.Container {
       return;
     }
 
-    const hw = s(36);
-    const hh = s(52);
+    const hw = s(46);
+    const hh = s(64);
 
     let color: number;
     let alpha: number;

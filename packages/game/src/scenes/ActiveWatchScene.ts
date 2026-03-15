@@ -109,9 +109,8 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.eraTheme.applyTheme(this.gameState.era);
 
     // ─── Right gutter: Deck count + Info panel ───
-    this.deckCountText = this.add.text(LAYOUT.deckCountX, LAYOUT.deckCountY, "", {
-      fontSize: fontSize(10), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(1, 0);
+    // Deck/discard counts shown on the pile visuals instead
+    this.deckCountText = this.add.text(0, 0, "").setVisible(false);
     this.infoPanel = new InfoPanel(this);
 
     // ─── Main area ───
@@ -168,13 +167,8 @@ export class ActiveWatchScene extends Phaser.Scene {
     const cs = LAYOUT.marketColSpacing;
     const numCols = 6;
 
-    // Label above everything
-    this.add.text(cx, LAYOUT.marketLabelY, "TRANSIT MARKET", {
-      fontSize: fontSize(10), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "bold",
-    }).setOrigin(0.5);
-
     // Column numbers — bordered badges above the box
-    const badgeY = LAYOUT.marketLabelY + s(18);
+    const badgeY = LAYOUT.marketLabelY;
     const badgeR = s(12);
     for (let col = 0; col < numCols; col++) {
       const colX = cx + (col - 2.5) * cs;
@@ -191,12 +185,12 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     // Box background — starts below the badge row
-    const boxPadX = s(40);
+    const boxPadX = s(55);
     const boxLeft = cx - 2.5 * cs - boxPadX;
     this.marketBoxLeft = boxLeft;
     const boxTop = badgeY + badgeR + s(4);
     const boxW = 5 * cs + boxPadX * 2;
-    const boxH = LAYOUT.marketRow2Y - LAYOUT.marketRow1Y + s(120);
+    const boxH = (LAYOUT.marketRow2Y - LAYOUT.marketRow1Y) * 2;
 
     const gfx = this.add.graphics();
     gfx.fillStyle(NUM.midnightViolet, 0.3);
@@ -204,8 +198,12 @@ export class ActiveWatchScene extends Phaser.Scene {
     gfx.lineStyle(s(1.5), NUM.charcoalBlue, 0.5);
     gfx.strokeRoundedRect(boxLeft, boxTop, boxW, boxH, s(6));
 
-    // Column dividers — vertical lines between each column
+    // Row divider — horizontal line between upper and lower rows
+    const rowDivY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
     gfx.lineStyle(s(1), NUM.charcoalBlue, 0.3);
+    gfx.lineBetween(boxLeft + s(8), rowDivY, boxLeft + boxW - s(8), rowDivY);
+
+    // Column dividers — vertical lines between each column
     for (let i = 0; i < numCols - 1; i++) {
       const divX = cx + (i - 2.5) * cs + cs / 2;
       gfx.lineBetween(divX, boxTop + s(4), divX, boxTop + boxH - s(4));
@@ -230,7 +228,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     // World deck pile — to the right of the market box
-    const deckX = cx + 2.5 * cs + boxPadX + s(40);
+    const deckX = cx + 2.5 * cs + boxPadX + s(50);
     const deckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
     this.deckPileX = deckX;
     this.deckPileY = deckY;
@@ -239,7 +237,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     for (let i = 2; i >= 0; i--) {
       const offset = i * s(2);
       const back = this.add.image(deckX + offset, deckY + offset, "card-back");
-      back.setScale(0.5);
+      back.setScale(0.65);
       back.setAlpha(0.6 + i * 0.15);
     }
     this.worldDeckCountText = this.add.text(deckX, deckY + s(55), "", {
@@ -930,13 +928,13 @@ export class ActiveWatchScene extends Phaser.Scene {
       let ghost: Phaser.GameObjects.GameObject;
       if (cardInst) {
         const cardGhost = new CardSprite(this, fromSlot.x, fromSlot.y, cardInst);
-        cardGhost.setScale(0.55);
+        cardGhost.setScale(0.72);
         cardGhost.setMarketMode(true);
         cardGhost.setDepth(500);
         ghost = cardGhost;
       } else {
         const img = this.add.image(fromSlot.x, fromSlot.y, "card-back");
-        img.setScale(0.5).setDepth(500);
+        img.setScale(0.55).setDepth(500);
         ghost = img;
       }
 
@@ -1082,13 +1080,13 @@ export class ActiveWatchScene extends Phaser.Scene {
       let ghost: Phaser.GameObjects.GameObject;
       if (cardInst) {
         const cardGhost = new CardSprite(this, slot.x, slot.y, cardInst);
-        cardGhost.setScale(0.55);
+        cardGhost.setScale(0.72);
         cardGhost.setMarketMode(true);
         cardGhost.setDepth(500);
         ghost = cardGhost;
       } else {
         const img = this.add.image(slot.x, slot.y, "card-back");
-        img.setScale(0.5).setDepth(500);
+        img.setScale(0.55).setDepth(500);
         ghost = img;
       }
 
