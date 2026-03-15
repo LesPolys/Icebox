@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { GameState, Card, MarketRowId, ResourceCost } from "@icebox/shared";
+import type { GameState, Card, CardInstance, MarketRowId, ResourceCost } from "@icebox/shared";
 import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMarketRowById, canAfford, gainResources } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
 
@@ -925,9 +925,20 @@ export class ActiveWatchScene extends Phaser.Scene {
       const fromSlot = this.marketSlots[m.fromFi];
       const toSlot = this.marketSlots[m.toFi];
 
-      // Card ghost
-      const ghost = this.add.image(fromSlot.x, fromSlot.y, "card-back");
-      ghost.setScale(0.5).setDepth(500);
+      // Full card ghost — clone as a CardSprite so all text/details are visible
+      const cardInst = toSlot.cardSprite?.cardInstance;
+      let ghost: Phaser.GameObjects.GameObject;
+      if (cardInst) {
+        const cardGhost = new CardSprite(this, fromSlot.x, fromSlot.y, cardInst);
+        cardGhost.setScale(0.55);
+        cardGhost.setMarketMode(true);
+        cardGhost.setDepth(500);
+        ghost = cardGhost;
+      } else {
+        const img = this.add.image(fromSlot.x, fromSlot.y, "card-back");
+        img.setScale(0.5).setDepth(500);
+        ghost = img;
+      }
 
       // Investment ghost (travels with card)
       let investGhost: Phaser.GameObjects.Graphics | null = null;
@@ -965,22 +976,23 @@ export class ActiveWatchScene extends Phaser.Scene {
     gfx.setPosition(wx, wy);
     gfx.setDepth(501);
 
-    const icons: (typeof RESOURCE_META)[number][] = [];
+    const groups: { meta: (typeof RESOURCE_META)[number]; count: number }[] = [];
     for (const meta of RESOURCE_META) {
       const val = investment[meta.key as keyof ResourceCost] ?? 0;
-      for (let n = 0; n < val; n++) icons.push(meta);
+      if (val > 0) groups.push({ meta, count: val });
     }
 
     const iconSize = s(8);
-    const gap = s(14);
-    const totalW = (icons.length - 1) * gap;
+    const gap = s(22);
+    const totalW = (groups.length - 1) * gap;
     const startX = -totalW / 2;
     const iconY = s(38); // same offset as MarketSlot.setInvestment
 
-    for (let i = 0; i < icons.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
+      const { meta } = groups[i];
       gfx.fillStyle(0x000000, 0.5);
       gfx.fillCircle(startX + i * gap, iconY, iconSize + s(2));
-      drawResourceShape(gfx, icons[i].shape, startX + i * gap, iconY, iconSize, icons[i].numColor, 0.8, 1);
+      drawResourceShape(gfx, meta.shape, startX + i * gap, iconY, iconSize, meta.numColor, 0.8, 1);
     }
 
     return gfx;
@@ -1010,14 +1022,15 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     const oldMap = this.snapshotMarket();
 
-    // Find column-0 cards (will fall out) and their investments
+    // Find column-0 cards (will fall out) — capture card instances before refresh
     const slotsBefore = getAllMarketSlots(this.gameState.transitMarket);
-    const falloutFis: { fi: number; investment: ResourceCost | null }[] = [];
+    const falloutFis: { fi: number; investment: ResourceCost | null; cardInst: CardInstance | null }[] = [];
     for (let fi = 0; fi < MARKET_SLOTS; fi++) {
       const col = fi < MARKET_SLOTS_PER_ROW ? fi : fi - MARKET_SLOTS_PER_ROW;
       if (col === 0 && slotsBefore[fi]) {
         const snap = oldMap.get(slotsBefore[fi]!.instanceId);
-        falloutFis.push({ fi, investment: snap?.investment ?? null });
+        const cardInst = this.marketSlots[fi]?.cardSprite?.cardInstance ?? null;
+        falloutFis.push({ fi, investment: snap?.investment ?? null, cardInst });
       }
     }
 
@@ -1057,13 +1070,27 @@ export class ActiveWatchScene extends Phaser.Scene {
       }
     }
 
-    this.refreshMarketDisplay();
+    // Hide column-0 slots (fallout cards) — they'll be replaced by ghosts
+    for (const { fi } of falloutFis) {
+      if (this.marketSlots[fi]?.cardSprite) this.marketSlots[fi].cardSprite!.setVisible(false);
+      this.marketSlots[fi]?.setInvestmentVisible(false);
+    }
 
-    // Animate fallout — cards + investments spin off-screen to the left
-    for (const { fi, investment } of falloutFis) {
+    // Animate fallout — ghost cards spin off-screen to the left
+    for (const { fi, investment, cardInst } of falloutFis) {
       const slot = this.marketSlots[fi];
-      const ghost = this.add.image(slot.x, slot.y, "card-back");
-      ghost.setScale(0.5).setDepth(500);
+      let ghost: Phaser.GameObjects.GameObject;
+      if (cardInst) {
+        const cardGhost = new CardSprite(this, slot.x, slot.y, cardInst);
+        cardGhost.setScale(0.55);
+        cardGhost.setMarketMode(true);
+        cardGhost.setDepth(500);
+        ghost = cardGhost;
+      } else {
+        const img = this.add.image(slot.x, slot.y, "card-back");
+        img.setScale(0.5).setDepth(500);
+        ghost = img;
+      }
 
       let investGhost: Phaser.GameObjects.Graphics | null = null;
       if (investment) {
@@ -1090,17 +1117,19 @@ export class ActiveWatchScene extends Phaser.Scene {
       });
     }
 
-    // After a slight overlap with fallout, slide survivors
+    // After fallout animates, refresh display and slide survivors
     const slideDelay = falloutFis.length > 0 ? 450 : 0;
 
     if (moved.length === 0) {
       this.time.delayedCall(slideDelay + 500, () => {
+        this.refreshMarketDisplay();
         this.animateSlideLoop(total, current + 1, onComplete);
       });
       return;
     }
 
     this.time.delayedCall(slideDelay, () => {
+      this.refreshMarketDisplay();
       this.animateCardMoves(moved, 600, () => {
         this.animateSlideLoop(total, current + 1, onComplete);
       });

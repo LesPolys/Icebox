@@ -75,29 +75,40 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     this.investmentIcons = [];
     if (!resource) return;
 
-    // Collect all non-zero resource entries, expanded (e.g., matter:2 → 2 hexagons)
-    const icons: (typeof RESOURCE_META)[number][] = [];
+    // Collect non-zero resource entries as grouped (shape + count)
+    const groups: { meta: (typeof RESOURCE_META)[number]; count: number }[] = [];
     for (const meta of RESOURCE_META) {
       const val = resource[meta.key as keyof ResourceCost] ?? 0;
-      for (let n = 0; n < val; n++) icons.push(meta);
+      if (val > 0) groups.push({ meta, count: val });
     }
-    if (icons.length === 0) return;
+    if (groups.length === 0) return;
 
     const iconSize = s(8);
-    const gap = s(14);
-    const totalW = (icons.length - 1) * gap;
+    const gap = s(22);
+    const totalW = (groups.length - 1) * gap;
     const startX = -totalW / 2;
     const iconY = s(38); // near bottom of scaled card
 
-    for (let i = 0; i < icons.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
+      const { meta, count } = groups[i];
       const gfx = this.scene.add.graphics();
-      // Draw a small dark backing circle for contrast
+      // Dark backing circle for contrast
       gfx.fillStyle(0x000000, 0.5);
       gfx.fillCircle(startX + i * gap, iconY, iconSize + s(2));
-      drawResourceShape(gfx, icons[i].shape, startX + i * gap, iconY, iconSize, icons[i].numColor, 0.8, 1);
+      drawResourceShape(gfx, meta.shape, startX + i * gap, iconY, iconSize, meta.numColor, 0.8, 1);
       gfx.setDepth(10 + i);
       this.add(gfx);
       this.investmentIcons.push(gfx);
+
+      // Show count number over the shape if > 1
+      if (count > 1) {
+        const countText = this.scene.add.text(startX + i * gap, iconY, String(count), {
+          fontSize: `${s(10)}px`, color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+          stroke: "#000000", strokeThickness: s(2),
+        }).setOrigin(0.5).setDepth(11 + i);
+        this.add(countText);
+        this.investmentIcons.push(countText as any);
+      }
     }
   }
 
