@@ -33,9 +33,9 @@ function buildLayout() {
     // Resources (between market and play mat)
     resourceY: s(322),
 
-    // Sectors
-    sectorY: s(460),
-    sectorSpacing: s(300),
+    // Sectors — evenly spaced: 35px gap on all sides in 1100-wide playmat
+    sectorY: s(500),
+    sectorSpacing: s(370),
 
     // Hand
     handY: s(665),
@@ -53,7 +53,7 @@ function buildLayout() {
     // Play mat (encloses sectors + hand)
     playMatTop: s(370),
     playMatBottom: s(720),
-    playMatW: s(1000),
+    playMatW: s(1100),
     playMatBtnRadius: s(36),
 
     // Play zone (drop target for playing cards from hand)

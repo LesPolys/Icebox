@@ -146,9 +146,9 @@ export class BootScene extends Phaser.Scene {
     btnGfx.generateTexture("btn-primary", btnW, btnH);
     btnGfx.destroy();
 
-    // Sector background — sized to fit within sectorSpacing (300) with gaps
-    const secW = s(280);
-    const secH = s(150);
+    // Sector background — 345 wide, 370 spacing
+    const secW = s(345);
+    const secH = s(215);
     const sectorGfx = this.add.graphics();
     sectorGfx.fillStyle(NUM.midnightViolet, 0.7);
     sectorGfx.fillRoundedRect(0, 0, secW, secH, r);

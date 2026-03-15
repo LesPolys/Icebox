@@ -748,8 +748,8 @@ export class ActiveWatchScene extends Phaser.Scene {
         const sectorX = MAIN_CX + (i - 1) * LAYOUT.sectorSpacing;
         const sectorY = LAYOUT.sectorY;
         if (
-          Math.abs(worldX - sectorX) < s(135) &&
-          Math.abs(worldY - sectorY) < s(70)
+          Math.abs(worldX - sectorX) < s(160) &&
+          Math.abs(worldY - sectorY) < s(100)
         ) {
           return { type: "sector", sectorIndex: i };
         }
