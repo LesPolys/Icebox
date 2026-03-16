@@ -18,13 +18,13 @@ export function validateCard(card: unknown): ValidationError[] {
     }
   }
 
-  // ID format
-  if (typeof c.id === "string" && !/^[a-z]{1,4}-\d{3}[a-z]?$/.test(c.id)) {
-    errors.push({ field: "id", message: "id must match pattern: 1-4 lowercase letters, dash, 3 digits, optional letter suffix (e.g., vf-001, vf-001b)" });
+  // ID format: prefix-suffix (e.g., vf-s01, loc-eng-base, jk-hull-01, st-001, hz-001, ns-001, wc-001)
+  if (typeof c.id === "string" && !/^[a-z]{2,4}(-[a-z0-9]+)+$/.test(c.id)) {
+    errors.push({ field: "id", message: "id must be kebab-case with 2-4 letter prefix (e.g., vf-s01, loc-eng-base, jk-hull-01)" });
   }
 
   // CardType
-  const validTypes = ["location", "structure", "institution", "action", "event", "hazard", "junk", "crew"];
+  const validTypes = ["location", "structure", "institution", "action", "event", "hazard", "junk", "crew", "crisis"];
   if (!validTypes.includes(c.type as string)) {
     errors.push({ field: "type", message: `type must be one of: ${validTypes.join(", ")}` });
   }
@@ -152,6 +152,11 @@ export function validateCard(card: unknown): ValidationError[] {
         validateResourceCost(con.resourceRequirement as Record<string, unknown>, "construction.resourceRequirement", errors);
       }
     }
+  }
+
+  // Crisis-type cards must have crisis data
+  if (c.type === "crisis" && (c.crisis == null || (c.crisis as Record<string, unknown>).isCrisis !== true)) {
+    errors.push({ field: "crisis", message: "crisis data with isCrisis=true is required for crisis-type cards" });
   }
 
   // Crisis validation (optional)

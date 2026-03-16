@@ -3,7 +3,7 @@ import type { CardInstance, ResourceCost } from "@icebox/shared";
 import { NUM } from "@icebox/shared";
 import { CardSprite } from "./CardSprite";
 import { drawResourceShape, RESOURCE_META } from "./ResourceBar";
-import { s } from "../ui/layout";
+import { s, fontSize as fs } from "../ui/layout";
 
 /** Scale applied to market cards so they fit cleanly in columns. */
 const MARKET_CARD_SCALE = 0.72;
@@ -29,6 +29,14 @@ export class MarketSlot extends Phaser.GameObjects.Container {
   private highlightMode: PurchaseHighlight = null;
   private highlightTween: Phaser.Tweens.Tween | null = null;
 
+  // Crisis indicator
+  private crisisGfx: Phaser.GameObjects.Graphics | null = null;
+  private crisisLabel: Phaser.GameObjects.Text | null = null;
+  private crisisTween: Phaser.Tweens.Tween | null = null;
+
+  // Lock indicator
+  private lockGfx: Phaser.GameObjects.Graphics | null = null;
+
   constructor(scene: Phaser.Scene, x: number, y: number, slotIndex: number, scaled = false) {
     super(scene, x, y);
     this.slotIndex = slotIndex;
@@ -52,12 +60,19 @@ export class MarketSlot extends Phaser.GameObjects.Container {
       this.cardSprite = null;
     }
 
+    this.setCrisisIndicator(false);
+
     if (cardInstance) {
       this.emptySlot.setVisible(false);
       this.cardSprite = new CardSprite(this.scene, 0, 0, cardInstance);
       this.cardSprite.setScale(MARKET_CARD_SCALE);
       this.cardSprite.setMarketMode(true);
       this.add(this.cardSprite);
+
+      // Show crisis indicator for crisis-type cards
+      if (cardInstance.card.type === "crisis") {
+        this.setCrisisIndicator(true);
+      }
     } else {
       this.emptySlot.setVisible(true);
     }
@@ -185,5 +200,57 @@ export class MarketSlot extends Phaser.GameObjects.Container {
         ease: "Sine.easeInOut",
       });
     }
+  }
+
+  // ── Crisis indicator ──
+
+  /** Show/hide a pulsing red border + "CRISIS" label for crisis cards. */
+  setCrisisIndicator(active: boolean): void {
+    if (this.crisisTween) { this.crisisTween.destroy(); this.crisisTween = null; }
+    if (this.crisisGfx) { this.crisisGfx.destroy(); this.crisisGfx = null; }
+    if (this.crisisLabel) { this.crisisLabel.destroy(); this.crisisLabel = null; }
+    if (!active) return;
+
+    const hw = s(46);
+    const hh = s(64);
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(s(2.5), 0xcc3333, 0.8);
+    gfx.strokeRoundedRect(-hw, -hh, hw * 2, hh * 2, s(4));
+    this.add(gfx);
+    this.crisisGfx = gfx;
+
+    this.crisisTween = this.scene.tweens.add({
+      targets: gfx,
+      alpha: { from: 1, to: 0.3 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    const label = this.scene.add.text(0, -hh - s(8), "CRISIS", {
+      fontSize: fs(8), color: "#cc3333", fontFamily: "monospace", fontStyle: "bold",
+    }).setOrigin(0.5, 1).setDepth(20);
+    this.add(label);
+    this.crisisLabel = label;
+  }
+
+  // ── Lock indicator ──
+
+  /** Show/hide a lock icon overlay for locked market slots. */
+  setLocked(locked: boolean): void {
+    if (this.lockGfx) { this.lockGfx.destroy(); this.lockGfx = null; }
+    if (!locked) return;
+
+    const gfx = this.scene.add.graphics();
+    // Lock body
+    gfx.fillStyle(0xcc3333, 0.6);
+    gfx.fillRect(-s(8), -s(4), s(16), s(12));
+    // Lock shackle
+    gfx.lineStyle(s(2), 0xcc3333, 0.8);
+    gfx.strokeCircle(0, -s(8), s(6));
+    gfx.setDepth(15);
+    this.add(gfx);
+    this.lockGfx = gfx;
   }
 }

@@ -1,5 +1,6 @@
 import type { GameState, CardInstance, ResourceCost } from "@icebox/shared";
 import { canAfford, spendResources, DEFAULT_REASSIGN_COST } from "@icebox/shared";
+import { emitTiming } from "./effects/EffectRegistry";
 
 export interface CrewActionResult {
   state: GameState;
@@ -82,7 +83,13 @@ export function attachCrew(
   crewCard.attachedTo = structureInstanceId;
   sector.installedCards.push(crewCard);
 
-  return { state: s, success: true, message: `Crew attached to ${structure.card.name}.` };
+  // Fire on-manned effects on the structure being manned
+  const mannedResult = emitTiming(s, "on-manned", {
+    sourceInstanceId: structureInstanceId,
+    sectorIndex: sectorIdx,
+  });
+
+  return { state: mannedResult.state, success: true, message: `Crew attached to ${structure.card.name}.` };
 }
 
 /**
@@ -184,11 +191,25 @@ export function applyStress(
 
       // Burnout check
       if (crew.currentStress <= 0) {
-        sector.installedCards.splice(crewIdx, 1);
-        crew.zone = "graveyard";
-        crew.attachedTo = undefined;
-        s.graveyard.cards.push(crew);
-        return { state: s, burnedOut: true };
+        // Fire on-burnout effects before removal
+        const burnoutResult = emitTiming(s, "on-burnout", {
+          sourceInstanceId: crewInstanceId,
+          sectorIndex: sector.index,
+        });
+        const sAfterBurnout = burnoutResult.state;
+
+        // Re-find crew after effects may have mutated state
+        const sectorAfter = sAfterBurnout.ship.sectors[sector.index];
+        const crewIdxAfter = sectorAfter.installedCards.findIndex(
+          (c) => c.instanceId === crewInstanceId
+        );
+        if (crewIdxAfter !== -1) {
+          const crewAfter = sectorAfter.installedCards.splice(crewIdxAfter, 1)[0];
+          crewAfter.zone = "graveyard";
+          crewAfter.attachedTo = undefined;
+          sAfterBurnout.graveyard.cards.push(crewAfter);
+        }
+        return { state: sAfterBurnout, burnedOut: true };
       }
 
       return { state: s, burnedOut: false };

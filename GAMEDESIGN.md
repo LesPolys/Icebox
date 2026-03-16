@@ -79,10 +79,10 @@ Six factions compete for dominance aboard the ship. Each faction sits at the int
 | Faction | Resources | Color | Hex | Sector Affinity | Role |
 |---------|-----------|-------|-----|-----------------|------|
 | Void-Forged | MAT + ENG | Orange-Red | `#e85d3a` | Engineering | Industrial builders, hull maintainers, power engineers |
-| Sowers | MAT + INF | Green | `#4caf50` | Biosphere | Bio-engineers, terraformers, life sustainers |
+| Sowers | MAT + INF | Green | `#4caf50` | Command | Bio-engineers, terraformers, life sustainers |
 | Gilded | MAT + DAT | Amber | `#ffc107` | Habitat | Resource traders, material archivists, economists |
 | Archival Core | ENG + DAT | Blue | `#2196f3` | Engineering | Scientists, data keepers, knowledge preservers |
-| The Flux | ENG + INF | Purple | `#ab47bc` | Biosphere | Energy mystics, political agitators, revolutionaries |
+| The Flux | ENG + INF | Purple | `#ab47bc` | Command | Energy mystics, political agitators, revolutionaries |
 | The Echoes | DAT + INF | Blue-Grey | `#78909c` | Habitat | Philosophers, ghost-watchers, memory keepers |
 
 ### Faction Profiles
@@ -374,7 +374,7 @@ Each faction has a "home" sector where they naturally concentrate:
 |--------|-------|---------------|
 | Engineering | 0 | Void-Forged, Archival Core |
 | Habitat | 1 | Gilded, The Echoes |
-| Biosphere | 2 | Sowers, The Flux |
+| Command | 2 | Sowers, The Flux |
 
 ---
 
@@ -865,7 +865,7 @@ All game logic lives in `packages/game/src/systems/` as pure functions:
 | Era | Zenith |
 | Years Passed | 0 |
 | Market Size | 12 cards (2 rows × 6) |
-| Sector Count | 3 (Engineering, Habitat, Biosphere) |
+| Sector Count | 3 (Engineering, Habitat, Command) |
 | Slots per Sector | 3 structure/institution |
 | Sleep Duration Range | 1-5 cycles |
 | Archive Slots Formula | `min(8, sleepDuration + 1)` |

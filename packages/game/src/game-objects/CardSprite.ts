@@ -175,6 +175,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
   getTextureKey(): string {
     const card = this.cardInstance.card;
     if (card.type === "junk") return "card-junk";
+    if (card.type === "crisis") return "card-crisis";
     if (card.faction === "neutral") return "card-neutral";
     return `card-${card.faction}`;
   }

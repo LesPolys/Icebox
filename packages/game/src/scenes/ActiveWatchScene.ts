@@ -4,7 +4,7 @@ import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMar
 import { createNewGameState } from "../systems/GameStateManager";
 
 import { startTurn, executeAction, type PlayerAction } from "../systems/TurnManager";
-import { getMarketCostModifier, getExtraSlideCount } from "../systems/MarketEffectResolver";
+import { getCostModifier, getExtraSlideCount, isSlotLocked } from "../systems/effects/PassiveScanner";
 import { compactMarket, slideMarketNoRefill, fillMarket, investOnSlot } from "../systems/MarketManager";
 import { resolveFallout } from "../systems/FalloutHandler";
 import { updateShipPresence, calculateGlobalPresence } from "../systems/FactionTracker";
@@ -18,7 +18,7 @@ import { PlayMat } from "../ui/PlayMat";
 import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
-import { CardSprite } from "../game-objects/CardSprite";
+import { CardSprite, CARD_WIDTH } from "../game-objects/CardSprite";
 import { EntropyGauge } from "../ui/EntropyGauge";
 import { EraDisplay } from "../ui/EraDisplay";
 import { EraTheme } from "../ui/EraTheme";
@@ -264,15 +264,34 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
+      // Crisis card: show resolve popup instead of buying
+      if (slot.cardSprite.cardInstance.card.type === "crisis") {
+        const crisis = slot.cardSprite.cardInstance.card.crisis;
+        if (!crisis) return;
+        const costParts: string[] = [];
+        const pc = crisis.proactiveCost ?? {};
+        if (pc.matter) costParts.push(`M:${pc.matter}`);
+        if (pc.energy) costParts.push(`E:${pc.energy}`);
+        if (pc.data) costParts.push(`D:${pc.data}`);
+        if (pc.influence) costParts.push(`I:${pc.influence}`);
+        const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
+        new ConfirmPopup(
+          this, MAIN_CX, LAYOUT.resourceY,
+          `Resolve crisis?\nCost: ${costStr}`,
+          () => this.doAction({ type: "resolve-crisis", row, slotIndex })
+        );
+        return;
+      }
+
       if (slotIndex === 0) {
         // Column 0 has no preceding slots — buy directly if affordable
-        const costMod = getMarketCostModifier(this.gameState.transitMarket);
+        const costMod = getCostModifier(this.gameState, "market");
         const baseCost = slot.cardSprite.cardInstance.card.cost;
         const effectiveCost: ResourceCost = {
-          matter: (baseCost.matter ?? 0) + (costMod.matter ?? 0),
-          energy: (baseCost.energy ?? 0) + (costMod.energy ?? 0),
-          data: (baseCost.data ?? 0) + (costMod.data ?? 0),
-          influence: (baseCost.influence ?? 0) + (costMod.influence ?? 0),
+          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
+          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
+          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
+          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
         };
         if (!canAfford(this.gameState.resources, effectiveCost)) {
           this.showMessage("Can't afford this card!", "#cc4444");
@@ -294,13 +313,13 @@ export class ActiveWatchScene extends Phaser.Scene {
 
       // Affordability check (skip during purchase mode — resources are mid-investment)
       if (!this.purchaseMode) {
-        const costMod = getMarketCostModifier(this.gameState.transitMarket);
+        const costMod = getCostModifier(this.gameState, "market");
         const baseCost = slot.cardSprite.cardInstance.card.cost;
         const effectiveCost: ResourceCost = {
-          matter: (baseCost.matter ?? 0) + (costMod.matter ?? 0),
-          energy: (baseCost.energy ?? 0) + (costMod.energy ?? 0),
-          data: (baseCost.data ?? 0) + (costMod.data ?? 0),
-          influence: (baseCost.influence ?? 0) + (costMod.influence ?? 0),
+          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
+          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
+          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
+          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
         };
         slot.cardSprite.setAffordable(canAfford(this.gameState.resources, effectiveCost));
       }
@@ -472,13 +491,13 @@ export class ActiveWatchScene extends Phaser.Scene {
       const targetRow = getMarketRowById(this.gameState.transitMarket, row);
       const card = targetRow.slots[targetSlotIndex];
       if (card) {
-        const costMod = getMarketCostModifier(this.gameState.transitMarket);
+        const costMod = getCostModifier(this.gameState, "market");
         const baseCost = card.card.cost;
         const effectiveCost: ResourceCost = {
-          matter: (baseCost.matter ?? 0) + (costMod.matter ?? 0),
-          energy: (baseCost.energy ?? 0) + (costMod.energy ?? 0),
-          data: (baseCost.data ?? 0) + (costMod.data ?? 0),
-          influence: (baseCost.influence ?? 0) + (costMod.influence ?? 0),
+          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
+          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
+          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
+          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
         };
         if (!canAfford(this.gameState.resources, effectiveCost)) {
           this.showMessage("All slots invested but can't afford the card!");
@@ -556,6 +575,21 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
+      // Hit-test: sector with under-construction card? (contribute-resources)
+      const sectorHit = this.getSectorAtPosition(worldX, worldY);
+      if (sectorHit !== null) {
+        const sector = this.gameState.ship.sectors[sectorHit];
+        const constructing = sector.installedCards.find(c => c.underConstruction);
+        if (constructing) {
+          this.doAction({
+            type: "contribute-resources",
+            structureInstanceId: constructing.instanceId,
+            resources: { [resourceType]: 1 },
+          });
+          return;
+        }
+      }
+
       // Hit-test: player deck pile? (draw-extra)
       const dx = worldX - this.playerDeckPileX;
       const dy = worldY - this.playerDeckPileY;
@@ -564,7 +598,7 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
-      this.showMessage("Drop on a market slot or your deck");
+      this.showMessage("Drop on a market slot, sector, or your deck");
     };
   }
 
@@ -616,6 +650,40 @@ export class ActiveWatchScene extends Phaser.Scene {
           "Scrap this structure?",
           () => this.doAction({ type: "scrap-structure", instanceId, sectorIndex })
         );
+      };
+
+      // Left-click under-construction card → construction panel
+      sector.onConstructionClicked = (card, sectorIndex) => {
+        const sectorWorldX = sectorX;
+        const sectorWorldY = LAYOUT.sectorY;
+        const con = card.card.construction;
+        if (!con) return;
+
+        // Fast-track option
+        if (con.fastTrackable) {
+          const ftCost = con.fastTrackCost ?? {};
+          const costParts: string[] = [];
+          if (ftCost.matter) costParts.push(`M:${ftCost.matter}`);
+          if (ftCost.energy) costParts.push(`E:${ftCost.energy}`);
+          if (ftCost.data) costParts.push(`D:${ftCost.data}`);
+          if (ftCost.influence) costParts.push(`I:${ftCost.influence}`);
+          const entropy = con.fastTrackEntropy ?? 2;
+          const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
+          new ConfirmPopup(
+            this, sectorWorldX, sectorWorldY - s(80),
+            `Fast-track 1 turn? (${costStr} +${entropy} entropy)`,
+            () => this.doAction({ type: "fast-track", structureInstanceId: card.instanceId, turnsToSkip: 1 })
+          );
+        } else if (con.resourceRequirement) {
+          // Contribute 1 of any resource — simple interaction for now
+          const req = con.resourceRequirement;
+          const costParts: string[] = [];
+          if (req.matter) costParts.push(`M:${req.matter}`);
+          if (req.energy) costParts.push(`E:${req.energy}`);
+          if (req.data) costParts.push(`D:${req.data}`);
+          if (req.influence) costParts.push(`I:${req.influence}`);
+          this.showMessage(`${card.card.name} needs: ${costParts.join(" ")}. Drag resources to contribute.`);
+        }
       };
     }
   }
@@ -687,6 +755,8 @@ export class ActiveWatchScene extends Phaser.Scene {
       const type = card.card.type;
       if (type === "structure" || type === "institution") {
         this.showMessage("Drag to a sector to install");
+      } else if (type === "crew") {
+        this.showMessage("Drag to a structure to attach crew");
       } else {
         this.doAction({ type: "play-card", instanceId });
       }
@@ -704,6 +774,15 @@ export class ActiveWatchScene extends Phaser.Scene {
           const hasSpace = sector.installedCards.length < sector.maxSlots;
           this.sectorDisplays[i].setDropHighlight(true, hasSpace);
         }
+      } else if (type === "crew") {
+        // Highlight sectors that have structures (crew can attach to structures)
+        for (let i = 0; i < 3; i++) {
+          const sector = this.gameState.ship.sectors[i];
+          const hasStructures = sector.installedCards.some(
+            c => (c.card.type === "structure" || c.card.type === "institution") && !c.underConstruction
+          );
+          this.sectorDisplays[i].setDropHighlight(true, hasStructures);
+        }
       } else {
         // Highlight the play mat for action/junk play
         this.playMat.setHighlight(true);
@@ -720,6 +799,48 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.handDisplay.onCardDropped = (instanceId, worldX, worldY) => {
       const card = this.gameState.mandateDeck.hand.find(c => c.instanceId === instanceId);
       if (!card) return;
+
+      if (card.card.type === "crew") {
+        // Crew drop: find which sector, then pick best structure target
+        const sectorIdx = this.getSectorAtPosition(worldX, worldY);
+        if (sectorIdx === null) {
+          this.showMessage("Drop crew on a sector with structures");
+          return;
+        }
+        const sector = this.gameState.ship.sectors[sectorIdx];
+        const structures = sector.installedCards.filter(
+          c => (c.card.type === "structure" || c.card.type === "institution") && !c.underConstruction
+        );
+        if (structures.length === 0) {
+          this.showMessage("No completed structures in this sector");
+          return;
+        }
+        // If only one structure, attach directly. Otherwise pick closest.
+        let targetStructure = structures[0];
+        if (structures.length > 1) {
+          // Pick the structure card closest to the drop position
+          const cardScale = 0.88;
+          const sectorX = MAIN_CX + (sectorIdx - 1) * LAYOUT.sectorSpacing;
+          let bestDist = Infinity;
+          for (let i = 0; i < sector.installedCards.length; i++) {
+            const inst = sector.installedCards[i];
+            if (!structures.includes(inst)) continue;
+            const cardX = sectorX + (i - 1) * (CARD_WIDTH * cardScale + s(6));
+            const dist = Math.abs(worldX - cardX);
+            if (dist < bestDist) {
+              bestDist = dist;
+              targetStructure = inst;
+            }
+          }
+        }
+        this.doAction({
+          type: "attach-crew",
+          crewInstanceId: instanceId,
+          structureInstanceId: targetStructure.instanceId,
+          sectorIndex: sectorIdx,
+        });
+        return;
+      }
 
       const isStructureType = card.card.type === "structure" || card.card.type === "institution";
       const target = this.getDropTarget(worldX, worldY, isStructureType);
@@ -759,6 +880,18 @@ export class ActiveWatchScene extends Phaser.Scene {
       return { type: "play-zone" };
     }
 
+    return null;
+  }
+
+  /** Hit-test: which sector is at this world position? */
+  private getSectorAtPosition(worldX: number, worldY: number): number | null {
+    for (let i = 0; i < 3; i++) {
+      const sectorX = MAIN_CX + (i - 1) * LAYOUT.sectorSpacing;
+      const sectorY = LAYOUT.sectorY;
+      if (Math.abs(worldX - sectorX) < s(160) && Math.abs(worldY - sectorY) < s(100)) {
+        return i;
+      }
+    }
     return null;
   }
 
@@ -834,7 +967,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     // Phase 1: Compact
     this.animateCompact(() => {
       // Phase 2: Slide + Fallout (may loop for extra slides from hazards)
-      const extraSlides = getExtraSlideCount(this.gameState.transitMarket);
+      const extraSlides = getExtraSlideCount(this.gameState);
       const totalSlides = 1 + extraSlides;
       if (extraSlides > 0) {
         this.actionLog.addEntry(
@@ -896,6 +1029,10 @@ export class ActiveWatchScene extends Phaser.Scene {
       const slotIndex = isUpper ? i : i - MARKET_SLOTS_PER_ROW;
       const marketRow = getMarketRowById(this.gameState.transitMarket, row);
       this.marketSlots[i].setInvestment(marketRow.investments[slotIndex] ?? null);
+
+      // Passive effect: locked market slots
+      this.marketSlots[i].setLocked(isSlotLocked(this.gameState, row, slotIndex));
+
       this.wireMarketSlotInteractions(this.marketSlots[i], slotIndex, row);
     }
     this.worldDeckCountText.setText(`${this.gameState.worldDeck.drawPile.length} cards`);
@@ -1280,6 +1417,9 @@ export class ActiveWatchScene extends Phaser.Scene {
         // Update investment indicator
         const marketRow = getMarketRowById(this.gameState.transitMarket, row);
         this.marketSlots[i].setInvestment(marketRow.investments[slotIndex] ?? null);
+
+        // Passive effect: locked market slots
+        this.marketSlots[i].setLocked(isSlotLocked(this.gameState, row, slotIndex));
 
         this.wireMarketSlotInteractions(this.marketSlots[i], slotIndex, row);
       }

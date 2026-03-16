@@ -9,14 +9,16 @@ export interface ConstructionActionResult {
 
 /**
  * Check if a card instance has met all construction requirements.
+ * @param eraModifier — constructionTimeModifier from current era (default 0)
  */
-export function checkCompletion(instance: CardInstance): boolean {
+export function checkCompletion(instance: CardInstance, eraModifier: number = 0): boolean {
   const construction = instance.card.construction;
   if (!construction || !instance.underConstruction) return false;
 
-  // Time requirement
+  // Time requirement (adjusted by era modifier)
   if (construction.completionTime && construction.completionTime > 0) {
-    if ((instance.constructionProgress ?? 0) < construction.completionTime) {
+    const adjustedTime = Math.max(1, construction.completionTime + eraModifier);
+    if ((instance.constructionProgress ?? 0) < adjustedTime) {
       return false;
     }
   }
@@ -91,6 +93,7 @@ export function beginConstruction(
  */
 export function advanceAllConstruction(state: GameState): GameState {
   const s = structuredClone(state);
+  const eraModifier = s.eraModifiers?.constructionTimeModifier ?? 0;
 
   for (const sector of s.ship.sectors) {
     for (const card of sector.installedCards) {
@@ -100,8 +103,8 @@ export function advanceAllConstruction(state: GameState): GameState {
           card.constructionProgress = (card.constructionProgress ?? 0) + 1;
         }
 
-        // Check if construction is now complete
-        if (checkCompletion(card)) {
+        // Check if construction is now complete (with era modifier)
+        if (checkCompletion(card, eraModifier)) {
           completeConstruction(card);
         }
       }
@@ -152,8 +155,9 @@ export function contributeResources(
     influence: (added.influence ?? 0) + (resources.influence ?? 0),
   };
 
-  // Check completion
-  if (checkCompletion(card)) {
+  // Check completion (with era modifier)
+  const eraModifier = s.eraModifiers?.constructionTimeModifier ?? 0;
+  if (checkCompletion(card, eraModifier)) {
     completeConstruction(card);
     return { state: s, success: true, message: `${card.card.name} construction complete!` };
   }
@@ -215,8 +219,9 @@ export function fastTrack(
   // Advance progress
   card.constructionProgress = (card.constructionProgress ?? 0) + turnsToSkip;
 
-  // Check completion
-  if (checkCompletion(card)) {
+  // Check completion (with era modifier)
+  const ftEraModifier = s.eraModifiers?.constructionTimeModifier ?? 0;
+  if (checkCompletion(card, ftEraModifier)) {
     completeConstruction(card);
     return { state: s, success: true, message: `${card.card.name} fast-tracked to completion!` };
   }

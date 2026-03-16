@@ -3,8 +3,8 @@ import { canAfford, spendResources, gainResources, getMarketRowById } from "@ice
 import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
 import { acquireFromMarket, slideMarketNoRefill, compactMarket, fillMarket, investOnSlot } from "./MarketManager";
 import { resolveFallout } from "./FalloutHandler";
-import { resolveEffect } from "./EffectResolver";
-import { getMarketCostModifier, isActionDisabled, getExtraSlideCount } from "./MarketEffectResolver";
+import { resolveEffect, emitTiming } from "./EffectResolver";
+import { getCostModifier, isActionDisabled, getExtraSlideCount, isSlotLocked } from "./effects/PassiveScanner";
 import { attachCrew, reassignCrew } from "./CrewManager";
 import { advanceAllConstruction, beginConstruction, contributeResources, fastTrack } from "./ConstructionManager";
 
@@ -120,7 +120,7 @@ function playCard(state: GameState, instanceId: string): ActionResult {
   const card = cardInst.card;
 
   // Check hazard passive: action abilities disabled
-  if (card.type === "action" && isActionDisabled(s.transitMarket, "play-action")) {
+  if (card.type === "action" && isActionDisabled(s, "play-action")) {
     return { success: false, state, message: "A hazard is preventing action abilities." };
   }
 
@@ -132,13 +132,19 @@ function playCard(state: GameState, instanceId: string): ActionResult {
 
   if (card.resourceGain) {
     let gain = { ...card.resourceGain };
-    if (isActionDisabled(s.transitMarket, "gain-influence") && gain.influence) {
+    if (isActionDisabled(s, "gain-influence") && gain.influence) {
       gain = { ...gain, influence: 0 };
     }
     s.resources = gainResources(s.resources, gain);
   }
 
   s.mandateDeck = discardFromHand(s.mandateDeck, instanceId);
+
+  // Fire on-discard effects from the discarded card
+  for (const effect of card.effects.filter((e) => e.timing === "on-discard")) {
+    const discardResult = resolveEffect(s, effect, cardInst);
+    s = discardResult.state;
+  }
 
   // Execute on-play effects mechanically
   const effectMessages: string[] = [];
@@ -165,15 +171,21 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
     return { success: false, state, message: "Empty market slot." };
   }
 
+  // Check if slot is locked by a passive effect
+  const marketRow = rowId === "upper" ? "upper" : "lower";
+  if (isSlotLocked(s, marketRow, slotIndex)) {
+    return { success: false, state, message: "This market slot is locked by a passive effect." };
+  }
+
   // Investment gating is handled by the scene's purchase mode session tracking.
   // Calculate effective cost with hazard modifiers
-  const costModifier = getMarketCostModifier(s.transitMarket);
+  const costModifier = getCostModifier(s, "market");
   const baseCost = slot.card.cost;
   const effectiveCost: ResourceCost = {
-    matter: (baseCost.matter ?? 0) + (costModifier.matter ?? 0),
-    energy: (baseCost.energy ?? 0) + (costModifier.energy ?? 0),
-    data: (baseCost.data ?? 0) + (costModifier.data ?? 0),
-    influence: (baseCost.influence ?? 0) + (costModifier.influence ?? 0),
+    matter: Math.max(0, (baseCost.matter ?? 0) + (costModifier.matter ?? 0)),
+    energy: Math.max(0, (baseCost.energy ?? 0) + (costModifier.energy ?? 0)),
+    data: Math.max(0, (baseCost.data ?? 0) + (costModifier.data ?? 0)),
+    influence: Math.max(0, (baseCost.influence ?? 0) + (costModifier.influence ?? 0)),
   };
 
   if (!canAfford(s.resources, effectiveCost)) {
@@ -186,7 +198,7 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
   s.transitMarket = result.market;
 
   const cardType = slot.card.type;
-  const isHazardOrEvent = cardType === "hazard" || cardType === "event";
+  const isHazardOrEvent = cardType === "hazard" || cardType === "event" || cardType === "crisis";
 
   if (result.card) {
     if (isHazardOrEvent) {
@@ -276,14 +288,14 @@ function slotStructure(
     return { success: false, state, message: "Only structures and institutions can be slotted." };
   }
 
-  // Hazard modifiers for slotting cost
-  const costModifier = getMarketCostModifier(s.transitMarket);
+  // Cost modifiers for slotting (from hazards + tableau passives)
+  const costModifier = getCostModifier(s, "structures");
   const baseCost = cardInst.card.cost;
   const effectiveCost: ResourceCost = {
-    matter: (baseCost.matter ?? 0),
-    energy: (baseCost.energy ?? 0) + (costModifier.energy ?? 0),
-    data: (baseCost.data ?? 0),
-    influence: (baseCost.influence ?? 0),
+    matter: Math.max(0, (baseCost.matter ?? 0) + (costModifier.matter ?? 0)),
+    energy: Math.max(0, (baseCost.energy ?? 0) + (costModifier.energy ?? 0)),
+    data: Math.max(0, (baseCost.data ?? 0) + (costModifier.data ?? 0)),
+    influence: Math.max(0, (baseCost.influence ?? 0) + (costModifier.influence ?? 0)),
   };
 
   if (!canAfford(s.resources, effectiveCost)) {
@@ -364,7 +376,7 @@ function drawExtra(
   state: GameState,
   resourceType: "matter" | "energy" | "data" | "influence"
 ): ActionResult {
-  if (isActionDisabled(state.transitMarket, "draw-extra")) {
+  if (isActionDisabled(state, "draw-extra")) {
     return { success: false, state, message: "A hazard is preventing extra draws." };
   }
 
@@ -395,7 +407,7 @@ function endTurn(state: GameState): ActionResult {
   s.transitMarket = compactMarket(s.transitMarket);
 
   // 2. Slide (no refill) — leftmost card falls out
-  const extraSlides = getExtraSlideCount(s.transitMarket);
+  const extraSlides = getExtraSlideCount(s);
   const eraSlideModifier = s.eraModifiers?.marketSlideModifier ?? 0;
   const totalSlides = Math.max(0, s.rules.baseSlidesPerTurn + extraSlides + eraSlideModifier);
 

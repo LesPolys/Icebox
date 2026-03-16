@@ -40,6 +40,8 @@ import {
 import { createCardInstance } from "./GameStateManager";
 import { checkDefeat, checkVictory } from "./VictoryConditions";
 import { applyEraTransition } from "./EraEngine";
+import { emitTiming, resolveEffect } from "./effects/EffectRegistry";
+import { getDamageReduction } from "./effects/PassiveScanner";
 
 /**
  * Core cryosleep algorithm. Pure logic — no Phaser imports.
@@ -124,6 +126,12 @@ export function executeCryosleep(
       cycle,
       data: { cycleNumber: cycle + 1, totalCycles: sleepDuration },
     });
+
+    // ═══════════════════════════════════════════
+    // PHASE 0: ON-SLEEP TRIGGERS
+    // ═══════════════════════════════════════════
+    const sleepResult = emitTiming(currentState, "on-sleep");
+    currentState = sleepResult.state;
 
     // ═══════════════════════════════════════════
     // PHASE 1: ENTROPY BREAKPOINT CHECK
@@ -269,9 +277,17 @@ export function executeCryosleep(
     // ═══════════════════════════════════════════
     const prevEntropy = currentState.entropy;
     currentState.entropy += ENTROPY_PER_SLEEP_CYCLE;
+    // Apply era maintenance cost modifier to resource drain
+    const maintenanceMod = currentState.eraModifiers?.maintenanceCostModifier ?? 1;
+    const scaledDrain = {
+      matter: Math.round((RESOURCE_DRAIN_PER_CYCLE.matter ?? 0) * maintenanceMod),
+      energy: Math.round((RESOURCE_DRAIN_PER_CYCLE.energy ?? 0) * maintenanceMod),
+      data: Math.round((RESOURCE_DRAIN_PER_CYCLE.data ?? 0) * maintenanceMod),
+      influence: Math.round((RESOURCE_DRAIN_PER_CYCLE.influence ?? 0) * maintenanceMod),
+    };
     currentState.resources = drainResources(
       currentState.resources,
-      RESOURCE_DRAIN_PER_CYCLE
+      scaledDrain
     );
     currentState.totalSleepCycles++;
     currentState.yearsPassed += YEARS_PER_SLEEP;
@@ -299,6 +315,12 @@ export function executeCryosleep(
         data: { prevEra, newEra: currentState.era, modifiers: { ...currentState.eraModifiers } },
       });
     }
+
+    // ═══════════════════════════════════════════
+    // PHASE 8: ON-WAKE TRIGGERS
+    // ═══════════════════════════════════════════
+    const wakeResult = emitTiming(currentState, "on-wake");
+    currentState = wakeResult.state;
 
     // Update ship presence
     currentState.ship = updateShipPresence(currentState.ship);
@@ -405,7 +427,7 @@ function processEntropyBreakpoints(
       }
       case "structural-warnings": {
         // Hull stress: add junk to mandate deck
-        const hullBreachDef = allCardDefs.find((c) => c.id === "jk-001");
+        const hullBreachDef = allCardDefs.find((c) => c.id === "jk-hull-01");
         if (hullBreachDef) {
           const junkInst = createCardInstance(hullBreachDef);
           junkInst.zone = "mandate-deck";
@@ -415,7 +437,9 @@ function processEntropyBreakpoints(
       }
       case "critical-failure": {
         // Cascading failure: hull damage + junk + depower all
-        const hullDamage = s.rules.hullDamagePerJunk * 2;
+        const rawDamage = s.rules.hullDamagePerJunk * 2;
+        const damageReduction = getDamageReduction(s);
+        const hullDamage = Math.max(0, rawDamage - damageReduction);
         s.hullIntegrity = Math.max(0, s.hullIntegrity - hullDamage);
         events.push({
           type: "hull-damage",
@@ -476,8 +500,14 @@ function processAgingPhase(
   allDeaths.push(...worldResult.deaths);
   s.worldDeck.drawPile = worldResult.survivors;
 
-  // Process death outcomes
+  // Process death outcomes — fire on-death triggers, then apply outcomes
+  let ds = s;
   for (const death of allDeaths) {
+    // Fire on-death effects from the dying card before applying outcome
+    for (const effect of death.card.card.effects.filter((e) => e.timing === "on-death")) {
+      const deathEffResult = resolveEffect(ds, effect, death.card);
+      ds = deathEffResult.state;
+    }
     switch (death.outcome) {
       case "transform": {
         if (death.transformInto) {
@@ -485,12 +515,10 @@ function processAgingPhase(
           if (transformDef) {
             const newInst = createCardInstance(transformDef);
             newInst.zone = death.card.zone;
-            // Put transformed card where the dead card was
             if (death.card.zone === "mandate-deck" || death.card.zone === "hand" || death.card.zone === "discard") {
-              s.mandateDeck.discardPile.push(newInst);
+              ds.mandateDeck.discardPile.push(newInst);
             } else if (death.card.zone === "tableau") {
-              // Find the sector and add it
-              for (const sector of s.ship.sectors) {
+              for (const sector of ds.ship.sectors) {
                 if (cardSectorMap.get(death.card.instanceId) === sector.index) {
                   sector.installedCards.push(newInst);
                   break;
@@ -499,23 +527,23 @@ function processAgingPhase(
             }
           }
         }
-        s.graveyard.cards.push(death.card);
+        ds.graveyard.cards.push(death.card);
         break;
       }
       case "return-to-vault": {
         death.card.zone = "vault";
-        s.vault.cards.push(death.card);
+        ds.vault.cards.push(death.card);
         break;
       }
       case "destroy": {
         death.card.zone = "graveyard";
-        s.graveyard.cards.push(death.card);
+        ds.graveyard.cards.push(death.card);
         break;
       }
     }
   }
 
-  return { deaths: allDeaths, newState: s };
+  return { deaths: allDeaths, newState: ds };
 }
 
 function addFromVault(

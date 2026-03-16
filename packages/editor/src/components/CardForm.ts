@@ -226,9 +226,9 @@ export class CardForm {
           <div class="form-field">
             <label>Sector</label>
             <select data-field="location.sector">
-              <option value="0" ${c.location?.sector === 0 ? "selected" : ""}>0 — Engineering Core</option>
-              <option value="1" ${c.location?.sector === 1 ? "selected" : ""}>1 — Habitat Rings</option>
-              <option value="2" ${c.location?.sector === 2 ? "selected" : ""}>2 — Biosphere Sectors</option>
+              <option value="0" ${c.location?.sector === 0 ? "selected" : ""}>0 — Engineering Bay</option>
+              <option value="1" ${c.location?.sector === 1 ? "selected" : ""}>1 — Habitat Ring</option>
+              <option value="2" ${c.location?.sector === 2 ? "selected" : ""}>2 — Command Deck</option>
             </select>
           </div>
           <div class="form-field">

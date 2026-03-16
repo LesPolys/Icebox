@@ -76,37 +76,34 @@ export function resolveFallout(
   }
 
   // Determine card fate based on type
-  const isDestroyable = cardType === "hazard" || cardType === "event";
+  const isDestroyable = cardType === "hazard" || cardType === "event" || cardType === "crisis";
+
+  const s = structuredClone(current);
+  const hazardData = falloutCard.card.hazard;
 
   if (isDestroyable) {
     // Hazards and events are destroyed on fallout (or returned to vault based on hazard data)
-    const s = structuredClone(current);
-    const hazardData = falloutCard.card.hazard;
-
     if (hazardData?.onBuy === "return-to-vault") {
-      // Return to vault
       falloutCard.zone = "vault";
       s.vault.cards.push(falloutCard);
       messages.push(`  ${falloutCard.card.name} returned to the Vault.`);
     } else {
-      // Destroy
       falloutCard.zone = "graveyard";
       s.graveyard.cards.push(falloutCard);
       messages.push(`  ${falloutCard.card.name} destroyed.`);
     }
-    current = s;
   } else {
-    // Manifest cards go to discard
-    const s = structuredClone(current);
-    falloutCard.zone = "discard";
-    s.mandateDeck.discardPile.push(falloutCard);
+    // Non-hazard/event cards that fall off the market go to graveyard.
+    // They are not added to the player's mandate deck — only purchased cards enter the deck.
+    falloutCard.zone = "graveyard";
+    s.graveyard.cards.push(falloutCard);
     if (falloutEffects.length === 0) {
       messages.push(
-        `[FALLOUT] ${falloutCard.card.name} slides off the market.`
+        `[FALLOUT] ${falloutCard.card.name} slides off the market and is lost.`
       );
     }
-    current = s;
   }
+  current = s;
 
   return {
     state: current,

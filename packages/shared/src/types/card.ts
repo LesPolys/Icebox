@@ -11,7 +11,8 @@ export type CardType =
   | "event"         // triggered from market fallout or sleep
   | "hazard"        // market parasite: passive negative while in market, buy=fix, fallout=catastrophe
   | "junk"          // negative card (hull breach, tech decay, factional coup)
-  | "crew";         // attachment card played onto structures, has stress system
+  | "crew"          // attachment card played onto structures, has stress system
+  | "crisis";       // triggers cryosleep — proactive (pay cost) or reactive (fallout penalty)
 
 export type CardTier = 1 | 2 | 3; // 1=basic, 2=advanced, 3=legendary
 

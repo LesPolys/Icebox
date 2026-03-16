@@ -120,6 +120,18 @@ export class BootScene extends Phaser.Scene {
     junkGfx.generateTexture("card-junk", cardW, cardH);
     junkGfx.destroy();
 
+    // Crisis card (red tint — danger/urgency)
+    const crisisGfx = this.add.graphics();
+    crisisGfx.fillStyle(NUM.midnightViolet, 1);
+    crisisGfx.fillRoundedRect(0, 0, cardW, cardH, r);
+    crisisGfx.fillStyle(0xcc3333, 0.35);
+    crisisGfx.fillRoundedRect(0, 0, cardW, headerH, { tl: r, tr: r, bl: 0, br: 0 });
+    crisisGfx.lineStyle(lw, 0xcc3333, 1);
+    crisisGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-crisis");
+    crisisGfx.generateTexture("card-crisis", cardW, cardH);
+    crisisGfx.destroy();
+
     // Empty slot
     const emptyGfx = this.add.graphics();
     emptyGfx.fillStyle(NUM.midnightViolet, 0.3);
