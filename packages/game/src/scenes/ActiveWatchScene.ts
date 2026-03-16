@@ -23,6 +23,7 @@ import { EntropyGauge } from "../ui/EntropyGauge";
 import { EraDisplay } from "../ui/EraDisplay";
 import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
+import { SuccessionScene } from "./SuccessionScene";
 import { MAIN_CX, LAYOUT, s, fontSize } from "../ui/layout";
 
 export class ActiveWatchScene extends Phaser.Scene {
@@ -1173,6 +1174,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     const slideResult = slideMarketNoRefill(this.gameState.transitMarket);
     this.gameState.transitMarket = slideResult.market;
 
+    let reactiveSleep = false;
     for (const falloutData of [slideResult.upperFallout, slideResult.lowerFallout]) {
       if (falloutData.card) {
         const fr = resolveFallout(this.gameState, falloutData.card);
@@ -1181,7 +1183,17 @@ export class ActiveWatchScene extends Phaser.Scene {
           this.showMessage(msg);
           this.actionLog.addEntry(msg, HEX.eggshell);
         }
+        if (fr.triggersReactiveSleep) reactiveSleep = true;
       }
+    }
+
+    // Reactive cryosleep: crisis card fell off the market
+    if (reactiveSleep) {
+      this.gameState.phase = "succession";
+      this.time.delayedCall(1200, () => {
+        this.scene.start(SuccessionScene.KEY, { gameState: this.gameState, cardDefs: this.cardDefs });
+      });
+      return;
     }
 
     for (const claim of slideResult.claimedInvestments) {
@@ -1391,6 +1403,13 @@ export class ActiveWatchScene extends Phaser.Scene {
           .map(c => c.instanceId)
       );
       this.animateDrawToHand(newCards);
+
+      // Check for phase transition to succession (triggered by crisis resolution)
+      if (this.gameState.phase === "succession") {
+        this.time.delayedCall(600, () => {
+          this.scene.start(SuccessionScene.KEY, { gameState: this.gameState, cardDefs: this.cardDefs });
+        });
+      }
     }
   }
 
