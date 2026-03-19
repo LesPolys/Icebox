@@ -7,8 +7,6 @@ import type {
 } from "@icebox/shared";
 import {
   ALL_FACTION_IDS,
-  ENTROPY_BREAKPOINTS,
-  ENTROPY_PER_SLEEP_CYCLE,
   RESOURCE_DRAIN_PER_CYCLE,
   DOMINANT_FACTION_CARDS_PER_CYCLE,
   WEAKEST_FACTION_REMOVAL_PER_CYCLE,
@@ -41,7 +39,6 @@ import { createCardInstance } from "./GameStateManager";
 import { checkDefeat, checkVictory } from "./VictoryConditions";
 import { applyEraTransition } from "./EraEngine";
 import { emitTiming, resolveEffect } from "./effects/EffectRegistry";
-import { getDamageReduction } from "./effects/PassiveScanner";
 
 /**
  * Core cryosleep algorithm. Pure logic — no Phaser imports.
@@ -55,14 +52,12 @@ import { getDamageReduction } from "./effects/PassiveScanner";
 
 export type CryosleepEventType =
   | "cycle-start"
-  | "entropy-breakpoint"
   | "market-flush"
   | "world-score"
   | "transformation-add"
   | "transformation-remove"
   | "card-death"
   | "card-transform"
-  | "entropy-escalation"
   | "resource-drain"
   | "hull-damage"
   | "global-law-set"
@@ -134,12 +129,7 @@ export function executeCryosleep(
     currentState = sleepResult.state;
 
     // ═══════════════════════════════════════════
-    // PHASE 1: ENTROPY BREAKPOINT CHECK
-    // ═══════════════════════════════════════════
-    currentState = processEntropyBreakpoints(currentState, cycle, events, allCardDefinitions);
-
-    // ═══════════════════════════════════════════
-    // PHASE 2: THE FLUSH (Market → World Score)
+    // PHASE 1: THE FLUSH (Market → World Score)
     // ═══════════════════════════════════════════
     const { flushedCards: marketCards, market: emptyMarket } = flushMarket(
       currentState.transitMarket
@@ -165,7 +155,7 @@ export function executeCryosleep(
     });
 
     // ═══════════════════════════════════════════
-    // PHASE 3: THE TRANSFORMATION
+    // PHASE 2: THE TRANSFORMATION
     // ═══════════════════════════════════════════
     const dominant = resolveDominant(worldScore, currentState.worldDeck.drawPile);
     const weakest = resolveWeakest(worldScore, currentState.worldDeck.drawPile);
@@ -246,7 +236,7 @@ export function executeCryosleep(
     currentState.worldDeck = fillResult.worldDeck;
 
     // ═══════════════════════════════════════════
-    // PHASE 4: AGING TICK
+    // PHASE 3: AGING TICK
     // ═══════════════════════════════════════════
     const agingResult = processAgingPhase(currentState, allCardDefinitions);
     totalDeaths += agingResult.deaths.length;
@@ -268,16 +258,13 @@ export function executeCryosleep(
     currentState = agingResult.newState;
 
     // ═══════════════════════════════════════════
-    // PHASE 5: CREW MORTALITY
+    // PHASE 4: CREW MORTALITY
     // ═══════════════════════════════════════════
     currentState = processCrewMortality(currentState, cycle, events, crewFatePlan, allCardDefinitions);
 
     // ═══════════════════════════════════════════
-    // PHASE 6: ENTROPY ESCALATION
+    // PHASE 5: RESOURCE DRAIN & TIME PASSAGE
     // ═══════════════════════════════════════════
-    const prevEntropy = currentState.entropy;
-    currentState.entropy += ENTROPY_PER_SLEEP_CYCLE;
-    // Apply era maintenance cost modifier to resource drain
     const maintenanceMod = currentState.eraModifiers?.maintenanceCostModifier ?? 1;
     const scaledDrain = {
       matter: Math.round((RESOURCE_DRAIN_PER_CYCLE.matter ?? 0) * maintenanceMod),
@@ -293,18 +280,13 @@ export function executeCryosleep(
     currentState.yearsPassed += YEARS_PER_SLEEP;
 
     events.push({
-      type: "entropy-escalation",
-      cycle,
-      data: { prevEntropy, newEntropy: currentState.entropy },
-    });
-    events.push({
       type: "resource-drain",
       cycle,
       data: { newResources: { ...currentState.resources } },
     });
 
     // ═══════════════════════════════════════════
-    // PHASE 7: ERA TRANSITION
+    // PHASE 6: ERA TRANSITION
     // ═══════════════════════════════════════════
     const prevEra = currentState.era;
     currentState = applyEraTransition(currentState);
@@ -317,7 +299,7 @@ export function executeCryosleep(
     }
 
     // ═══════════════════════════════════════════
-    // PHASE 8: ON-WAKE TRIGGERS
+    // PHASE 7: ON-WAKE TRIGGERS
     // ═══════════════════════════════════════════
     const wakeResult = emitTiming(currentState, "on-wake");
     currentState = wakeResult.state;
@@ -373,86 +355,6 @@ export function executeCryosleep(
 }
 
 // ─── Phase Implementations ───────────────────────────────────────────
-
-/**
- * Evaluate the unified entropy gauge against breakpoints.
- * Each crossed breakpoint triggers deterministic consequences.
- */
-function processEntropyBreakpoints(
-  state: GameState,
-  cycle: number,
-  events: CryosleepEvent[],
-  allCardDefs: Card[]
-): GameState {
-  const s = state;
-  const entropy = s.entropy;
-
-  for (const bp of ENTROPY_BREAKPOINTS) {
-    if (entropy < bp.threshold) break; // breakpoints are ordered, stop once we're below
-
-    events.push({
-      type: "entropy-breakpoint",
-      cycle,
-      data: { threshold: bp.threshold, effect: bp.effect, description: bp.description },
-    });
-
-    switch (bp.effect) {
-      case "minor-decay": {
-        // Minor structural wear: depower 1 lowest-priority card
-        for (const sector of s.ship.sectors) {
-          const powered = sector.installedCards
-            .filter((c) => c.powered && !c.underConstruction)
-            .sort((a, b) => a.card.cryosleep.survivalPriority - b.card.cryosleep.survivalPriority);
-          if (powered.length > 0) {
-            powered[0].powered = false;
-            break;
-          }
-        }
-        break;
-      }
-      case "power-fluctuations": {
-        // Power grid unstable: depower 2 more cards
-        let depowered = 0;
-        for (const sector of s.ship.sectors) {
-          const powered = sector.installedCards
-            .filter((c) => c.powered && !c.underConstruction)
-            .sort((a, b) => a.card.cryosleep.survivalPriority - b.card.cryosleep.survivalPriority);
-          for (const card of powered) {
-            if (depowered >= 2) break;
-            card.powered = false;
-            depowered++;
-          }
-        }
-        break;
-      }
-      case "structural-warnings": {
-        // Hull stress: add junk to mandate deck
-        const hullBreachDef = allCardDefs.find((c) => c.id === "jk-hull-01");
-        if (hullBreachDef) {
-          const junkInst = createCardInstance(hullBreachDef);
-          junkInst.zone = "mandate-deck";
-          s.mandateDeck.drawPile.push(junkInst);
-        }
-        break;
-      }
-      case "critical-failure": {
-        // Cascading failure: hull damage + junk + depower all
-        const rawDamage = s.rules.hullDamagePerJunk * 2;
-        const damageReduction = getDamageReduction(s);
-        const hullDamage = Math.max(0, rawDamage - damageReduction);
-        s.hullIntegrity = Math.max(0, s.hullIntegrity - hullDamage);
-        events.push({
-          type: "hull-damage",
-          cycle,
-          data: { hullIntegrity: s.hullIntegrity, damage: hullDamage },
-        });
-        break;
-      }
-    }
-  }
-
-  return s;
-}
 
 function processAgingPhase(
   state: GameState,

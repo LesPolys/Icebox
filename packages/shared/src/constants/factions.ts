@@ -41,7 +41,7 @@ export const FACTIONS: Record<string, FactionDefinition> = {
     color: "#2196f3",
     description: "Keepers of mission parameters and original Earth knowledge. Precision above all.",
     mechanicalIdentity: "Market Locking, Mission Compliance, Precision",
-    sectorRule: "Cards in this sector cannot be removed by entropy effects",
+    sectorRule: "Cards in this sector cannot be removed by decay effects",
     sectorAffinity: [0], // Engineering Bay
     globalLaw: { description: "Data Compliance Protocol: Tech Decay threshold +2, but draw 1 fewer card per turn.", effectId: "gl-archival-core" },
   },

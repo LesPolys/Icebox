@@ -33,19 +33,9 @@ export function resolveFallout(
   // Check if this is a crisis card — triggers reactive cryosleep
   if (falloutCard.card.crisis?.isCrisis) {
     triggersReactiveSleep = true;
-    const penalty = falloutCard.card.crisis.reactiveEntropyPenalty ?? 0;
-    if (penalty > 0) {
-      const s = structuredClone(current);
-      s.entropy = Math.min(s.maxEntropy, s.entropy + penalty);
-      current = s;
-      messages.push(
-        `[CRISIS] ${falloutCard.card.name} triggers reactive cryosleep! Entropy +${penalty} (now ${current.entropy}).`
-      );
-    } else {
-      messages.push(
-        `[CRISIS] ${falloutCard.card.name} triggers reactive cryosleep!`
-      );
-    }
+    messages.push(
+      `[CRISIS] ${falloutCard.card.name} triggers reactive cryosleep!`
+    );
   }
 
   // Get on-fallout effects

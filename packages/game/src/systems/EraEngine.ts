@@ -1,5 +1,5 @@
 import type { GameState, EraState, EraModifiers, ResourceTotals } from "@icebox/shared";
-import { ERA_MODIFIERS, ERA_TRANSITION_THRESHOLDS, totalResourceCost } from "@icebox/shared";
+import { ERA_MODIFIERS, ERA_TRANSITION_THRESHOLDS } from "@icebox/shared";
 
 /**
  * Calculate total resource reserves as a single number.
@@ -9,36 +9,29 @@ function totalReserves(resources: ResourceTotals): number {
 }
 
 /**
- * Determine the new Era state based on current reserves and entropy.
- * All eras are reachable from any other era.
- * Transition rules:
- *   Zenith:     High Reserves + Low Entropy
- *   Unraveling: Low Reserves + Low Entropy
- *   Struggle:   Low Reserves + High Entropy
- *   Ascension:  High Reserves + High Entropy
+ * Determine the new Era state based on current reserves.
+ * Transition rules (reserves-only):
+ *   Zenith:     High Reserves
+ *   Ascension:  High Reserves, coming from Struggle
+ *   Struggle:   Low Reserves
+ *   Unraveling: Mid Reserves
  *
  * If no transition matches, the current Era persists.
  */
 export function determineEraState(
   currentEra: EraState,
-  resources: ResourceTotals,
-  entropy: number
+  resources: ResourceTotals
 ): EraState {
   const reserves = totalReserves(resources);
   const t = ERA_TRANSITION_THRESHOLDS;
 
   const highReserves = reserves >= t.highReserves;
   const lowReserves = reserves <= t.lowReserves;
-  const highEntropy = entropy >= t.highEntropy;
-  const lowEntropy = entropy <= t.lowEntropy;
 
-  if (highReserves && lowEntropy) return "Zenith";
-  if (lowReserves && lowEntropy) return "Unraveling";
-  if (lowReserves && highEntropy) return "Struggle";
-  if (highReserves && highEntropy) return "Ascension";
-
-  // No transition — stay in current era
-  return currentEra;
+  if (highReserves && currentEra === "Struggle") return "Ascension";
+  if (highReserves) return "Zenith";
+  if (lowReserves) return "Struggle";
+  return "Unraveling";
 }
 
 /**
@@ -54,7 +47,7 @@ export function getEraModifiers(era: EraState): EraModifiers {
  */
 export function applyEraTransition(state: GameState): GameState {
   const s = structuredClone(state);
-  const newEra = determineEraState(s.era, s.resources, s.entropy);
+  const newEra = determineEraState(s.era, s.resources);
   s.era = newEra;
   s.eraModifiers = getEraModifiers(newEra);
   return s;

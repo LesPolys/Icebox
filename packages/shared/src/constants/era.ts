@@ -26,17 +26,13 @@ export const ERA_MODIFIERS: Record<EraState, EraModifiers> = {
 
 /** Thresholds for Era state transitions.
  * "High" reserves = total resources >= this value.
- * "High" entropy = entropy gauge >= this value.
+ * Eras are now determined solely by resource levels.
  */
 export const ERA_TRANSITION_THRESHOLDS = {
   /** Total resource sum considered "high reserves" */
   highReserves: 16,
   /** Total resource sum considered "low reserves" */
   lowReserves: 10,
-  /** Entropy value considered "high entropy" */
-  highEntropy: 20,
-  /** Entropy value considered "low entropy" */
-  lowEntropy: 10,
 };
 
 /** Default starting era for a new game */

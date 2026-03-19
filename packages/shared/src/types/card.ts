@@ -48,14 +48,10 @@ export interface CrewData {
 export interface ConstructionData {
   /** Turns to auto-complete. 0 or undefined = no time requirement */
   completionTime?: number;
-  /** Resources that must be contributed to complete construction */
-  resourceRequirement?: ResourceCost;
   /** Whether this structure can be fast-tracked */
   fastTrackable: boolean;
   /** Resource cost per turn skipped via fast-track */
   fastTrackCost?: ResourceCost;
-  /** Entropy generated per turn skipped via fast-track */
-  fastTrackEntropy?: number;
 }
 
 // ─── Crisis System ──────────────────────────────────────────────────
@@ -65,8 +61,6 @@ export interface CrisisData {
   isCrisis: boolean;
   /** Cost to proactively resolve the crisis (sleep on your terms) */
   proactiveCost?: ResourceCost;
-  /** Entropy added when crisis forces reactive sleep (slot 0 fallout) */
-  reactiveEntropyPenalty?: number;
 }
 
 // ─── Effect System ───────────────────────────────────────────────────
@@ -94,8 +88,6 @@ export type EffectType =
   | "modify-cost"
   | "shift-faction"
   | "lock-market-slot"
-  | "modify-entropy"
-  | "reduce-entropy"
   | "extend-lifespan"
   | "gain-presence"
   | "prevent-damage"
@@ -117,8 +109,7 @@ export interface EffectCondition {
     | "resource-threshold"
     | "sector-control"
     | "card-in-tableau"
-    | "sleep-count"
-    | "entropy-above";
+    | "sleep-count";
   params: Record<string, unknown>;
 }
 
@@ -242,6 +233,9 @@ export interface Card {
   /** Crisis trigger data (for event/hazard cards that trigger cryosleep) */
   crisis?: CrisisData;
 
+  /** Tap/activate effect — triggered when this card is tapped via energy resource action */
+  tapEffect?: CardEffect;
+
   flavorText?: string;
 
   /** Editor-only notes, stripped in production builds */
@@ -274,8 +268,10 @@ export interface CardInstance {
   underConstruction?: boolean;
   /** Turns of construction progress elapsed */
   constructionProgress?: number;
-  /** Resources contributed toward construction so far */
-  constructionResourcesAdded?: ResourceCost;
+
+  // ─── Tap state (for energy resource action) ───────────────────
+  /** Whether this card has been tapped this turn */
+  tapped?: boolean;
 }
 
 export type CardZone =

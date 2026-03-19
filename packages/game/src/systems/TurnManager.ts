@@ -1,12 +1,13 @@
 import type { GameState, CardInstance, ResourceCost, MarketRowId } from "@icebox/shared";
 import { canAfford, spendResources, gainResources, getMarketRowById } from "@icebox/shared";
-import { drawCards, discardFromHand, addToDiscard } from "./DeckManager";
+import { drawCards, discardFromHand, addToBottomOfDeck } from "./DeckManager";
 import { acquireFromMarket, slideMarketNoRefill, compactMarket, fillMarket, investOnSlot } from "./MarketManager";
 import { resolveFallout } from "./FalloutHandler";
 import { resolveEffect, emitTiming } from "./EffectResolver";
 import { getCostModifier, isActionDisabled, getExtraSlideCount, isSlotLocked } from "./effects/PassiveScanner";
 import { attachCrew, reassignCrew } from "./CrewManager";
-import { advanceAllConstruction, beginConstruction, contributeResources, fastTrack } from "./ConstructionManager";
+import { advanceAllConstruction, beginConstruction, fastTrack } from "./ConstructionManager";
+import { extractResourceActions, type PendingResourceActionGroup } from "./ResourceActionManager";
 
 /**
  * Pure logic for managing the Active Watch turn flow.
@@ -14,14 +15,13 @@ import { advanceAllConstruction, beginConstruction, contributeResources, fastTra
 
 export type PlayerAction =
   | { type: "play-card"; instanceId: string }
-  | { type: "buy-from-market"; row: MarketRowId; slotIndex: number }
+  | { type: "buy-from-market"; row: MarketRowId; slotIndex: number; payment: ResourceCost }
   | { type: "invest"; row: MarketRowId; slotIndex: number; resource: ResourceCost }
   | { type: "slot-structure"; instanceId: string; sectorIndex: number }
   | { type: "scrap-structure"; instanceId: string; sectorIndex: number }
   | { type: "draw-extra"; resourceType: "matter" | "energy" | "data" | "influence" }
   | { type: "attach-crew"; crewInstanceId: string; structureInstanceId: string; sectorIndex: number }
   | { type: "reassign-crew"; crewInstanceId: string; newStructureInstanceId: string; newSectorIndex: number }
-  | { type: "contribute-resources"; structureInstanceId: string; resources: ResourceCost }
   | { type: "fast-track"; structureInstanceId: string; turnsToSkip: number }
   | { type: "resolve-crisis"; row: MarketRowId; slotIndex: number }
   | { type: "pass" };
@@ -31,6 +31,8 @@ export interface ActionResult {
   state: GameState;
   message: string;
   effectsTriggered?: string[];
+  /** Pending resource actions that need player resolution (from falloff or purchase) */
+  pendingResourceActions?: PendingResourceActionGroup[];
 }
 
 /**
@@ -52,10 +54,11 @@ export function startTurn(state: GameState): StartTurnResult {
   const drawResult = drawCards(s.mandateDeck, drawCount);
   s.mandateDeck = drawResult.deck;
 
-  // Re-power all tableau cards at turn start
+  // Re-power and untap all tableau cards at turn start
   for (const sector of s.ship.sectors) {
     for (const card of sector.installedCards) {
       card.powered = true;
+      card.tapped = false;
     }
   }
 
@@ -76,7 +79,7 @@ export function executeAction(
     case "play-card":
       return playCard(state, action.instanceId);
     case "buy-from-market":
-      return buyFromMarket(state, action.row, action.slotIndex);
+      return buyFromMarket(state, action.row, action.slotIndex, action.payment);
     case "invest":
       return investAction(state, action.row, action.slotIndex, action.resource);
     case "slot-structure":
@@ -91,10 +94,6 @@ export function executeAction(
     }
     case "reassign-crew": {
       const r = reassignCrew(state, action.crewInstanceId, action.newStructureInstanceId, action.newSectorIndex);
-      return { success: r.success, state: r.state, message: r.message };
-    }
-    case "contribute-resources": {
-      const r = contributeResources(state, action.structureInstanceId, action.resources);
       return { success: r.success, state: r.state, message: r.message };
     }
     case "fast-track": {
@@ -162,7 +161,14 @@ function playCard(state: GameState, instanceId: string): ActionResult {
   };
 }
 
-function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number): ActionResult {
+/**
+ * Buy a card from the market. Cost = column index (slot 0 = free, slot 1 = 1 resource, etc.).
+ * Player chooses which resource types to pay via the `payment` parameter.
+ * The total resources in `payment` must equal `slotIndex`.
+ * If the card has investments on it, those generate pending resource actions.
+ * Bought cards go to the bottom of the draw pile (not discard).
+ */
+function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number, payment: ResourceCost): ActionResult {
   let s = structuredClone(state);
   const row = getMarketRowById(s.transitMarket, rowId);
   const slot = row.slots[slotIndex];
@@ -177,22 +183,23 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
     return { success: false, state, message: "This market slot is locked by a passive effect." };
   }
 
-  // Investment gating is handled by the scene's purchase mode session tracking.
-  // Calculate effective cost with hazard modifiers
-  const costModifier = getCostModifier(s, "market");
-  const baseCost = slot.card.cost;
-  const effectiveCost: ResourceCost = {
-    matter: Math.max(0, (baseCost.matter ?? 0) + (costModifier.matter ?? 0)),
-    energy: Math.max(0, (baseCost.energy ?? 0) + (costModifier.energy ?? 0)),
-    data: Math.max(0, (baseCost.data ?? 0) + (costModifier.data ?? 0)),
-    influence: Math.max(0, (baseCost.influence ?? 0) + (costModifier.influence ?? 0)),
-  };
+  // Positional cost: must pay exactly slotIndex resources total
+  const totalPayment = (payment.matter ?? 0) + (payment.energy ?? 0) +
+                       (payment.data ?? 0) + (payment.influence ?? 0);
+  if (totalPayment !== slotIndex) {
+    return { success: false, state, message: `Must pay exactly ${slotIndex} resources for slot ${slotIndex}.` };
+  }
 
-  if (!canAfford(s.resources, effectiveCost)) {
+  if (slotIndex > 0 && !canAfford(s.resources, payment)) {
     return { success: false, state, message: "Cannot afford this card." };
   }
 
-  s.resources = spendResources(s.resources, effectiveCost);
+  if (slotIndex > 0) {
+    s.resources = spendResources(s.resources, payment);
+  }
+
+  // Capture investment before acquiring (it gets cleared)
+  const investment = row.investments[slotIndex];
 
   const result = acquireFromMarket(s.transitMarket, rowId, slotIndex);
   s.transitMarket = result.market;
@@ -214,7 +221,8 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
         s.graveyard.cards.push(result.card);
       }
     } else {
-      s.mandateDeck = addToDiscard(s.mandateDeck, result.card);
+      // Bought cards go to bottom of draw pile
+      s.mandateDeck = addToBottomOfDeck(s.mandateDeck, result.card);
     }
   }
 
@@ -226,12 +234,26 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number):
     effectMessages.push(effResult.message);
   }
 
+  // Extract resource actions from investment on this card
+  const pendingResourceActions: PendingResourceActionGroup[] = [];
+  if (investment) {
+    const actions = extractResourceActions(investment);
+    if (actions.length > 0) {
+      pendingResourceActions.push({
+        source: "purchase",
+        cardName: slot.card.name,
+        actions,
+      });
+    }
+  }
+
   const buyVerb = isHazardOrEvent ? "Resolved" : "Acquired";
   return {
     success: true,
     state: s,
     message: `${buyVerb} ${slot.card.name} from the ${rowId} row.`,
     effectsTriggered: effectMessages,
+    pendingResourceActions: pendingResourceActions.length > 0 ? pendingResourceActions : undefined,
   };
 }
 
@@ -311,8 +333,6 @@ function slotStructure(
   // Check if structure requires construction
   if (cardInst.card.type === "structure" && cardInst.card.construction) {
     s.mandateDeck.hand.splice(cardIdx, 1);
-    // Use ConstructionManager to handle placing face-down
-    // Re-add to hand temporarily, then use beginConstruction which pulls from hand
     s.mandateDeck.hand.push(cardInst);
     const conResult = beginConstruction(s, instanceId, sectorIndex);
     return {
@@ -402,6 +422,7 @@ function drawExtra(
 function endTurn(state: GameState): ActionResult {
   let s = structuredClone(state);
   const allEffects: string[] = [];
+  const pendingResourceActions: PendingResourceActionGroup[] = [];
 
   // 1. Compact gaps — cards shift left to fill empty slots
   s.transitMarket = compactMarket(s.transitMarket);
@@ -415,12 +436,24 @@ function endTurn(state: GameState): ActionResult {
     const slideResult = slideMarketNoRefill(s.transitMarket);
     s.transitMarket = slideResult.market;
 
-    // Resolve fallout from both rows
+    // Resolve fallout from upper row first, then lower row
     for (const falloutData of [slideResult.upperFallout, slideResult.lowerFallout]) {
       if (falloutData.card) {
         const fallout = resolveFallout(s, falloutData.card);
         s = fallout.state;
         allEffects.push(...fallout.messages);
+
+        // Extract resource actions from the investment on the fallen card
+        if (falloutData.investment) {
+          const actions = extractResourceActions(falloutData.investment);
+          if (actions.length > 0) {
+            pendingResourceActions.push({
+              source: "fallout",
+              cardName: falloutData.card.card.name,
+              actions,
+            });
+          }
+        }
       }
     }
 
@@ -449,6 +482,7 @@ function endTurn(state: GameState): ActionResult {
     state: s,
     message: "Turn ended. Market slides.",
     effectsTriggered: allEffects,
+    pendingResourceActions: pendingResourceActions.length > 0 ? pendingResourceActions : undefined,
   };
 }
 
@@ -485,7 +519,7 @@ function resolveCrisis(
   slot.zone = "graveyard";
   s.graveyard.cards.push(slot);
 
-  // Trigger succession (proactive sleep — no entropy penalty)
+  // Trigger succession (proactive sleep)
   s.phase = "succession";
 
   return {

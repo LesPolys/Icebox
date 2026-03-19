@@ -55,7 +55,6 @@ export type {
 
 export type {
   GameRules,
-  EntropyBreakpoint,
   EraState,
   EraModifiers,
   GamePhase,
@@ -66,11 +65,6 @@ export type {
 export { PALETTE, HEX, NUM } from "./constants/palette.js";
 export { FACTIONS, getFaction } from "./constants/factions.js";
 export {
-  STARTING_ENTROPY,
-  MAX_ENTROPY,
-  ENTROPY_BREAKPOINTS,
-  ENTROPY_PER_SLEEP_CYCLE,
-  ENTROPY_PER_FAST_TRACK,
   RESOURCE_DRAIN_PER_CYCLE,
   MAX_SLEEP_DURATION,
   MIN_SLEEP_DURATION,

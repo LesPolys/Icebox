@@ -148,9 +148,6 @@ export function validateCard(card: unknown): ValidationError[] {
       if (con.completionTime != null && (typeof con.completionTime !== "number" || (con.completionTime as number) < 0)) {
         errors.push({ field: "construction.completionTime", message: "completionTime must be a non-negative number" });
       }
-      if (con.resourceRequirement != null && typeof con.resourceRequirement === "object") {
-        validateResourceCost(con.resourceRequirement as Record<string, unknown>, "construction.resourceRequirement", errors);
-      }
     }
   }
 
@@ -165,9 +162,6 @@ export function validateCard(card: unknown): ValidationError[] {
     if (crisis.isCrisis === true) {
       if (crisis.proactiveCost != null && typeof crisis.proactiveCost === "object") {
         validateResourceCost(crisis.proactiveCost as Record<string, unknown>, "crisis.proactiveCost", errors);
-      }
-      if (crisis.reactiveEntropyPenalty != null && (typeof crisis.reactiveEntropyPenalty !== "number" || (crisis.reactiveEntropyPenalty as number) < 0)) {
-        errors.push({ field: "crisis.reactiveEntropyPenalty", message: "reactiveEntropyPenalty must be a non-negative number" });
       }
     }
   }

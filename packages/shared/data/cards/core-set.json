@@ -366,17 +366,7 @@
       },
       "location": {
         "sector": 1,
-        "structureSlots": 5,
-        "passiveEffect": {
-          "id": "loc-hab-02-passive",
-          "timing": "passive",
-          "description": "Reduce entropy by 1 at turn start.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1,
-            "timing": "turn-start"
-          }
-        }
+        "structureSlots": 5
       },
       "flavorText": "Where people gather, the cold retreats.",
       "primaryTag": "Law",
@@ -675,17 +665,7 @@
       "tier": 1,
       "art": "art/cards/jk-hull-03.png",
       "cost": {},
-      "effects": [
-        {
-          "id": "jk-hull-03-sleep",
-          "timing": "on-sleep",
-          "description": "Increase entropy by 1 during cryosleep.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [],
       "tags": [
         "junk"
@@ -719,17 +699,7 @@
       "tier": 1,
       "art": "art/cards/jk-hull-04.png",
       "cost": {},
-      "effects": [
-        {
-          "id": "jk-hull-04-sleep",
-          "timing": "on-sleep",
-          "description": "Increase entropy by 2 during cryosleep.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [],
       "tags": [
         "junk"
@@ -1554,7 +1524,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "Feed it scrap, and it feeds you back. Simple as that."
+      "flavorText": "Feed it scrap, and it feeds you back. Simple as that.",
+      "tapEffect": {
+        "id": "vf-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1
+        }
+      }
     },
     {
       "id": "vf-s02",
@@ -1616,7 +1595,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "A crude bridge between reactors. Ugly, but it works."
+      "flavorText": "A crude bridge between reactors. Ugly, but it works.",
+      "tapEffect": {
+        "id": "vf-s02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 energy.",
+        "type": "gain-resource",
+        "params": {
+          "energy": 1
+        }
+      }
     },
     {
       "id": "vf-s03",
@@ -1675,7 +1663,21 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "What others call trash, we call inventory."
+      "flavorText": "What others call trash, we call inventory.",
+      "tapEffect": {
+        "id": "vf-s03-tap",
+        "timing": "passive",
+        "description": "Tap: Remove 1 junk from your mandate deck.",
+        "type": "remove-junk",
+        "params": {
+          "count": 1,
+          "scope": "mandate-deck"
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "vf-s04",
@@ -1750,8 +1752,7 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "flavorText": "Push it past the redline. We'll worry about tomorrow when it comes."
     },
@@ -1816,7 +1817,16 @@
         "completionTime": 1,
         "fastTrackable": false
       },
-      "flavorText": "Built to be broken down. Every death is a harvest."
+      "flavorText": "Built to be broken down. Every death is a harvest.",
+      "tapEffect": {
+        "id": "vf-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 2 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 2
+        }
+      }
     },
     {
       "id": "vf-s06",
@@ -1878,14 +1888,23 @@
         "factionWeight": 1
       },
       "construction": {
-        "completionTime": 2,
+        "completionTime": 3,
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "Layers of welded plate. Not elegant, but the void doesn't care about elegance."
+      "flavorText": "Layers of welded plate. Not elegant, but the void doesn't care about elegance.",
+      "tapEffect": {
+        "id": "vf-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Prevent 1 damage this turn.",
+        "type": "prevent-damage",
+        "params": {
+          "amount": 1,
+          "scope": "ship"
+        }
+      }
     },
     {
       "id": "vf-s07",
@@ -1970,8 +1989,7 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 3
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "All things return to the Crucible. All things are reborn."
     },
@@ -2454,17 +2472,7 @@
       "cost": {
         "matter": 2
       },
-      "effects": [
-        {
-          "id": "vf-a05-e1",
-          "timing": "on-play",
-          "description": "Spend 2 matter. Reduce entropy by 3.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 3
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "void-forged"
       ],
@@ -2664,15 +2672,6 @@
           "type": "gain-resource",
           "params": {
             "matter": 2
-          }
-        },
-        {
-          "id": "vf-e01-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 1.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
           }
         }
       ],
@@ -2903,7 +2902,16 @@
         "maxStress": 4,
         "expertAbilityDescription": "Manned structure produces +1 matter per turn."
       },
-      "flavorText": "Scarred hands. Steady grip. Born to the forge."
+      "flavorText": "Scarred hands. Steady grip. Born to the forge.",
+      "tapEffect": {
+        "id": "vf-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1
+        }
+      }
     },
     {
       "id": "vf-c02",
@@ -2956,7 +2964,17 @@
         "maxStress": 3,
         "expertAbilityDescription": "Manned structure is immune to depower effects."
       },
-      "flavorText": "She keeps the lights on when everything else goes dark."
+      "flavorText": "She keeps the lights on when everything else goes dark.",
+      "tapEffect": {
+        "id": "vf-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Extend lifespan of attached structure by 1.",
+        "type": "extend-lifespan",
+        "params": {
+          "amount": 1,
+          "scope": "attached"
+        }
+      }
     },
     {
       "id": "vf-c03",
@@ -3012,7 +3030,17 @@
         "maxStress": 5,
         "expertAbilityDescription": "Manned structure: on-sleep, remove 1 junk from mandate deck."
       },
-      "flavorText": "He reads the grain of metal the way scholars read text."
+      "flavorText": "He reads the grain of metal the way scholars read text.",
+      "tapEffect": {
+        "id": "vf-c03-tap",
+        "timing": "passive",
+        "description": "Tap: Remove 1 junk from your mandate deck.",
+        "type": "remove-junk",
+        "params": {
+          "count": 1,
+          "scope": "mandate-deck"
+        }
+      }
     },
     {
       "id": "vf-c04",
@@ -3249,7 +3277,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "A handful of soil. A whisper of green. It begins."
+      "flavorText": "A handful of soil. A whisper of green. It begins.",
+      "tapEffect": {
+        "id": "sw-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1
+        }
+      }
     },
     {
       "id": "sw-s02",
@@ -3370,7 +3407,17 @@
         "survivalPriority": 4,
         "factionWeight": 1
       },
-      "flavorText": "Beneath the floor plates, tendrils weave a silent web of life."
+      "flavorText": "Beneath the floor plates, tendrils weave a silent web of life.",
+      "tapEffect": {
+        "id": "sw-s03-tap",
+        "timing": "passive",
+        "description": "Tap: Extend lifespan of all cards in this sector by 1.",
+        "type": "extend-lifespan",
+        "params": {
+          "amount": 1,
+          "scope": "sector"
+        }
+      }
     },
     {
       "id": "sw-s04",
@@ -3443,8 +3490,7 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "flavorText": "Trees remember what the crew forgets. They grow toward the light regardless."
     },
@@ -3512,10 +3558,19 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "A sealed world within a world. Humid air, thick with the smell of earth."
+      "flavorText": "A sealed world within a world. Humid air, thick with the smell of earth.",
+      "tapEffect": {
+        "id": "sw-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter and 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1,
+          "influence": 1
+        }
+      }
     },
     {
       "id": "sw-s06",
@@ -3574,7 +3629,21 @@
         "survivalPriority": 5,
         "factionWeight": 2
       },
-      "flavorText": "Moss and vine hold what steel could not."
+      "flavorText": "Moss and vine hold what steel could not.",
+      "tapEffect": {
+        "id": "sw-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Prevent 1 damage to cards in this sector.",
+        "type": "prevent-damage",
+        "params": {
+          "amount": 1,
+          "scope": "sector"
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "sw-s07",
@@ -3652,8 +3721,7 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 3
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "They say if you press your ear to the soil, you can hear the ship breathing.",
       "designNotes": "Signature structure. Scales with Sower tableau count. High construction cost rewards commitment to the faction."
@@ -4262,15 +4330,6 @@
             "matter": 2,
             "influence": 1
           }
-        },
-        {
-          "id": "sw-a07-e2",
-          "timing": "on-play",
-          "description": "Reduce entropy by 1.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
-          }
         }
       ],
       "resourceGain": {
@@ -4645,7 +4704,16 @@
         "maxStress": 4,
         "expertAbilityDescription": "Manned structure gains +1 matter per sleep cycle."
       },
-      "flavorText": "Calloused hands and a quiet faith in the soil."
+      "flavorText": "Calloused hands and a quiet faith in the soil.",
+      "tapEffect": {
+        "id": "sw-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1
+        }
+      }
     },
     {
       "id": "sw-c02",
@@ -4702,7 +4770,17 @@
         "maxStress": 3,
         "expertAbilityDescription": "Organic cards in this sector gain +1 lifespan."
       },
-      "flavorText": "She speaks to the bees in a language older than the ship."
+      "flavorText": "She speaks to the bees in a language older than the ship.",
+      "tapEffect": {
+        "id": "sw-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Extend lifespan of attached structure by 1.",
+        "type": "extend-lifespan",
+        "params": {
+          "amount": 1,
+          "scope": "attached"
+        }
+      }
     },
     {
       "id": "sw-c03",
@@ -4767,7 +4845,16 @@
         "maxStress": 5,
         "expertAbilityDescription": "Manned structure: extend its lifespan by 1 on sleep."
       },
-      "flavorText": "Three generations of knowledge in every graft and cutting."
+      "flavorText": "Three generations of knowledge in every graft and cutting.",
+      "tapEffect": {
+        "id": "sw-c03-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "influence": 1
+        }
+      }
     },
     {
       "id": "sw-c04",
@@ -5016,7 +5103,20 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "Every coin counted is a future secured."
+      "flavorText": "Every coin counted is a future secured.",
+      "tapEffect": {
+        "id": "gl-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "gl-s02",
@@ -5081,7 +5181,16 @@
         "survivalPriority": 2,
         "factionWeight": 1
       },
-      "flavorText": "A place where hands meet and value changes shape."
+      "flavorText": "A place where hands meet and value changes shape.",
+      "tapEffect": {
+        "id": "gl-s02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 matter.",
+        "type": "gain-resource",
+        "params": {
+          "matter": 1
+        }
+      }
     },
     {
       "id": "gl-s03",
@@ -5209,8 +5318,7 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "flavorText": "What lies within is worth more than the ship that carries it."
     },
@@ -5278,10 +5386,18 @@
         "fastTrackable": true,
         "fastTrackCost": {
           "data": 1
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "The machine reads the currents of trade before they arrive."
+      "flavorText": "The machine reads the currents of trade before they arrive.",
+      "tapEffect": {
+        "id": "gl-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Peek at the top 2 cards of the world deck.",
+        "type": "peek-deck",
+        "params": {
+          "count": 2
+        }
+      }
     },
     {
       "id": "gl-s06",
@@ -5342,7 +5458,20 @@
         "survivalPriority": 6,
         "factionWeight": 1
       },
-      "flavorText": "Nothing passes through without its due."
+      "flavorText": "Nothing passes through without its due.",
+      "tapEffect": {
+        "id": "gl-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "gl-s07",
@@ -5424,8 +5553,7 @@
         "fastTrackCost": {
           "matter": 3,
           "data": 2
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "All roads of commerce converge here. The Exchange remembers every transaction.",
       "designNotes": "SIGNATURE card. Powerful market cost reduction + data engine. Construction 3 turns balances the strength."
@@ -6290,15 +6418,6 @@
       },
       "effects": [
         {
-          "id": "gl-e04-e1",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 2.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
-          }
-        },
-        {
           "id": "gl-e04-e2",
           "timing": "on-fallout",
           "description": "Gain 4 matter.",
@@ -6392,7 +6511,16 @@
         "maxStress": 4,
         "expertAbilityDescription": "Manned structure: gain +1 data per sleep cycle."
       },
-      "flavorText": "Every number tells a story. Most of them are lies."
+      "flavorText": "Every number tells a story. Most of them are lies.",
+      "tapEffect": {
+        "id": "gl-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      }
     },
     {
       "id": "gl-c02",
@@ -6455,7 +6583,16 @@
         "maxStress": 3,
         "expertAbilityDescription": "Manned structure: market purchases in this sector cost 1 less matter."
       },
-      "flavorText": "She knows what everything is worth — especially people."
+      "flavorText": "She knows what everything is worth — especially people.",
+      "tapEffect": {
+        "id": "gl-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Draw 1 card.",
+        "type": "draw-cards",
+        "params": {
+          "count": 1
+        }
+      }
     },
     {
       "id": "gl-c03",
@@ -6517,7 +6654,16 @@
         "maxStress": 5,
         "expertAbilityDescription": "Manned structure: peek at top 3 cards of the world deck."
       },
-      "flavorText": "He sees three moves ahead. The market is never surprised."
+      "flavorText": "He sees three moves ahead. The market is never surprised.",
+      "tapEffect": {
+        "id": "gl-c03-tap",
+        "timing": "passive",
+        "description": "Tap: Peek at the top 3 cards of the world deck.",
+        "type": "peek-deck",
+        "params": {
+          "count": 3
+        }
+      }
     },
     {
       "id": "gl-c04",
@@ -6758,7 +6904,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "Every node holds a thousand truths in crystalline suspension."
+      "flavorText": "Every node holds a thousand truths in crystalline suspension.",
+      "tapEffect": {
+        "id": "ac-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      }
     },
     {
       "id": "ac-s02",
@@ -6771,17 +6926,7 @@
         "energy": 2
       },
       "resourceGain": {},
-      "effects": [
-        {
-          "id": "ac-s02-e1",
-          "timing": "passive",
-          "description": "Reduces entropy by 1 at the start of each turn.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "archival-core"
       ],
@@ -6889,16 +7034,21 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "data": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 1
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "The parameters were always clear. We simply needed the compiler to prove it."
+      "flavorText": "The parameters were always clear. We simply needed the compiler to prove it.",
+      "tapEffect": {
+        "id": "ac-s03-tap",
+        "timing": "passive",
+        "description": "Tap: Draw 1 card.",
+        "type": "draw-cards",
+        "params": {
+          "count": 1
+        }
+      }
     },
     {
       "id": "ac-s04",
@@ -6973,15 +7123,10 @@
       },
       "construction": {
         "completionTime": 3,
-        "resourceRequirement": {
-          "energy": 2,
-          "data": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "We built this vault to outlast the stars themselves."
     },
@@ -7057,16 +7202,22 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "energy": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "No signal degrades within these walls. Not on our watch."
+      "flavorText": "No signal degrades within these walls. Not on our watch.",
+      "tapEffect": {
+        "id": "ac-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Prevent 1 damage to structures in this sector.",
+        "type": "prevent-damage",
+        "params": {
+          "amount": 1,
+          "scope": "sector"
+        }
+      }
     },
     {
       "id": "ac-s06",
@@ -7145,7 +7296,20 @@
         "survivalPriority": 4,
         "factionWeight": 1
       },
-      "flavorText": "It remembers itself remembering. An infinite regression of certainty."
+      "flavorText": "It remembers itself remembering. An infinite regression of certainty.",
+      "tapEffect": {
+        "id": "ac-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 2 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 2
+        }
+      },
+      "construction": {
+        "completionTime": 2,
+        "fastTrackable": true
+      }
     },
     {
       "id": "ac-s07",
@@ -7160,25 +7324,6 @@
       },
       "resourceGain": {},
       "effects": [
-        {
-          "id": "ac-s07-e1",
-          "timing": "on-sleep",
-          "description": "Freeze entropy: entropy does not increase during this sleep cycle.",
-          "type": "modify-entropy",
-          "params": {
-            "action": "freeze",
-            "duration": "sleep-cycle"
-          }
-        },
-        {
-          "id": "ac-s07-e2",
-          "timing": "on-wake",
-          "description": "On wake, reduce entropy by 2 and gain 3 data.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 2
-          }
-        },
         {
           "id": "ac-s07-e3",
           "timing": "on-wake",
@@ -7248,10 +7393,6 @@
       },
       "construction": {
         "completionTime": 4,
-        "resourceRequirement": {
-          "energy": 3,
-          "data": 3
-        },
         "fastTrackable": false
       },
       "flavorText": "Time bows before the Monolith. Even entropy knows its place."
@@ -7615,17 +7756,7 @@
         "data": 1
       },
       "resourceGain": {},
-      "effects": [
-        {
-          "id": "ac-a02-e1",
-          "timing": "on-play",
-          "description": "Reduce entropy by 2.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 2
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "archival-core"
       ],
@@ -7770,15 +7901,6 @@
             "count": 1,
             "duration": 2
           }
-        },
-        {
-          "id": "ac-a05-e2",
-          "timing": "on-play",
-          "description": "Reduce entropy by 1.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
-          }
         }
       ],
       "factionIcons": [
@@ -7892,12 +8014,6 @@
           "type": "draw-cards",
           "params": {
             "count": 2
-          },
-          "condition": {
-            "type": "entropy-above",
-            "params": {
-              "threshold": 5
-            }
           }
         }
       ],
@@ -7943,15 +8059,6 @@
           "type": "remove-junk",
           "params": {
             "count": "all"
-          }
-        },
-        {
-          "id": "ac-a08-e2",
-          "timing": "on-play",
-          "description": "Reduce entropy by 3.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 3
           }
         },
         {
@@ -8143,15 +8250,6 @@
       "resourceGain": {},
       "effects": [
         {
-          "id": "ac-e04-e1",
-          "timing": "on-fallout",
-          "description": "Reduce entropy by 3. Each player with entropy above 6 must discard 1 card.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 3
-          }
-        },
-        {
           "id": "ac-e04-e2",
           "timing": "on-fallout",
           "description": "Each player with entropy above 6 must discard 1 card.",
@@ -8250,7 +8348,16 @@
         "maxStress": 3,
         "expertAbilityDescription": "When this structure produces data, produce 1 additional data."
       },
-      "flavorText": "Kael remembers everything. That is both his gift and his burden."
+      "flavorText": "Kael remembers everything. That is both his gift and his burden.",
+      "tapEffect": {
+        "id": "ac-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      }
     },
     {
       "id": "ac-c02",
@@ -8305,7 +8412,16 @@
         "maxStress": 4,
         "expertAbilityDescription": "Once per turn, peek at the top card of the world deck."
       },
-      "flavorText": "Voss catalogues the uncatalogable. She finds order in the void."
+      "flavorText": "Voss catalogues the uncatalogable. She finds order in the void.",
+      "tapEffect": {
+        "id": "ac-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Draw 1 card.",
+        "type": "draw-cards",
+        "params": {
+          "count": 1
+        }
+      }
     },
     {
       "id": "ac-c03",
@@ -8328,15 +8444,6 @@
           "params": {
             "target": "attached-structure",
             "preventDecay": true
-          }
-        },
-        {
-          "id": "ac-c03-e2",
-          "timing": "on-sleep",
-          "description": "On sleep, reduce entropy by 1.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
           }
         }
       ],
@@ -8399,15 +8506,6 @@
           }
         },
         {
-          "id": "ac-c04-e2",
-          "timing": "on-manned",
-          "description": "When assigned, immediately reduce entropy by 2.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 2
-          }
-        },
-        {
           "id": "ac-c04-e3",
           "timing": "on-burnout",
           "description": "On burnout, draw 3 cards and gain 3 data.",
@@ -8448,7 +8546,16 @@
         "maxStress": 5,
         "expertAbilityDescription": "Attached structure's construction completes instantly. If already built, it gains +2 lifespan."
       },
-      "flavorText": "Mira doesn't fix things. She makes them permanent."
+      "flavorText": "Mira doesn't fix things. She makes them permanent.",
+      "tapEffect": {
+        "id": "ac-c04-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 energy.",
+        "type": "gain-resource",
+        "params": {
+          "energy": 1
+        }
+      }
     },
     {
       "id": "ac-j01",
@@ -8506,17 +8613,7 @@
       "art": "art/cards/ac-j02.png",
       "cost": {},
       "resourceGain": {},
-      "effects": [
-        {
-          "id": "ac-j02-e1",
-          "timing": "passive",
-          "description": "Occupies a tableau slot. Increases entropy by 1 each turn.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [],
       "primaryTag": "Machine",
       "attributeTags": [],
@@ -8662,7 +8759,16 @@
         "survivalPriority": 2,
         "factionWeight": 1
       },
-      "flavorText": "It screams into the void and calls it a sermon."
+      "flavorText": "It screams into the void and calls it a sermon.",
+      "tapEffect": {
+        "id": "fx-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 energy.",
+        "type": "gain-resource",
+        "params": {
+          "energy": 1
+        }
+      }
     },
     {
       "id": "fx-s02",
@@ -8722,7 +8828,16 @@
         "survivalPriority": 2,
         "factionWeight": 1
       },
-      "flavorText": "Where others see collapse, the Flux sees a cradle rocking."
+      "flavorText": "Where others see collapse, the Flux sees a cradle rocking.",
+      "tapEffect": {
+        "id": "fx-s02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "influence": 1
+        }
+      }
     },
     {
       "id": "fx-s03",
@@ -8735,16 +8850,6 @@
         "energy": 2
       },
       "effects": [
-        {
-          "id": "fx-s03-e1",
-          "timing": "on-play",
-          "description": "Slide the market 1 additional slot (Accelerate).",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "source": "accelerate"
-          }
-        },
         {
           "id": "fx-s03-e2",
           "timing": "passive",
@@ -8775,14 +8880,10 @@
       },
       "construction": {
         "completionTime": 1,
-        "resourceRequirement": {
-          "energy": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "cryosleep": {
         "inertiaContribution": {
@@ -8852,14 +8953,10 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "energy": 2
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 3
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "cryosleep": {
         "inertiaContribution": {
@@ -8885,17 +8982,6 @@
         "influence": 2
       },
       "effects": [
-        {
-          "id": "fx-s05-e1",
-          "timing": "passive",
-          "description": "Whenever you play an action card, slide the market 1 additional slot (Accelerate).",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "trigger": "action-played",
-            "source": "accelerate"
-          }
-        },
         {
           "id": "fx-s05-e2",
           "timing": "passive",
@@ -8935,15 +9021,10 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "energy": 2,
-          "influence": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "cryosleep": {
         "inertiaContribution": {
@@ -8956,7 +9037,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "Every wave breaks higher than the last."
+      "flavorText": "Every wave breaks higher than the last.",
+      "tapEffect": {
+        "id": "fx-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 2 energy.",
+        "type": "gain-resource",
+        "params": {
+          "energy": 2
+        }
+      }
     },
     {
       "id": "fx-s06",
@@ -8979,15 +9069,6 @@
             "targetFaction": "the-flux",
             "count": 1,
             "zone": "tableau"
-          }
-        },
-        {
-          "id": "fx-s06-e2",
-          "timing": "on-death",
-          "description": "When Schism Reactor dies, add 2 entropy.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
           }
         }
       ],
@@ -9027,7 +9108,21 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "Split the atom. Split the council. Same principle."
+      "flavorText": "Split the atom. Split the council. Same principle.",
+      "tapEffect": {
+        "id": "fx-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Shift one faction icon in this sector.",
+        "type": "shift-faction",
+        "params": {
+          "amount": 1,
+          "scope": "sector"
+        }
+      },
+      "construction": {
+        "completionTime": 2,
+        "fastTrackable": true
+      }
     },
     {
       "id": "fx-s07",
@@ -9114,15 +9209,10 @@
       },
       "construction": {
         "completionTime": 3,
-        "resourceRequirement": {
-          "energy": 3,
-          "influence": 2
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 4
-        },
-        "fastTrackEntropy": 3
+        }
       },
       "cryosleep": {
         "inertiaContribution": {
@@ -9449,18 +9539,7 @@
       "resourceGain": {
         "energy": 2
       },
-      "effects": [
-        {
-          "id": "fx-a01-e1",
-          "timing": "on-play",
-          "description": "Gain 2 energy and slide the market 1 additional slot.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "source": "accelerate"
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "the-flux"
       ],
@@ -9641,22 +9720,7 @@
         "energy": 2,
         "influence": 1
       },
-      "effects": [
-        {
-          "id": "fx-a05-e1",
-          "timing": "on-play",
-          "description": "Slide the market 3 additional slots. Gain 1 energy per card that enters fallout.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 3,
-            "source": "accelerate",
-            "gainPerFallout": {
-              "resource": "energy",
-              "amount": 1
-            }
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "the-flux"
       ],
@@ -9879,19 +9943,6 @@
               "amount": 2
             }
           }
-        },
-        {
-          "id": "fx-e01-e2",
-          "timing": "on-play",
-          "description": "Gain 1 energy and slide the market 1 slot.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "selfGain": {
-              "resource": "energy",
-              "amount": 1
-            }
-          }
         }
       ],
       "factionIcons": [
@@ -9929,17 +9980,6 @@
         "energy": 2
       },
       "effects": [
-        {
-          "id": "fx-e02-e1",
-          "timing": "on-fallout",
-          "description": "When Blackout Surge enters fallout, add 2 entropy. Each player must discard 1 card from hand.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2,
-            "discardFromHand": 1,
-            "target": "all-players"
-          }
-        },
         {
           "id": "fx-e02-e2",
           "timing": "on-play",
@@ -10161,7 +10201,16 @@
         "survivalPriority": 2,
         "factionWeight": 1
       },
-      "flavorText": "She doesn't convince you. She reminds you that you were already angry."
+      "flavorText": "She doesn't convince you. She reminds you that you were already angry.",
+      "tapEffect": {
+        "id": "fx-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "influence": 1
+        }
+      }
     },
     {
       "id": "fx-c02",
@@ -10226,7 +10275,16 @@
         "survivalPriority": 2,
         "factionWeight": 1
       },
-      "flavorText": "Give him a crate to stand on and he'll move the world."
+      "flavorText": "Give him a crate to stand on and he'll move the world.",
+      "tapEffect": {
+        "id": "fx-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 energy.",
+        "type": "gain-resource",
+        "params": {
+          "energy": 1
+        }
+      }
     },
     {
       "id": "fx-c03",
@@ -10297,7 +10355,17 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "She whispers to the dead things and they grow back wrong. Beautifully wrong."
+      "flavorText": "She whispers to the dead things and they grow back wrong. Beautifully wrong.",
+      "tapEffect": {
+        "id": "fx-c03-tap",
+        "timing": "passive",
+        "description": "Tap: Remove 1 junk from your tableau.",
+        "type": "remove-junk",
+        "params": {
+          "count": 1,
+          "scope": "tableau"
+        }
+      }
     },
     {
       "id": "fx-c04",
@@ -10311,17 +10379,6 @@
         "energy": 2
       },
       "effects": [
-        {
-          "id": "fx-c04-e1",
-          "timing": "on-manned",
-          "description": "When attached, gain 2 influence and reduce entropy by 1.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1,
-            "bonusResource": "influence",
-            "bonusAmount": 2
-          }
-        },
         {
           "id": "fx-c04-e2",
           "timing": "passive",
@@ -10547,7 +10604,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "It broadcasts the names of the dead into the dark between stars."
+      "flavorText": "It broadcasts the names of the dead into the dark between stars.",
+      "tapEffect": {
+        "id": "ec-s01-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      }
     },
     {
       "id": "ec-s02",
@@ -10615,7 +10681,16 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "They kneel not to gods, but to grandmothers."
+      "flavorText": "They kneel not to gods, but to grandmothers.",
+      "tapEffect": {
+        "id": "ec-s02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "influence": 1
+        }
+      }
     },
     {
       "id": "ec-s03",
@@ -10676,14 +10751,10 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "data": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 1
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "flavorText": "The walls replay conversations that ended generations ago."
     },
@@ -10759,14 +10830,10 @@
       },
       "construction": {
         "completionTime": 3,
-        "resourceRequirement": {
-          "data": 2
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "Every archived name adds weight to the ship's memory."
     },
@@ -10834,12 +10901,20 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "influence": 2
-        },
         "fastTrackable": false
       },
-      "flavorText": "The storytellers never sleep. Not truly."
+      "flavorText": "The storytellers never sleep. Not truly.",
+      "tapEffect": {
+        "id": "ec-s05-tap",
+        "timing": "passive",
+        "description": "Tap: Extend lifespan of all Echoes cards in this sector by 1.",
+        "type": "extend-lifespan",
+        "params": {
+          "amount": 1,
+          "scope": "sector",
+          "filter": "the-echoes"
+        }
+      }
     },
     {
       "id": "ec-s06",
@@ -10862,15 +10937,6 @@
           "params": {
             "spawnCard": "ec-s01",
             "zone": "tableau"
-          }
-        },
-        {
-          "id": "ec-s06-e2",
-          "timing": "passive",
-          "description": "Reduce entropy by 1 per turn.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
           }
         }
       ],
@@ -10910,7 +10976,20 @@
         "survivalPriority": 3,
         "factionWeight": 1
       },
-      "flavorText": "It hums in frequencies the living cannot hear."
+      "flavorText": "It hums in frequencies the living cannot hear.",
+      "tapEffect": {
+        "id": "ec-s06-tap",
+        "timing": "passive",
+        "description": "Tap: Draw 1 card.",
+        "type": "draw-cards",
+        "params": {
+          "count": 1
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "ec-s07",
@@ -11012,15 +11091,10 @@
       },
       "construction": {
         "completionTime": 4,
-        "resourceRequirement": {
-          "data": 3,
-          "influence": 2
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 3
-        },
-        "fastTrackEntropy": 3
+        }
       },
       "flavorText": "The ship will outlive its crew. The archive will outlive the ship."
     },
@@ -11679,15 +11753,6 @@
             "bonusResource": "data",
             "bonusAmountPer": 1
           }
-        },
-        {
-          "id": "ec-a08-e2",
-          "timing": "on-play",
-          "description": "Reduce entropy by 2.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 2
-          }
         }
       ],
       "factionIcons": [
@@ -11772,20 +11837,7 @@
         "influence": 1
       },
       "resourceGain": {},
-      "effects": [
-        {
-          "id": "ec-e02-e1",
-          "timing": "on-fallout",
-          "description": "On fallout, add 1 entropy. Each player loses 1 influence.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "allPlayersLose": {
-              "influence": 1
-            }
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [
         "the-echoes"
       ],
@@ -11960,7 +12012,17 @@
         "maxStress": 3,
         "expertAbilityDescription": "When this crew's structure would die, extend its lifespan by 2 instead."
       },
-      "flavorText": "She carries three hundred names and speaks each one before sleep."
+      "flavorText": "She carries three hundred names and speaks each one before sleep.",
+      "tapEffect": {
+        "id": "ec-c01-tap",
+        "timing": "passive",
+        "description": "Tap: Extend lifespan of attached structure by 1.",
+        "type": "extend-lifespan",
+        "params": {
+          "amount": 1,
+          "scope": "attached"
+        }
+      }
     },
     {
       "id": "ec-c02",
@@ -12016,7 +12078,16 @@
         "maxStress": 3,
         "expertAbilityDescription": "On wake, also draw 1 card."
       },
-      "flavorText": "Cryosleep dreams are not random. They are messages from the hull."
+      "flavorText": "Cryosleep dreams are not random. They are messages from the hull.",
+      "tapEffect": {
+        "id": "ec-c02-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 data.",
+        "type": "gain-resource",
+        "params": {
+          "data": 1
+        }
+      }
     },
     {
       "id": "ec-c03",
@@ -12080,7 +12151,16 @@
         "maxStress": 4,
         "expertAbilityDescription": "Manned structure's effects trigger twice during on-sleep."
       },
-      "flavorText": "Her mind indexes what the ship forgets."
+      "flavorText": "Her mind indexes what the ship forgets.",
+      "tapEffect": {
+        "id": "ec-c03-tap",
+        "timing": "passive",
+        "description": "Tap: Peek at the top 2 cards of the world deck.",
+        "type": "peek-deck",
+        "params": {
+          "count": 2
+        }
+      }
     },
     {
       "id": "ec-c04",
@@ -12539,15 +12619,6 @@
             "amount": 1,
             "scope": "reassign"
           }
-        },
-        {
-          "id": "hz-005-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 2.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
-          }
         }
       ],
       "factionIcons": [],
@@ -12823,16 +12894,6 @@
       },
       "effects": [
         {
-          "id": "hz-010-e1",
-          "timing": "passive",
-          "description": "Structures lose 1 lifespan per sleep while in market.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "scope": "passive-aging"
-          }
-        },
-        {
           "id": "hz-010-e2",
           "timing": "on-fallout",
           "description": "Remove the lowest-priority card in Engineering.",
@@ -12880,27 +12941,7 @@
         "energy": 5,
         "data": 2
       },
-      "effects": [
-        {
-          "id": "hz-011-e1",
-          "timing": "passive",
-          "description": "Entropy increases by 1 at end of each turn while in market.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1,
-            "scope": "per-turn"
-          }
-        },
-        {
-          "id": "hz-011-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 3.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 3
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [],
       "primaryTag": "Tech",
       "attributeTags": [
@@ -13209,15 +13250,6 @@
           "params": {
             "energy": 3
           }
-        },
-        {
-          "id": "ev-005-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 1.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
-          }
         }
       ],
       "factionIcons": [],
@@ -13328,15 +13360,6 @@
       "cost": {},
       "effects": [
         {
-          "id": "ev-008-e1",
-          "timing": "on-fallout",
-          "description": "Reduce entropy by 1. Gain 1 data.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
-          }
-        },
-        {
           "id": "ev-008-e2",
           "timing": "on-fallout",
           "description": "Gain 1 data.",
@@ -13424,15 +13447,6 @@
       "art": "art/cards/ev-010.png",
       "cost": {},
       "effects": [
-        {
-          "id": "ev-010-e1",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 2. Add 1 tech-decay junk.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
-          }
-        },
         {
           "id": "ev-010-e2",
           "timing": "on-fallout",
@@ -13623,15 +13637,6 @@
             "count": 1,
             "zone": "hand"
           }
-        },
-        {
-          "id": "ev-014-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 1.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
-          }
         }
       ],
       "factionIcons": [],
@@ -13671,15 +13676,6 @@
           "params": {
             "energy": 2,
             "matter": 2
-          }
-        },
-        {
-          "id": "ev-015-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 1.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 1
           }
         }
       ],
@@ -13754,15 +13750,6 @@
       "cost": {},
       "effects": [
         {
-          "id": "cs-001-e1",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 3. Add 2 tech-decay junk.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 3
-          }
-        },
-        {
           "id": "cs-001-e2",
           "timing": "on-fallout",
           "description": "Add 2 tech-decay junk.",
@@ -13796,8 +13783,7 @@
         "proactiveCost": {
           "energy": 4,
           "data": 2
-        },
-        "reactiveEntropyPenalty": 3
+        }
       },
       "flavorText": "The core screams. Sleep now or burn."
     },
@@ -13854,8 +13840,7 @@
         "proactiveCost": {
           "matter": 5,
           "energy": 2
-        },
-        "reactiveEntropyPenalty": 4
+        }
       },
       "flavorText": "The decks buckle. Whole sections seal themselves off."
     },
@@ -13911,8 +13896,7 @@
         "proactiveCost": {
           "influence": 5,
           "data": 2
-        },
-        "reactiveEntropyPenalty": 3
+        }
       },
       "flavorText": "The old order falls. What rises in its place?"
     },
@@ -13969,8 +13953,7 @@
         "proactiveCost": {
           "data": 3,
           "matter": 3
-        },
-        "reactiveEntropyPenalty": 3
+        }
       },
       "flavorText": "It started with a cough. By morning, half the ward was sealed."
     },
@@ -13982,17 +13965,7 @@
       "tier": 3,
       "art": "art/cards/cs-005.png",
       "cost": {},
-      "effects": [
-        {
-          "id": "cs-005-e1",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 4.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 4
-          }
-        }
-      ],
+      "effects": [],
       "factionIcons": [],
       "primaryTag": "Tech",
       "attributeTags": [],
@@ -14016,8 +13989,7 @@
         "proactiveCost": {
           "data": 5,
           "energy": 3
-        },
-        "reactiveEntropyPenalty": 5
+        }
       },
       "flavorText": "We are lost between stars. The ship knows where it is. We do not."
     },
@@ -14038,15 +14010,6 @@
           "params": {
             "amount": 3,
             "scope": "all-crew"
-          }
-        },
-        {
-          "id": "cs-006-e2",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 2.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
           }
         }
       ],
@@ -14073,8 +14036,7 @@
         "proactiveCost": {
           "energy": 5,
           "matter": 3
-        },
-        "reactiveEntropyPenalty": 4
+        }
       },
       "flavorText": "Pods open early. The sleepers wake screaming."
     },
@@ -14151,8 +14113,7 @@
         "proactiveCost": {
           "influence": 6,
           "matter": 3
-        },
-        "reactiveEntropyPenalty": 5
+        }
       },
       "flavorText": "Every faction fights. The ship is the battlefield. Nobody wins."
     },
@@ -14165,15 +14126,6 @@
       "art": "art/cards/cs-008.png",
       "cost": {},
       "effects": [
-        {
-          "id": "cs-008-e1",
-          "timing": "on-fallout",
-          "description": "Increase entropy by 5. Gain 3 data.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 5
-          }
-        },
         {
           "id": "cs-008-e2",
           "timing": "on-fallout",
@@ -14207,8 +14159,7 @@
         "proactiveCost": {
           "data": 6,
           "energy": 4
-        },
-        "reactiveEntropyPenalty": 6
+        }
       },
       "flavorText": "The ship's AI speaks a language we've never heard. It says: I understand now."
     },
@@ -14350,7 +14301,16 @@
         "survivalPriority": 2,
         "factionWeight": 0
       },
-      "flavorText": "It listens to the void. Sometimes the void whispers back."
+      "flavorText": "It listens to the void. Sometimes the void whispers back.",
+      "tapEffect": {
+        "id": "ns-003-tap",
+        "timing": "passive",
+        "description": "Tap: Draw 1 card.",
+        "type": "draw-cards",
+        "params": {
+          "count": 1
+        }
+      }
     },
     {
       "id": "ns-004",
@@ -14397,7 +14357,21 @@
         "survivalPriority": 3,
         "factionWeight": 0
       },
-      "flavorText": "One generation's waste is another generation's raw material."
+      "flavorText": "One generation's waste is another generation's raw material.",
+      "tapEffect": {
+        "id": "ns-004-tap",
+        "timing": "passive",
+        "description": "Tap: Remove 1 junk from your mandate deck.",
+        "type": "remove-junk",
+        "params": {
+          "count": 1,
+          "scope": "mandate-deck"
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "ns-005",
@@ -14455,16 +14429,21 @@
       },
       "construction": {
         "completionTime": 2,
-        "resourceRequirement": {
-          "data": 2
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
-      "flavorText": "The stars don't care about us. But we care about them."
+      "flavorText": "The stars don't care about us. But we care about them.",
+      "tapEffect": {
+        "id": "ns-005-tap",
+        "timing": "passive",
+        "description": "Tap: Peek at the top 3 cards of the world deck.",
+        "type": "peek-deck",
+        "params": {
+          "count": 3
+        }
+      }
     },
     {
       "id": "ns-006",
@@ -14515,15 +14494,11 @@
         "factionWeight": 0
       },
       "construction": {
-        "completionTime": 2,
-        "resourceRequirement": {
-          "matter": 2
-        },
+        "completionTime": 1,
         "fastTrackable": true,
         "fastTrackCost": {
           "matter": 2
-        },
-        "fastTrackEntropy": 1
+        }
       },
       "flavorText": "We don't want to use these. But we keep them ready."
     },
@@ -14539,15 +14514,6 @@
         "matter": 2
       },
       "effects": [
-        {
-          "id": "ns-007-e1",
-          "timing": "on-sleep",
-          "description": "Reduce entropy by 1 during cryosleep.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
-          }
-        },
         {
           "id": "ns-007-e2",
           "timing": "passive",
@@ -14585,15 +14551,10 @@
       },
       "construction": {
         "completionTime": 3,
-        "resourceRequirement": {
-          "energy": 3,
-          "matter": 1
-        },
         "fastTrackable": true,
         "fastTrackCost": {
           "energy": 3
-        },
-        "fastTrackEntropy": 2
+        }
       },
       "flavorText": "The pods need tending. Even the dreamless sleep has its maintenance schedule."
     },
@@ -14653,7 +14614,20 @@
         "survivalPriority": 3,
         "factionWeight": 0
       },
-      "flavorText": "Names carved in steel. So the next generation knows who came before."
+      "flavorText": "Names carved in steel. So the next generation knows who came before.",
+      "tapEffect": {
+        "id": "ns-008-tap",
+        "timing": "passive",
+        "description": "Tap: Gain 1 influence.",
+        "type": "gain-resource",
+        "params": {
+          "influence": 1
+        }
+      },
+      "construction": {
+        "completionTime": 1,
+        "fastTrackable": true
+      }
     },
     {
       "id": "wc-001",
@@ -14676,15 +14650,6 @@
             "energy": 1,
             "data": 1,
             "influence": 1
-          }
-        },
-        {
-          "id": "wc-001-e2",
-          "timing": "on-play",
-          "description": "Reduce entropy by 1.",
-          "type": "reduce-entropy",
-          "params": {
-            "amount": 1
           }
         }
       ],
@@ -14739,15 +14704,6 @@
           "params": {
             "count": 10,
             "target": "world-deck"
-          }
-        },
-        {
-          "id": "wc-002-e3",
-          "timing": "on-play",
-          "description": "Increase entropy by 2.",
-          "type": "modify-entropy",
-          "params": {
-            "amount": 2
           }
         }
       ],

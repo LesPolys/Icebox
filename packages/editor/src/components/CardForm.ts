@@ -196,6 +196,18 @@ export class CardForm {
         </div>
       </div>
 
+      ${c.type === "structure" || c.type === "crew" ? `
+      <div class="form-section">
+        <h3>Tap Effect (JSON)</h3>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Tap Effect (activated via Energy resource action)</label>
+            <textarea data-field="tapEffect" style="min-height:100px;font-size:10px">${JSON.stringify(c.tapEffect ?? null, null, 2)}</textarea>
+          </div>
+        </div>
+      </div>
+      ` : ""}
+
       ${c.type === "hazard" ? `
       <div class="form-section">
         <h3>Hazard Data</h3>
@@ -308,16 +320,6 @@ export class CardForm {
               <option value="true" ${c.construction?.fastTrackable ? "selected" : ""}>Yes</option>
             </select>
           </div>
-          <div class="form-field">
-            <label>Fast-Track Entropy</label>
-            <input type="number" data-field="construction.fastTrackEntropy" value="${c.construction?.fastTrackEntropy ?? 2}" min="0" />
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field"><label>Required Matter</label><input type="number" data-field="construction.req.matter" value="${c.construction?.resourceRequirement?.matter ?? 0}" min="0" /></div>
-          <div class="form-field"><label>Required Energy</label><input type="number" data-field="construction.req.energy" value="${c.construction?.resourceRequirement?.energy ?? 0}" min="0" /></div>
-          <div class="form-field"><label>Required Data</label><input type="number" data-field="construction.req.data" value="${c.construction?.resourceRequirement?.data ?? 0}" min="0" /></div>
-          <div class="form-field"><label>Required Influence</label><input type="number" data-field="construction.req.influence" value="${c.construction?.resourceRequirement?.influence ?? 0}" min="0" /></div>
         </div>
         <div class="form-row">
           <div class="form-field"><label>Fast-Track Matter</label><input type="number" data-field="construction.ft.matter" value="${c.construction?.fastTrackCost?.matter ?? 0}" min="0" /></div>
@@ -338,10 +340,6 @@ export class CardForm {
               <option value="false" ${!c.crisis?.isCrisis ? "selected" : ""}>No</option>
               <option value="true" ${c.crisis?.isCrisis ? "selected" : ""}>Yes</option>
             </select>
-          </div>
-          <div class="form-field">
-            <label>Reactive Entropy Penalty</label>
-            <input type="number" data-field="crisis.reactiveEntropyPenalty" value="${c.crisis?.reactiveEntropyPenalty ?? 5}" min="0" />
           </div>
         </div>
         <div class="form-row">
@@ -440,6 +438,17 @@ export class CardForm {
       // Keep existing effects if JSON is invalid
     }
 
+    // Parse tap effect JSON (structure/crew only)
+    if (c.type === "structure" || c.type === "crew") {
+      try {
+        const tapVal = val("tapEffect");
+        const parsed = JSON.parse(tapVal || "null");
+        c.tapEffect = parsed ?? undefined;
+      } catch {
+        // Keep existing tapEffect if JSON is invalid
+      }
+    }
+
     // Type-specific data
     if (c.type === "hazard") {
       const targetRow = val("hazard.targetRow") as MarketRowId | "";
@@ -495,23 +504,16 @@ export class CardForm {
     if (c.type === "structure") {
       const completionTime = num("construction.completionTime");
       const reqCost: Record<string, number> = {};
-      if (num("construction.req.matter") > 0) reqCost.matter = num("construction.req.matter");
-      if (num("construction.req.energy") > 0) reqCost.energy = num("construction.req.energy");
-      if (num("construction.req.data") > 0) reqCost.data = num("construction.req.data");
-      if (num("construction.req.influence") > 0) reqCost.influence = num("construction.req.influence");
       const ftCost: Record<string, number> = {};
       if (num("construction.ft.matter") > 0) ftCost.matter = num("construction.ft.matter");
       if (num("construction.ft.energy") > 0) ftCost.energy = num("construction.ft.energy");
       if (num("construction.ft.data") > 0) ftCost.data = num("construction.ft.data");
       if (num("construction.ft.influence") > 0) ftCost.influence = num("construction.ft.influence");
-      const hasReqs = completionTime > 0 || Object.keys(reqCost).length > 0;
-      if (hasReqs) {
+      if (completionTime > 0) {
         c.construction = {
           completionTime: completionTime > 0 ? completionTime : undefined,
-          resourceRequirement: Object.keys(reqCost).length > 0 ? reqCost : undefined,
           fastTrackable: val("construction.fastTrackable") === "true",
           fastTrackCost: Object.keys(ftCost).length > 0 ? ftCost : undefined,
-          fastTrackEntropy: num("construction.fastTrackEntropy") || undefined,
         };
       } else {
         delete c.construction;
@@ -532,7 +534,6 @@ export class CardForm {
         c.crisis = {
           isCrisis: true,
           proactiveCost: Object.keys(proactiveCost).length > 0 ? proactiveCost : undefined,
-          reactiveEntropyPenalty: num("crisis.reactiveEntropyPenalty") || undefined,
         };
       } else {
         delete c.crisis;

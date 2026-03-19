@@ -10,26 +10,15 @@ import type {
   GraveyardState,
 } from "./deck.js";
 
-// ─── Entropy Gauge ───────────────────────────────────────────────────
-
-export interface EntropyBreakpoint {
-  /** Entropy level that triggers this breakpoint */
-  threshold: number;
-  /** Effect identifier for the consequence */
-  effect: string;
-  /** Player-facing description of what happens */
-  description: string;
-}
-
 // ─── Ship's Era (Societal State Machine) ────────────────────────────
 
-/** The ship's societal state, determined by reserves + entropy at sleep time */
+/** The ship's societal state, determined by reserves at sleep time */
 export type EraState = "Zenith" | "Unraveling" | "Struggle" | "Ascension";
 
 export interface EraModifiers {
   /** +/- to base market slides per turn */
   marketSlideModifier: number;
-  /** Multiplier for entropy reduction costs (maintenance) */
+  /** Multiplier for resource drain during sleep (maintenance) */
   maintenanceCostModifier: number;
   /** +/- turns to construction time */
   constructionTimeModifier: number;
@@ -79,12 +68,6 @@ export interface GameState {
 
   /** Player resources */
   resources: ResourceTotals;
-
-  /** Unified entropy gauge (0 to maxEntropy) */
-  entropy: number;
-
-  /** Maximum entropy before catastrophic failure */
-  maxEntropy: number;
 
   /** The Vault (all possible cards for this timeline) */
   vault: VaultState;

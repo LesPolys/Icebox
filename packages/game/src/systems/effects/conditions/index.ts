@@ -11,11 +11,6 @@ registerCondition("resource-threshold", (state: GameState, params: Record<string
   return comparison === "gte" ? value >= threshold : value < threshold;
 });
 
-registerCondition("entropy-above", (state: GameState, params: Record<string, unknown>) => {
-  const threshold = params.threshold as number;
-  return state.entropy >= threshold;
-});
-
 // ─── Sleep / Time Conditions ────────────────────────────────────────
 
 registerCondition("sleep-count", (state: GameState, params: Record<string, unknown>) => {

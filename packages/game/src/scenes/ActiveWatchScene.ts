@@ -19,12 +19,23 @@ import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
 import { CardSprite, CARD_WIDTH } from "../game-objects/CardSprite";
-import { EntropyGauge } from "../ui/EntropyGauge";
 import { EraDisplay } from "../ui/EraDisplay";
 import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
 import { SuccessionScene } from "./SuccessionScene";
 import { MAIN_CX, LAYOUT, s, fontSize } from "../ui/layout";
+import { ResourceActionPanel } from "../ui/ResourceActionPanel";
+import { ScryDialog } from "../ui/ScryDialog";
+import {
+  extractResourceActions,
+  resolveProgressBuilding,
+  resolveTapCard,
+  resolveScryMarket,
+  resolveSwapMarket,
+  peekMarketDeck,
+  type PendingResourceActionGroup,
+  type ResourceAction,
+} from "../systems/ResourceActionManager";
 
 export class ActiveWatchScene extends Phaser.Scene {
   static readonly KEY = "ActiveWatchScene";
@@ -42,7 +53,6 @@ export class ActiveWatchScene extends Phaser.Scene {
   private actionLog!: ActionLog;
   private messagePanel!: MessagePanel;
   private deckCountText!: Phaser.GameObjects.Text;
-  private entropyGauge!: EntropyGauge;
   private eraDisplay!: EraDisplay;
   private eraTheme!: EraTheme;
   private worldDeckCountText!: Phaser.GameObjects.Text;
@@ -56,6 +66,15 @@ export class ActiveWatchScene extends Phaser.Scene {
     /** Tracks per-column: which row was invested on and what resource was spent. */
     investments: Map<number, { row: MarketRowId; resource: ResourceCost }>;
   } | null = null;
+
+  // ── Resource Action resolution mode ──
+  private resourceActionPanel!: ResourceActionPanel;
+  private pendingActionGroups: PendingResourceActionGroup[] = [];
+  private currentActionGroup: PendingResourceActionGroup | null = null;
+  /** Callback to continue after all resource actions are resolved */
+  private onAllActionsResolved: (() => void) | null = null;
+  /** Collected during animated slide loop, resolved after refill */
+  private collectedFalloutActions: PendingResourceActionGroup[] = [];
 
   // Market geometry for hit-testing resource drops
   private marketColPositions: number[] = [];
@@ -122,10 +141,6 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.eraDisplay = new EraDisplay(this, 0, 0);
     this.eraDisplay.setPosition(this.marketBoxLeft - this.eraDisplay.boxW - s(12), marketTopY);
 
-    // ─── Right of market deck: Entropy gauge (vertically centered on market) ───
-    const marketMidY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
-    this.entropyGauge = new EntropyGauge(this, this.deckPileX + s(55), marketMidY - s(55));
-
     this.createSectors();
 
     this.resourceBar = new ResourceBar(this, MAIN_CX, LAYOUT.resourceY);
@@ -137,6 +152,11 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.wireHandCallbacks();
 
     this.messagePanel = new MessagePanel(this);
+
+    // ─── Resource action resolution panel ───
+    this.resourceActionPanel = new ResourceActionPanel(this);
+    this.resourceActionPanel.onActionSelected = (action) => this.handleResourceActionSelected(action);
+    this.resourceActionPanel.onActionSkipped = (action) => this.handleResourceActionSkipped(action);
 
     // ─── Cancel purchase mode on click on empty space ───
     this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
@@ -285,21 +305,9 @@ export class ActiveWatchScene extends Phaser.Scene {
       }
 
       if (slotIndex === 0) {
-        // Column 0 has no preceding slots — buy directly if affordable
-        const costMod = getCostModifier(this.gameState, "market");
-        const baseCost = slot.cardSprite.cardInstance.card.cost;
-        const effectiveCost: ResourceCost = {
-          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
-          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
-          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
-          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
-        };
-        if (!canAfford(this.gameState.resources, effectiveCost)) {
-          this.showMessage("Can't afford this card!", "#cc4444");
-          return;
-        }
+        // Column 0 is free (positional cost = 0)
         this.animateBuyToDiscard(row, slotIndex);
-        this.doAction({ type: "buy-from-market", row, slotIndex });
+        this.doAction({ type: "buy-from-market", row, slotIndex, payment: {} });
       } else {
         // Columns 1+ always require a fresh investment session
         this.enterPurchaseMode(row, slotIndex);
@@ -312,17 +320,11 @@ export class ActiveWatchScene extends Phaser.Scene {
       // Show in InfoPanel
       this.infoPanel.showCard(slot.cardSprite.cardInstance);
 
-      // Affordability check (skip during purchase mode — resources are mid-investment)
+      // Affordability check: positional cost = slotIndex (any resources)
       if (!this.purchaseMode) {
-        const costMod = getCostModifier(this.gameState, "market");
-        const baseCost = slot.cardSprite.cardInstance.card.cost;
-        const effectiveCost: ResourceCost = {
-          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
-          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
-          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
-          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
-        };
-        slot.cardSprite.setAffordable(canAfford(this.gameState.resources, effectiveCost));
+        const r = this.gameState.resources;
+        const totalResources = r.matter + r.energy + r.data + r.influence;
+        slot.cardSprite.setAffordable(totalResources >= slotIndex);
       }
 
       // Ghost investment icons on preceding uninvested columns (one per column, prefer hovered row)
@@ -488,24 +490,15 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     if (allInvested) {
-      // Verify affordability before exiting purchase mode
-      const targetRow = getMarketRowById(this.gameState.transitMarket, row);
-      const card = targetRow.slots[targetSlotIndex];
-      if (card) {
-        const costMod = getCostModifier(this.gameState, "market");
-        const baseCost = card.card.cost;
-        const effectiveCost: ResourceCost = {
-          matter: Math.max(0, (baseCost.matter ?? 0) + (costMod.matter ?? 0)),
-          energy: Math.max(0, (baseCost.energy ?? 0) + (costMod.energy ?? 0)),
-          data: Math.max(0, (baseCost.data ?? 0) + (costMod.data ?? 0)),
-          influence: Math.max(0, (baseCost.influence ?? 0) + (costMod.influence ?? 0)),
-        };
-        if (!canAfford(this.gameState.resources, effectiveCost)) {
-          this.showMessage("All slots invested but can't afford the card!");
-          this.highlightPurchaseSlots();
-          return;
-        }
+      // Build the payment from investments placed this session
+      const payment: ResourceCost = { matter: 0, energy: 0, data: 0, influence: 0 };
+      for (const [, entry] of investments) {
+        payment.matter = (payment.matter ?? 0) + (entry.resource.matter ?? 0);
+        payment.energy = (payment.energy ?? 0) + (entry.resource.energy ?? 0);
+        payment.data = (payment.data ?? 0) + (entry.resource.data ?? 0);
+        payment.influence = (payment.influence ?? 0) + (entry.resource.influence ?? 0);
       }
+
       // Commit all pending investments to market state
       for (const [col, entry] of investments) {
         const updated = investOnSlot(this.gameState.transitMarket, entry.row, col, entry.resource);
@@ -514,7 +507,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
       this.exitPurchaseMode(false); // Don't refund — purchase succeeded
       this.animateBuyToDiscard(row, targetSlotIndex);
-      this.doAction({ type: "buy-from-market", row, slotIndex: targetSlotIndex });
+      this.doAction({ type: "buy-from-market", row, slotIndex: targetSlotIndex, payment });
     } else {
       this.highlightPurchaseSlots();
     }
@@ -574,21 +567,6 @@ export class ActiveWatchScene extends Phaser.Scene {
         this.refreshPendingInvestments();
         this.checkAutoBuy();
         return;
-      }
-
-      // Hit-test: sector with under-construction card? (contribute-resources)
-      const sectorHit = this.getSectorAtPosition(worldX, worldY);
-      if (sectorHit !== null) {
-        const sector = this.gameState.ship.sectors[sectorHit];
-        const constructing = sector.installedCards.find(c => c.underConstruction);
-        if (constructing) {
-          this.doAction({
-            type: "contribute-resources",
-            structureInstanceId: constructing.instanceId,
-            resources: { [resourceType]: 1 },
-          });
-          return;
-        }
       }
 
       // Hit-test: player deck pile? (draw-extra)
@@ -668,22 +646,12 @@ export class ActiveWatchScene extends Phaser.Scene {
           if (ftCost.energy) costParts.push(`E:${ftCost.energy}`);
           if (ftCost.data) costParts.push(`D:${ftCost.data}`);
           if (ftCost.influence) costParts.push(`I:${ftCost.influence}`);
-          const entropy = con.fastTrackEntropy ?? 2;
           const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
           new ConfirmPopup(
             this, sectorWorldX, sectorWorldY - s(80),
-            `Fast-track 1 turn? (${costStr} +${entropy} entropy)`,
+            `Fast-track 1 turn? (${costStr})`,
             () => this.doAction({ type: "fast-track", structureInstanceId: card.instanceId, turnsToSkip: 1 })
           );
-        } else if (con.resourceRequirement) {
-          // Contribute 1 of any resource — simple interaction for now
-          const req = con.resourceRequirement;
-          const costParts: string[] = [];
-          if (req.matter) costParts.push(`M:${req.matter}`);
-          if (req.energy) costParts.push(`E:${req.energy}`);
-          if (req.data) costParts.push(`D:${req.data}`);
-          if (req.influence) costParts.push(`I:${req.influence}`);
-          this.showMessage(`${card.card.name} needs: ${costParts.join(" ")}. Drag resources to contribute.`);
         }
       };
     }
@@ -965,6 +933,9 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.showMessage("Turn ended.");
     this.actionLog.addEntry("Turn ended.");
 
+    // Clear fallout action collector
+    this.collectedFalloutActions = [];
+
     // Phase 1: Compact
     this.animateCompact(() => {
       // Phase 2: Slide + Fallout (may loop for extra slides from hazards)
@@ -980,25 +951,36 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.animateSlideLoop(totalSlides, 0, () => {
         // Phase 3: Refill
         this.animateRefill(() => {
-          // Phase 4: Start next turn
-          const handBefore = new Set(this.gameState.mandateDeck.hand.map(c => c.instanceId));
-          const turnResult = startTurn(this.gameState);
-          this.gameState = turnResult.state;
-          this.actionLog.setTurn(this.gameState.turnNumber);
-          if (turnResult.reshuffled) {
-            this.showMessage("Discard reshuffled into deck.");
-            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
-          }
-          this.refreshAll();
+          // Phase 3.5: Resolve resource actions from fallout investments
+          const proceedToNextTurn = () => {
+            // Phase 4: Start next turn
+            const handBefore = new Set(this.gameState.mandateDeck.hand.map(c => c.instanceId));
+            const turnResult = startTurn(this.gameState);
+            this.gameState = turnResult.state;
+            this.actionLog.setTurn(this.gameState.turnNumber);
+            if (turnResult.reshuffled) {
+              this.showMessage("Discard reshuffled into deck.");
+              this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
+            }
+            this.refreshAll();
 
-          // Animate drawn cards from deck to hand
-          const newCards = new Set(
-            this.gameState.mandateDeck.hand
-              .filter(c => !handBefore.has(c.instanceId))
-              .map(c => c.instanceId)
-          );
-          this.animateDrawToHand(newCards);
-          this.endTurnAnimating = false;
+            const newCards = new Set(
+              this.gameState.mandateDeck.hand
+                .filter(c => !handBefore.has(c.instanceId))
+                .map(c => c.instanceId)
+            );
+            this.animateDrawToHand(newCards);
+            this.endTurnAnimating = false;
+          };
+
+          if (this.collectedFalloutActions.length > 0) {
+            this.enterResourceActionResolution(
+              this.collectedFalloutActions,
+              proceedToNextTurn
+            );
+          } else {
+            proceedToNextTurn();
+          }
         });
       });
     });
@@ -1175,7 +1157,8 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.gameState.transitMarket = slideResult.market;
 
     let reactiveSleep = false;
-    for (const falloutData of [slideResult.upperFallout, slideResult.lowerFallout]) {
+    const falloutInvestments: { card: CardInstance; investment: ResourceCost | null; row: string }[] = [];
+    for (const [idx, falloutData] of [slideResult.upperFallout, slideResult.lowerFallout].entries()) {
       if (falloutData.card) {
         const fr = resolveFallout(this.gameState, falloutData.card);
         this.gameState = fr.state;
@@ -1184,6 +1167,25 @@ export class ActiveWatchScene extends Phaser.Scene {
           this.actionLog.addEntry(msg, HEX.eggshell);
         }
         if (fr.triggersReactiveSleep) reactiveSleep = true;
+        falloutInvestments.push({
+          card: falloutData.card,
+          investment: falloutData.investment,
+          row: idx === 0 ? "upper" : "lower",
+        });
+      }
+    }
+
+    // Collect resource actions from fallout investments
+    for (const { card, investment } of falloutInvestments) {
+      if (investment) {
+        const actions = extractResourceActions(investment);
+        if (actions.length > 0) {
+          this.collectedFalloutActions.push({
+            source: "fallout",
+            cardName: card.card.name,
+            actions,
+          });
+        }
       }
     }
 
@@ -1410,6 +1412,13 @@ export class ActiveWatchScene extends Phaser.Scene {
           this.scene.start(SuccessionScene.KEY, { gameState: this.gameState, cardDefs: this.cardDefs });
         });
       }
+
+      // Handle pending resource actions from purchase
+      if (result.pendingResourceActions && result.pendingResourceActions.length > 0) {
+        this.enterResourceActionResolution(result.pendingResourceActions, () => {
+          this.refreshAll();
+        });
+      }
     }
   }
 
@@ -1462,9 +1471,6 @@ export class ActiveWatchScene extends Phaser.Scene {
     const worldDeckCount = this.gameState.worldDeck.drawPile.length;
     this.worldDeckCountText.setText(`${worldDeckCount} cards`);
 
-    // Entropy gauge
-    this.entropyGauge.setValue(this.gameState.entropy);
-
     // Era display
     this.eraDisplay.update(this.gameState.era, this.gameState.eraModifiers);
   }
@@ -1509,5 +1515,347 @@ export class ActiveWatchScene extends Phaser.Scene {
 
   private showMessage(msg: string, color?: string): void {
     this.messagePanel.addMessage(msg, color);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RESOURCE ACTION RESOLUTION
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Enter resource action resolution mode.
+   * Groups are resolved one at a time (upper fallout first, then lower).
+   * Within a group, the player picks which action to resolve next.
+   */
+  private enterResourceActionResolution(
+    groups: PendingResourceActionGroup[],
+    onComplete: () => void
+  ): void {
+    this.pendingActionGroups = [...groups];
+    this.onAllActionsResolved = onComplete;
+    this.advanceToNextActionGroup();
+  }
+
+  private advanceToNextActionGroup(): void {
+    if (this.pendingActionGroups.length === 0) {
+      // All groups resolved
+      this.currentActionGroup = null;
+      this.resourceActionPanel.hide();
+      this.refreshAll();
+      this.onAllActionsResolved?.();
+      this.onAllActionsResolved = null;
+      return;
+    }
+
+    this.currentActionGroup = this.pendingActionGroups.shift()!;
+    this.showCurrentActionGroup();
+  }
+
+  private showCurrentActionGroup(): void {
+    if (!this.currentActionGroup) return;
+
+    // Check if group has any remaining actions
+    const totalActions = this.currentActionGroup.actions.reduce((sum, a) => sum + a.count, 0);
+    if (totalActions === 0) {
+      this.advanceToNextActionGroup();
+      return;
+    }
+
+    this.resourceActionPanel.show(this.currentActionGroup);
+    this.showMessage(
+      `Resolve resource actions from ${this.currentActionGroup.cardName}`,
+      HEX.pearlAqua
+    );
+  }
+
+  private handleResourceActionSelected(action: ResourceAction): void {
+    this.resourceActionPanel.hide();
+
+    switch (action.type) {
+      case "progress-building":
+        this.startProgressBuildingSelection();
+        break;
+      case "tap-card":
+        this.startTapCardSelection();
+        break;
+      case "scry-market":
+        this.startScryMarketAction();
+        break;
+      case "swap-market":
+        this.startSwapMarketSelection();
+        break;
+    }
+  }
+
+  private handleResourceActionSkipped(action: ResourceAction): void {
+    this.consumeOneAction(action.type);
+    this.actionLog.addEntry(`Skipped ${action.type} action.`, HEX.eggshell);
+    this.showCurrentActionGroup();
+  }
+
+  /** Decrement count for an action type in the current group. Remove if count hits 0. */
+  private consumeOneAction(type: ResourceAction["type"]): void {
+    if (!this.currentActionGroup) return;
+    const actionEntry = this.currentActionGroup.actions.find(a => a.type === type);
+    if (actionEntry) {
+      actionEntry.count--;
+      if (actionEntry.count <= 0) {
+        this.currentActionGroup.actions = this.currentActionGroup.actions.filter(a => a.type !== type);
+      }
+    }
+  }
+
+  // ── Matter: Progress Building ──────────────────────────────────────
+
+  private startProgressBuildingSelection(): void {
+    // Find all under-construction structures
+    const candidates: { instanceId: string; name: string; sectorIdx: number }[] = [];
+    for (const sector of this.gameState.ship.sectors) {
+      for (const card of sector.installedCards) {
+        if (card.underConstruction) {
+          candidates.push({ instanceId: card.instanceId, name: card.card.name, sectorIdx: sector.index });
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      this.showMessage("No buildings under construction. Action skipped.", "#cc8844");
+      this.consumeOneAction("progress-building");
+      this.showCurrentActionGroup();
+      return;
+    }
+
+    if (candidates.length === 1) {
+      // Auto-select if only one candidate
+      this.resolveProgressBuilding(candidates[0].instanceId);
+      return;
+    }
+
+    // Highlight sectors with under-construction cards
+    this.showMessage("Click an under-construction building to progress it.");
+    // Use a simple click handler on sector displays
+    const cleanup = () => {
+      for (const sd of this.sectorDisplays) {
+        sd.removeAllListeners("pointerdown");
+      }
+    };
+
+    for (let i = 0; i < this.sectorDisplays.length; i++) {
+      const sector = this.gameState.ship.sectors[i];
+      const constructing = sector.installedCards.find(c => c.underConstruction);
+      if (constructing) {
+        this.sectorDisplays[i].setInteractive({ useHandCursor: true });
+        this.sectorDisplays[i].once("pointerdown", () => {
+          cleanup();
+          this.resolveProgressBuilding(constructing.instanceId);
+        });
+      }
+    }
+  }
+
+  private resolveProgressBuilding(instanceId: string): void {
+    const result = resolveProgressBuilding(this.gameState, instanceId);
+    if (result.success) {
+      this.gameState = result.state;
+      this.actionLog.addEntry(result.message);
+      this.showMessage(result.message);
+    } else {
+      this.showMessage(`! ${result.message}`, "#cc4444");
+    }
+    this.consumeOneAction("progress-building");
+    this.refreshAll();
+    this.showCurrentActionGroup();
+  }
+
+  // ── Energy: Tap Card ──────────────────────────────────────────────
+
+  private startTapCardSelection(): void {
+    // Find all tappable cards (untapped, not under construction, has tapEffect)
+    const candidates: { instanceId: string; name: string }[] = [];
+    for (const sector of this.gameState.ship.sectors) {
+      for (const card of sector.installedCards) {
+        if (!card.tapped && !card.underConstruction && card.card.tapEffect) {
+          candidates.push({ instanceId: card.instanceId, name: card.card.name });
+        }
+      }
+    }
+
+    if (candidates.length === 0) {
+      this.showMessage("No cards available to tap. Action skipped.", "#44cc44");
+      this.consumeOneAction("tap-card");
+      this.showCurrentActionGroup();
+      return;
+    }
+
+    if (candidates.length === 1) {
+      this.resolveTapCard(candidates[0].instanceId);
+      return;
+    }
+
+    this.showMessage("Click a card in the tableau to tap it.");
+    const cleanup = () => {
+      for (const sd of this.sectorDisplays) {
+        sd.removeAllListeners("pointerdown");
+      }
+    };
+
+    for (let i = 0; i < this.sectorDisplays.length; i++) {
+      const sector = this.gameState.ship.sectors[i];
+      const tappable = sector.installedCards.filter(
+        c => !c.tapped && !c.underConstruction && c.card.tapEffect
+      );
+      if (tappable.length > 0) {
+        this.sectorDisplays[i].setInteractive({ useHandCursor: true });
+        this.sectorDisplays[i].once("pointerdown", () => {
+          cleanup();
+          // If multiple tappable in this sector, just tap the first one for now
+          this.resolveTapCard(tappable[0].instanceId);
+        });
+      }
+    }
+  }
+
+  private resolveTapCard(instanceId: string): void {
+    const result = resolveTapCard(this.gameState, instanceId);
+    if (result.success) {
+      this.gameState = result.state;
+      this.actionLog.addEntry(result.message);
+      this.showMessage(result.message);
+    } else {
+      this.showMessage(`! ${result.message}`, "#cc4444");
+    }
+    this.consumeOneAction("tap-card");
+    this.refreshAll();
+    this.showCurrentActionGroup();
+  }
+
+  // ── Data: Scry Market Deck ────────────────────────────────────────
+
+  private startScryMarketAction(): void {
+    const topCards = peekMarketDeck(this.gameState, 3);
+    if (topCards.length === 0) {
+      this.showMessage("Market deck is empty. Action skipped.", "#4488cc");
+      this.consumeOneAction("scry-market");
+      this.showCurrentActionGroup();
+      return;
+    }
+
+    const dialog = new ScryDialog(this, topCards);
+    dialog.onConfirm = (order: number[]) => {
+      const result = resolveScryMarket(this.gameState, order);
+      if (result.success) {
+        this.gameState = result.state;
+        this.actionLog.addEntry(result.message);
+        this.showMessage(result.message);
+      }
+      this.consumeOneAction("scry-market");
+      this.refreshAll();
+      this.showCurrentActionGroup();
+    };
+  }
+
+  // ── Influence: Swap Market Cards ──────────────────────────────────
+
+  private swapSelection: { row: MarketRowId; col: number } | null = null;
+
+  private startSwapMarketSelection(): void {
+    this.swapSelection = null;
+    this.showMessage("Click a market card, then click an adjacent card to swap them.");
+
+    // Highlight all market slots that have cards
+    for (let fi = 0; fi < MARKET_SLOTS; fi++) {
+      const ms = this.marketSlots[fi];
+      if (!ms?.cardSprite) continue;
+      const isUpper = fi < MARKET_SLOTS_PER_ROW;
+      const row: MarketRowId = isUpper ? "upper" : "lower";
+      const col = isUpper ? fi : fi - MARKET_SLOTS_PER_ROW;
+
+      ms.setPurchaseHighlight("needs-invest");
+      ms.cardSprite.setInteractive({ useHandCursor: true });
+      ms.cardSprite.once("pointerdown", () => {
+        this.handleSwapClick(row, col);
+      });
+    }
+  }
+
+  private handleSwapClick(row: MarketRowId, col: number): void {
+    if (!this.swapSelection) {
+      // First selection
+      this.swapSelection = { row, col };
+      this.showMessage("Now click an adjacent card to swap with.");
+
+      // Re-highlight: only adjacent slots
+      for (let fi = 0; fi < MARKET_SLOTS; fi++) {
+        const ms = this.marketSlots[fi];
+        if (!ms) continue;
+        ms.setPurchaseHighlight(null);
+        if (ms.cardSprite) {
+          ms.cardSprite.removeAllListeners("pointerdown");
+        }
+      }
+
+      // Highlight adjacent slots and wire them
+      const adjacentSlots = this.getAdjacentSlots(row, col);
+      for (const adj of adjacentSlots) {
+        const fi = adj.row === "upper" ? adj.col : adj.col + MARKET_SLOTS_PER_ROW;
+        const ms = this.marketSlots[fi];
+        if (!ms) continue;
+        ms.setPurchaseHighlight("needs-invest");
+        if (ms.cardSprite) {
+          ms.cardSprite.setInteractive({ useHandCursor: true });
+          ms.cardSprite.once("pointerdown", () => {
+            this.handleSwapClick(adj.row, adj.col);
+          });
+        }
+      }
+
+      // Also highlight the selected slot
+      const selFi = row === "upper" ? col : col + MARKET_SLOTS_PER_ROW;
+      this.marketSlots[selFi]?.setPurchaseHighlight("target");
+    } else {
+      // Second selection — execute swap
+      const slotA = this.swapSelection;
+      const slotB = { row, col };
+
+      // Clear highlights
+      for (let fi = 0; fi < MARKET_SLOTS; fi++) {
+        const ms = this.marketSlots[fi];
+        if (!ms) continue;
+        ms.setPurchaseHighlight(null);
+        if (ms.cardSprite) ms.cardSprite.removeAllListeners("pointerdown");
+      }
+
+      const result = resolveSwapMarket(this.gameState, slotA, slotB);
+      if (result.success) {
+        this.gameState = result.state;
+        this.actionLog.addEntry(result.message);
+        this.showMessage(result.message);
+      } else {
+        this.showMessage(`! ${result.message}`, "#cc4444");
+      }
+
+      this.swapSelection = null;
+      this.consumeOneAction("swap-market");
+      this.refreshAll();
+      this.showCurrentActionGroup();
+    }
+  }
+
+  private getAdjacentSlots(row: MarketRowId, col: number): { row: MarketRowId; col: number }[] {
+    const adjacent: { row: MarketRowId; col: number }[] = [];
+    const maxCol = MARKET_SLOTS_PER_ROW - 1;
+
+    // Same row, left
+    if (col > 0) adjacent.push({ row, col: col - 1 });
+    // Same row, right
+    if (col < maxCol) adjacent.push({ row, col: col + 1 });
+    // Other row, same column
+    const otherRow: MarketRowId = row === "upper" ? "lower" : "upper";
+    adjacent.push({ row: otherRow, col });
+
+    // Only include slots that have cards
+    return adjacent.filter(({ row: r, col: c }) => {
+      const marketRow = getMarketRowById(this.gameState.transitMarket, r);
+      return marketRow.slots[c] !== null;
+    });
   }
 }

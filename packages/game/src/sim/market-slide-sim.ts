@@ -17,8 +17,6 @@ import type {
 } from "@icebox/shared";
 import {
   STARTING_RESOURCES,
-  STARTING_ENTROPY,
-  MAX_ENTROPY,
   STARTING_ERA,
   ERA_MODIFIERS,
   MARKET_SLOTS_PER_ROW,
@@ -64,8 +62,6 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
     phase: "active-watch",
     totalSleepCycles: 0,
     resources: { ...STARTING_RESOURCES },
-    entropy: STARTING_ENTROPY,
-    maxEntropy: MAX_ENTROPY,
     vault: { cards: [] },
     worldDeck: { drawPile: worldDeckCards },
     transitMarket: market,

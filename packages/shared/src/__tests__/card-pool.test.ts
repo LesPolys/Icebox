@@ -69,7 +69,7 @@ describe("Card Pool — Per-Card Integrity", () => {
     const validTypes: Set<string> = new Set([
       "gain-resource", "spend-resource", "draw-cards", "add-junk", "remove-junk",
       "remove-card", "modify-cost", "shift-faction", "lock-market-slot",
-      "modify-entropy", "reduce-entropy", "extend-lifespan", "gain-presence",
+      "extend-lifespan", "gain-presence",
       "prevent-damage", "peek-deck", "apply-stress",
     ]);
     const broken: string[] = [];
@@ -102,7 +102,7 @@ describe("Card Pool — Per-Card Integrity", () => {
   it("all effect condition types should be valid", () => {
     const validConditions: Set<string> = new Set([
       "faction-dominance", "resource-threshold", "sector-control",
-      "card-in-tableau", "sleep-count", "entropy-above",
+      "card-in-tableau", "sleep-count",
     ]);
     const broken: string[] = [];
     for (const card of cards) {
@@ -164,7 +164,6 @@ describe("Card Pool — Per-Card Integrity", () => {
     for (const card of crisisCards) {
       expect(card.type).toBe("crisis");
       expect(card.crisis!.proactiveCost).toBeDefined();
-      expect(card.crisis!.reactiveEntropyPenalty).toBeGreaterThan(0);
     }
   });
 });
@@ -189,7 +188,7 @@ describe("Card Pool — Coverage Requirements", () => {
     const allTypes: EffectType[] = [
       "gain-resource", "spend-resource", "draw-cards", "add-junk", "remove-junk",
       "remove-card", "modify-cost", "shift-faction", "lock-market-slot",
-      "modify-entropy", "reduce-entropy", "extend-lifespan", "gain-presence",
+      "extend-lifespan", "gain-presence",
       "prevent-damage", "peek-deck", "apply-stress",
     ];
     const found = new Set<string>();
@@ -205,7 +204,7 @@ describe("Card Pool — Coverage Requirements", () => {
   it("every condition type should appear on at least 1 card", () => {
     const allConditions = [
       "faction-dominance", "resource-threshold", "sector-control",
-      "card-in-tableau", "sleep-count", "entropy-above",
+      "card-in-tableau", "sleep-count",
     ];
     const found = new Set<string>();
     for (const card of cards) {

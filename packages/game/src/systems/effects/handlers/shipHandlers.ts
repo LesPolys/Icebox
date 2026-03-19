@@ -2,30 +2,8 @@ import type { GameState, CardEffect, CardInstance, FactionId } from "@icebox/sha
 import { ALL_FACTION_IDS } from "@icebox/shared";
 import { registerEffect, type EffectResult } from "../EffectRegistry";
 
-registerEffect("modify-entropy", (state: GameState, effect: CardEffect): EffectResult => {
-  const s = structuredClone(state);
-  const amount = (effect.params.amount as number) ?? 0;
-  s.entropy = Math.max(0, Math.min(s.maxEntropy, s.entropy + amount));
-  return {
-    state: s,
-    message: `Entropy ${amount >= 0 ? "+" : ""}${amount} (now ${s.entropy}).`,
-  };
-});
-
-registerEffect("reduce-entropy", (state: GameState, effect: CardEffect): EffectResult => {
-  const s = structuredClone(state);
-  const amount = (effect.params.amount as number) ?? 0;
-  const reduction = Math.abs(amount);
-  s.entropy = Math.max(0, s.entropy - reduction);
-  return {
-    state: s,
-    message: `Entropy reduced by ${reduction} (now ${s.entropy}).`,
-  };
-});
-
 /**
- * prevent-damage: Passive hull/entropy damage reduction.
- * Not resolved actively — checked by CryosleepEngine during entropy breakpoints.
+ * prevent-damage: Passive hull damage reduction.
  * Registered here so the registry knows about it.
  */
 registerEffect("prevent-damage", (state: GameState, effect: CardEffect): EffectResult => {

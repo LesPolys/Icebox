@@ -181,12 +181,6 @@ export class InfoPanel extends Phaser.GameObjects.Container {
         });
         y += proT.height + s(2);
       }
-      if (card.crisis.reactiveEntropyPenalty) {
-        const penT = this.addText(PAD, y, `Fallout penalty: +${card.crisis.reactiveEntropyPenalty} entropy`, {
-          fontSize: fs(9), color: "#cc3333", fontFamily: "monospace",
-        });
-        y += penT.height + s(2);
-      }
     }
 
     // ── Crew-specific ──
@@ -232,21 +226,9 @@ export class InfoPanel extends Phaser.GameObjects.Container {
         });
         y += buildT.height + s(2);
       }
-      if (con.resourceRequirement) {
-        let reqStr = `Requires: ${formatCost(con.resourceRequirement)}`;
-        if (cardInst.underConstruction && cardInst.constructionResourcesAdded) {
-          reqStr += ` (added: ${formatCost(cardInst.constructionResourcesAdded)})`;
-        }
-        const reqT = this.addText(PAD, y, reqStr, {
-          fontSize: fs(8), color: "#aa8844", fontFamily: "monospace",
-          wordWrap: { width: PANEL_W - s(24) },
-        });
-        y += reqT.height + s(2);
-      }
       if (con.fastTrackable) {
         let ftStr = "Fast-trackable";
         if (con.fastTrackCost) ftStr += ` (${formatCost(con.fastTrackCost)}/turn)`;
-        if (con.fastTrackEntropy) ftStr += ` +${con.fastTrackEntropy} entropy`;
         const ftT = this.addText(PAD, y, ftStr, {
           fontSize: fs(8), color: "#aa8844", fontFamily: "monospace",
           wordWrap: { width: PANEL_W - s(24) },

@@ -1,7 +1,5 @@
 /**
  * Legacy thresholds module — re-exports from entropy.ts.
- * The per-resource EntropyThresholds system has been replaced
- * with the unified entropy gauge (0-40+).
  */
 export {
   RESOURCE_DRAIN_PER_CYCLE,

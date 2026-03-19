@@ -61,8 +61,6 @@ function makeMinimalState(overrides: Partial<GameState> = {}): GameState {
     phase: "active-watch",
     totalSleepCycles: 0,
     resources: { matter: 5, energy: 5, data: 5, influence: 5 },
-    entropy: 3,
-    maxEntropy: 20,
     vault: { cards: [] },
     worldDeck: { drawPile: [] },
     transitMarket: { upper: { id: "A", slots: [], direction: "left-to-right" }, lower: { id: "B", slots: [], direction: "right-to-left" } },
@@ -96,11 +94,11 @@ describe("Effect Registry — Handler Registration", () => {
   const expectedTypes = [
     "gain-resource", "spend-resource", "draw-cards", "add-junk", "remove-junk",
     "remove-card", "modify-cost", "shift-faction", "lock-market-slot",
-    "modify-entropy", "reduce-entropy", "extend-lifespan", "gain-presence",
+    "extend-lifespan", "gain-presence",
     "prevent-damage", "peek-deck", "apply-stress",
   ];
 
-  it("should have handlers registered for all 16 effect types", () => {
+  it("should have handlers registered for all effect types", () => {
     const registered = getRegisteredEffectTypes();
     const missing = expectedTypes.filter((t) => !registered.includes(t));
     expect(missing).toEqual([]);
@@ -115,11 +113,11 @@ describe("Effect Registry — Handler Registration", () => {
 
 describe("Condition Registry — Evaluator Registration", () => {
   const expectedConditions = [
-    "resource-threshold", "entropy-above", "sleep-count",
+    "resource-threshold", "sleep-count",
     "faction-dominance", "sector-control", "card-in-tableau",
   ];
 
-  it("should have evaluators registered for all 6 condition types", () => {
+  it("should have evaluators registered for all condition types", () => {
     const registered = getRegisteredConditionTypes();
     const missing = expectedConditions.filter((t) => !registered.includes(t));
     expect(missing).toEqual([]);
@@ -188,26 +186,6 @@ describe("Effect Resolution — Smoke Tests", () => {
     expect(result.state.ship.sectors[0].installedCards[0].powered).toBe(false);
   });
 
-  it("modify-entropy should change entropy", () => {
-    const state = makeMinimalState({ entropy: 5 });
-    const effect: CardEffect = {
-      id: "test-e1", timing: "on-play", description: "Increase entropy by 2",
-      type: "modify-entropy", params: { amount: 2 },
-    };
-    const result = resolveEffect(state, effect, makeInstance());
-    expect(result.state.entropy).toBe(7);
-  });
-
-  it("reduce-entropy should decrease entropy", () => {
-    const state = makeMinimalState({ entropy: 5 });
-    const effect: CardEffect = {
-      id: "test-e1", timing: "on-play", description: "Reduce entropy by 2",
-      type: "reduce-entropy", params: { amount: 2 },
-    };
-    const result = resolveEffect(state, effect, makeInstance());
-    expect(result.state.entropy).toBe(3);
-  });
-
   it("draw-cards should move cards from draw pile to hand", () => {
     const drawCard = makeInstance(makeCard({ id: "draw-test" }), { zone: "mandate-deck" });
     const state = makeMinimalState();
@@ -251,14 +229,6 @@ describe("Condition Evaluation — Smoke Tests", () => {
       params: { resource: "matter", threshold: 5 },
     });
     expect(result).toBe(false);
-  });
-
-  it("entropy-above should pass when entropy >= threshold", () => {
-    const state = makeMinimalState({ entropy: 10 });
-    expect(evaluateCondition(state, {
-      type: "entropy-above",
-      params: { threshold: 5 },
-    })).toBe(true);
   });
 
   it("sleep-count should pass when totalSleepCycles >= threshold", () => {
