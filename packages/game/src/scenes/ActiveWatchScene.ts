@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { GameState, Card, CardInstance, MarketRowId, ResourceCost } from "@icebox/shared";
-import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMarketRowById, canAfford, gainResources } from "@icebox/shared";
+import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMarketRowById, canAfford, gainResources, spendResources } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
 
 import { startTurn, executeAction, type PlayerAction } from "../systems/TurnManager";
@@ -24,7 +24,7 @@ import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
 import { SuccessionScene } from "./SuccessionScene";
 import { MAIN_CX, LAYOUT, s, fontSize } from "../ui/layout";
-import { ResourceActionPanel } from "../ui/ResourceActionPanel";
+import { ActionPool } from "../ui/ActionPool";
 import { ScryDialog } from "../ui/ScryDialog";
 import {
   extractResourceActions,
@@ -67,14 +67,10 @@ export class ActiveWatchScene extends Phaser.Scene {
     investments: Map<number, { row: MarketRowId; resource: ResourceCost }>;
   } | null = null;
 
-  // ── Resource Action resolution mode ──
-  private resourceActionPanel!: ResourceActionPanel;
-  private pendingActionGroups: PendingResourceActionGroup[] = [];
-  private currentActionGroup: PendingResourceActionGroup | null = null;
-  /** Callback to continue after all resource actions are resolved */
-  private onAllActionsResolved: (() => void) | null = null;
-  /** Collected during animated slide loop, resolved after refill */
-  private collectedFalloutActions: PendingResourceActionGroup[] = [];
+  // ── Action Pool (persistent resource action tokens) ──
+  private actionPool!: ActionPool;
+  /** Swap mode state for influence action */
+  private swapMode: { row: MarketRowId; col: number } | null = null;
 
   // Market geometry for hit-testing resource drops
   private marketColPositions: number[] = [];
@@ -153,10 +149,13 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     this.messagePanel = new MessagePanel(this);
 
-    // ─── Resource action resolution panel ───
-    this.resourceActionPanel = new ResourceActionPanel(this);
-    this.resourceActionPanel.onActionSelected = (action) => this.handleResourceActionSelected(action);
-    this.resourceActionPanel.onActionSkipped = (action) => this.handleResourceActionSkipped(action);
+    // ─── Action Pool (below era display) ───
+    this.actionPool = new ActionPool(
+      this,
+      this.eraDisplay.x,
+      this.eraDisplay.y + this.eraDisplay.boxH + s(8),
+      this.eraDisplay.boxW
+    );
 
     // ─── Cancel purchase mode on click on empty space ───
     this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
@@ -264,15 +263,30 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.worldDeckCountText = this.add.text(deckX, deckY + s(55), "", {
       fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
     }).setOrigin(0.5);
+
+    // Click on world deck pile → scry action (data)
+    const deckHitArea = this.add.rectangle(deckX, deckY, s(80), s(110), 0x000000, 0);
+    deckHitArea.setInteractive({ useHandCursor: true });
+    deckHitArea.on("pointerdown", () => {
+      if (this.gameState.availableActions.data > 0) {
+        this.useScryMarket();
+      }
+    });
   }
 
   private wireMarketSlotInteractions(slot: MarketSlot, slotIndex: number, row: MarketRowId): void {
     if (!slot.cardSprite) return;
 
-    // Click to buy, enter purchase mode, or withdraw investment
+    // Click to buy, enter purchase mode, swap (influence action), or withdraw investment
     slot.cardSprite.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (pointer.button !== 0) return;
       if (!slot.cardSprite) return;
+
+      // In swap mode (influence action): handle second click
+      if (this.swapMode) {
+        this.handleSwapClick(row, slotIndex);
+        return;
+      }
 
       // In purchase mode: click an invested slot to withdraw
       if (this.purchaseMode) {
@@ -285,31 +299,59 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
-      // Crisis card: show resolve popup instead of buying
-      if (slot.cardSprite.cardInstance.card.type === "crisis") {
-        const crisis = slot.cardSprite.cardInstance.card.crisis;
-        if (!crisis) return;
-        const costParts: string[] = [];
-        const pc = crisis.proactiveCost ?? {};
-        if (pc.matter) costParts.push(`M:${pc.matter}`);
-        if (pc.energy) costParts.push(`E:${pc.energy}`);
-        if (pc.data) costParts.push(`D:${pc.data}`);
-        if (pc.influence) costParts.push(`I:${pc.influence}`);
-        const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
-        new ConfirmPopup(
-          this, MAIN_CX, LAYOUT.resourceY,
-          `Resolve crisis?\nCost: ${costStr}`,
-          () => this.doAction({ type: "resolve-crisis", row, slotIndex })
-        );
+      // Influence action: if player has swap actions and clicks a market card
+      if (this.gameState.availableActions.influence > 0) {
+        this.swapMode = { row, col: slotIndex };
+        this.showMessage("Select an adjacent card to swap with.");
+        this.highlightSwapTargets(row, slotIndex);
+        return;
+      }
+
+      // Buy lock: cannot buy a card invested in this turn
+      const slotKey = `${row}-${slotIndex}`;
+      if (this.gameState.turnInvestments.includes(slotKey)) {
+        this.showMessage("Cannot buy a card you invested in this turn.", "#cc4444");
+        return;
+      }
+
+      // Check if card is reachable (all preceding columns have cards)
+      if (!this.isSlotPurchasable(slotIndex)) {
+        this.showMessage("Can't buy — an empty column blocks this card.", "#cc4444");
         return;
       }
 
       if (slotIndex === 0) {
-        // Column 0 is free (positional cost = 0)
-        this.animateBuyToDiscard(row, slotIndex);
-        this.doAction({ type: "buy-from-market", row, slotIndex, payment: {} });
+        // Column 0 is free — but crisis cards need confirmation + additional cost
+        const isCrisis = slot.cardSprite.cardInstance.card.type === "crisis";
+        if (isCrisis) {
+          const pc = slot.cardSprite.cardInstance.card.crisis?.proactiveCost ?? {};
+          const canPayCrisis = canAfford(this.gameState.resources, pc);
+          const costParts: string[] = [];
+          if (pc.matter) costParts.push(`M:${pc.matter}`);
+          if (pc.energy) costParts.push(`E:${pc.energy}`);
+          if (pc.data) costParts.push(`D:${pc.data}`);
+          if (pc.influence) costParts.push(`I:${pc.influence}`);
+          const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
+
+          if (!canPayCrisis) {
+            this.showMessage(`Cannot afford crisis resolution cost (${costStr}).`, "#cc4444");
+            return;
+          }
+
+          new ConfirmPopup(
+            this, MAIN_CX, LAYOUT.resourceY,
+            `Resolve crisis?\nCost: ${costStr}\nThis triggers cryosleep.`,
+            () => {
+              this.gameState.resources = spendResources(this.gameState.resources, pc);
+              this.animateBuyToDiscard(row, slotIndex);
+              this.doAction({ type: "buy-from-market", row, slotIndex, payment: {} });
+            }
+          );
+        } else {
+          this.animateBuyToDiscard(row, slotIndex);
+          this.doAction({ type: "buy-from-market", row, slotIndex, payment: {} });
+        }
       } else {
-        // Columns 1+ always require a fresh investment session
         this.enterPurchaseMode(row, slotIndex);
       }
     });
@@ -321,7 +363,8 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.infoPanel.showCard(slot.cardSprite.cardInstance);
 
       // Affordability check: positional cost = slotIndex (any resources)
-      if (!this.purchaseMode) {
+      // But don't override the gap-blocked X
+      if (!this.purchaseMode && this.isSlotPurchasable(slotIndex)) {
         const r = this.gameState.resources;
         const totalResources = r.matter + r.energy + r.data + r.influence;
         slot.cardSprite.setAffordable(totalResources >= slotIndex);
@@ -345,7 +388,10 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     slot.cardSprite.on("pointerout", () => {
       this.infoPanel.hide();
-      if (slot.cardSprite) slot.cardSprite.setAffordable(true);
+      // Only reset affordability if this card isn't blocked by an empty column gap
+      if (slot.cardSprite && this.isSlotPurchasable(slotIndex)) {
+        slot.cardSprite.setAffordable(true);
+      }
 
       // Clear ghost icons
       for (const ms of this.marketSlots) {
@@ -359,6 +405,21 @@ export class ActiveWatchScene extends Phaser.Scene {
   /** Convert row + slotIndex to flat array index matching getAllMarketSlots order. */
   private flatIdx(row: MarketRowId, slotIndex: number): number {
     return row === "upper" ? slotIndex : slotIndex + MARKET_SLOTS_PER_ROW;
+  }
+
+  /**
+   * Check if a market slot can be purchased: all preceding columns must have
+   * at least one card (upper or lower row) so resources can be invested on them.
+   */
+  private isSlotPurchasable(targetSlotIndex: number): boolean {
+    if (targetSlotIndex === 0) return true;
+    const market = this.gameState.transitMarket;
+    for (let i = 0; i < targetSlotIndex; i++) {
+      const upperHas = !!getMarketRowById(market, "upper").slots[i];
+      const lowerHas = !!getMarketRowById(market, "lower").slots[i];
+      if (!upperHas && !lowerHas) return false;
+    }
+    return true;
   }
 
   private enterPurchaseMode(row: MarketRowId, targetSlotIndex: number): void {
@@ -499,15 +560,53 @@ export class ActiveWatchScene extends Phaser.Scene {
         payment.influence = (payment.influence ?? 0) + (entry.resource.influence ?? 0);
       }
 
-      // Commit all pending investments to market state
-      for (const [col, entry] of investments) {
-        const updated = investOnSlot(this.gameState.transitMarket, entry.row, col, entry.resource);
-        if (updated) this.gameState.transitMarket = updated;
+      const completePurchase = () => {
+        // Commit all pending investments to market state and track for turn
+        for (const [col, entry] of this.purchaseMode!.investments) {
+          const updated = investOnSlot(this.gameState.transitMarket, entry.row, col, entry.resource);
+          if (updated) this.gameState.transitMarket = updated;
+          const slotKey = `${entry.row}-${col}`;
+          if (!this.gameState.turnInvestments.includes(slotKey)) {
+            this.gameState.turnInvestments.push(slotKey);
+          }
+        }
+        this.exitPurchaseMode(false);
+        this.animateBuyToDiscard(row, targetSlotIndex);
+        this.doAction({ type: "buy-from-market", row, slotIndex: targetSlotIndex, payment });
+      };
+
+      // Crisis cards: confirm before completing — player must also afford proactive cost
+      const targetSlot = getMarketRowById(this.gameState.transitMarket, row).slots[targetSlotIndex];
+      if (targetSlot?.card.type === "crisis") {
+        const pc = targetSlot.card.crisis?.proactiveCost ?? {};
+        const canPayCrisis = canAfford(this.gameState.resources, pc);
+        const costParts: string[] = [];
+        if (pc.matter) costParts.push(`M:${pc.matter}`);
+        if (pc.energy) costParts.push(`E:${pc.energy}`);
+        if (pc.data) costParts.push(`D:${pc.data}`);
+        if (pc.influence) costParts.push(`I:${pc.influence}`);
+        const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
+
+        if (!canPayCrisis) {
+          // Can't afford the crisis cost — refund and tell the player
+          this.exitPurchaseMode(true);
+          this.showMessage(`Cannot afford crisis resolution cost (${costStr}).`, "#cc4444");
+          return;
+        }
+
+        new ConfirmPopup(
+          this, MAIN_CX, LAYOUT.resourceY,
+          `Resolve crisis?\nAdditional cost: ${costStr}\nThis triggers cryosleep.`,
+          () => {
+            this.gameState.resources = spendResources(this.gameState.resources, pc);
+            completePurchase();
+          },
+          () => this.exitPurchaseMode(true) // No → refund investments
+        );
+        return;
       }
 
-      this.exitPurchaseMode(false); // Don't refund — purchase succeeded
-      this.animateBuyToDiscard(row, targetSlotIndex);
-      this.doAction({ type: "buy-from-market", row, slotIndex: targetSlotIndex, payment });
+      completePurchase();
     } else {
       this.highlightPurchaseSlots();
     }
@@ -519,28 +618,30 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.resourceBar.onResourceDropped = (resourceType: ResourceKey, worldX: number, worldY: number) => {
       // Hit-test: market slot?
       const slotHit = this.hitTestMarketSlot(worldX, worldY);
+
       if (slotHit && this.purchaseMode) {
+        // In purchase mode: invest on preceding columns
         const { targetSlotIndex } = this.purchaseMode;
         const col = slotHit.slotIndex;
 
-        // Only preceding columns, not the target itself
         if (col >= targetSlotIndex) {
           this.showMessage("Invest on the highlighted preceding slots");
           return;
         }
 
-        // Check if this column was already invested in THIS session
         if (this.purchaseMode.investments.has(col)) {
           this.showMessage("Already invested in this column — click the slot to withdraw first");
           return;
         }
 
-        // Find a card to invest on in this column — prefer the row user dropped on, fall back to other
+        // Invest on the same row as the purchase target; only fall back to
+        // the other row when the purchase row has no card in this column.
         const market = this.gameState.transitMarket;
-        const otherRow: MarketRowId = slotHit.row === "upper" ? "lower" : "upper";
+        const purchaseRow = this.purchaseMode.row;
+        const otherRow: MarketRowId = purchaseRow === "upper" ? "lower" : "upper";
         let investRow: MarketRowId | null = null;
-        if (getMarketRowById(market, slotHit.row).slots[col]) {
-          investRow = slotHit.row;
+        if (getMarketRowById(market, purchaseRow).slots[col]) {
+          investRow = purchaseRow;
         } else if (getMarketRowById(market, otherRow).slots[col]) {
           investRow = otherRow;
         }
@@ -550,17 +651,12 @@ export class ActiveWatchScene extends Phaser.Scene {
         }
 
         const resource: ResourceCost = { [resourceType]: 1 };
-
-        // Check affordability without committing
         if (!canAfford(this.gameState.resources, resource)) {
           this.showMessage("Cannot afford this investment.");
           return;
         }
 
-        // Pending investment: deduct resource but don't commit to market state
-        this.gameState.resources = gainResources(this.gameState.resources, {
-          [resourceType]: -1,
-        });
+        this.gameState.resources = gainResources(this.gameState.resources, { [resourceType]: -1 });
         this.purchaseMode.investments.set(col, { row: investRow, resource });
         this.showMessage(`Invested on ${investRow} row slot ${col}.`);
         this.refreshAll();
@@ -610,8 +706,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       const sector = new SectorDisplay(this, sectorX, LAYOUT.sectorY, i);
       this.sectorDisplays.push(sector);
 
-      // Structure card hover → InfoPanel
-      sector.onCardClicked = (card) => this.infoPanel.showCard(card);
+      // Structure card unhover → hide InfoPanel
       sector.onCardUnhovered = () => this.infoPanel.hide();
 
       // Click sector with selected card → slot structure (legacy path)
@@ -631,14 +726,24 @@ export class ActiveWatchScene extends Phaser.Scene {
         );
       };
 
-      // Left-click under-construction card → construction panel
+      // Left-click under-construction card → progress with matter action or fast-track
       sector.onConstructionClicked = (card, sectorIndex) => {
         const sectorWorldX = sectorX;
         const sectorWorldY = LAYOUT.sectorY;
+
+        // Matter action: progress building
+        if (this.gameState.availableActions.matter > 0) {
+          new ConfirmPopup(
+            this, sectorWorldX, sectorWorldY - s(80),
+            `Use Build action to\nprogress ${card.card.name}?`,
+            () => this.useProgressBuilding(card.instanceId)
+          );
+          return;
+        }
+
+        // Fallback: fast-track option
         const con = card.card.construction;
         if (!con) return;
-
-        // Fast-track option
         if (con.fastTrackable) {
           const ftCost = con.fastTrackCost ?? {};
           const costParts: string[] = [];
@@ -653,6 +758,27 @@ export class ActiveWatchScene extends Phaser.Scene {
             () => this.doAction({ type: "fast-track", structureInstanceId: card.instanceId, turnsToSkip: 1 })
           );
         }
+      };
+
+      // Left-click installed (non-construction) card with energy action → tap
+      sector.onCardClicked = (card) => {
+        if (
+          this.gameState.availableActions.energy > 0 &&
+          !card.tapped &&
+          !card.underConstruction &&
+          card.card.tapEffect
+        ) {
+          const sectorWorldX = sectorX;
+          const sectorWorldY = LAYOUT.sectorY;
+          new ConfirmPopup(
+            this, sectorWorldX, sectorWorldY - s(80),
+            `Tap ${card.card.name}?\n${card.card.tapEffect.description}`,
+            () => this.useTapCard(card.instanceId)
+          );
+          return;
+        }
+        // Default: show info panel
+        this.infoPanel.showCard(card);
       };
     }
   }
@@ -933,8 +1059,9 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.showMessage("Turn ended.");
     this.actionLog.addEntry("Turn ended.");
 
-    // Clear fallout action collector
-    this.collectedFalloutActions = [];
+    // Clear action pool — unused actions are lost, fallout will grant fresh ones
+    this.gameState.availableActions = { matter: 0, energy: 0, data: 0, influence: 0 };
+    this.actionPool.updatePool(this.gameState.availableActions);
 
     // Phase 1: Compact
     this.animateCompact(() => {
@@ -951,36 +1078,31 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.animateSlideLoop(totalSlides, 0, () => {
         // Phase 3: Refill
         this.animateRefill(() => {
-          // Phase 3.5: Resolve resource actions from fallout investments
-          const proceedToNextTurn = () => {
-            // Phase 4: Start next turn
-            const handBefore = new Set(this.gameState.mandateDeck.hand.map(c => c.instanceId));
-            const turnResult = startTurn(this.gameState);
-            this.gameState = turnResult.state;
-            this.actionLog.setTurn(this.gameState.turnNumber);
-            if (turnResult.reshuffled) {
-              this.showMessage("Discard reshuffled into deck.");
-              this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
-            }
-            this.refreshAll();
-
-            const newCards = new Set(
-              this.gameState.mandateDeck.hand
-                .filter(c => !handBefore.has(c.instanceId))
-                .map(c => c.instanceId)
-            );
-            this.animateDrawToHand(newCards);
-            this.endTurnAnimating = false;
-          };
-
-          if (this.collectedFalloutActions.length > 0) {
-            this.enterResourceActionResolution(
-              this.collectedFalloutActions,
-              proceedToNextTurn
-            );
-          } else {
-            proceedToNextTurn();
+          // Phase 4: Start next turn
+          // Preserve actions accumulated during fallout — startTurn resets them
+          const falloutActions = { ...this.gameState.availableActions };
+          const handBefore = new Set(this.gameState.mandateDeck.hand.map(c => c.instanceId));
+          const turnResult = startTurn(this.gameState);
+          this.gameState = turnResult.state;
+          // Restore fallout actions into the fresh turn
+          this.gameState.availableActions.matter += falloutActions.matter;
+          this.gameState.availableActions.energy += falloutActions.energy;
+          this.gameState.availableActions.data += falloutActions.data;
+          this.gameState.availableActions.influence += falloutActions.influence;
+          this.actionLog.setTurn(this.gameState.turnNumber);
+          if (turnResult.reshuffled) {
+            this.showMessage("Discard reshuffled into deck.");
+            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
           }
+          this.refreshAll();
+
+          const newCards = new Set(
+            this.gameState.mandateDeck.hand
+              .filter(c => !handBefore.has(c.instanceId))
+              .map(c => c.instanceId)
+          );
+          this.animateDrawToHand(newCards);
+          this.endTurnAnimating = false;
         });
       });
     });
@@ -1175,16 +1297,20 @@ export class ActiveWatchScene extends Phaser.Scene {
       }
     }
 
-    // Collect resource actions from fallout investments
+    // Accumulate resource actions from fallout investments into action pool
     for (const { card, investment } of falloutInvestments) {
       if (investment) {
         const actions = extractResourceActions(investment);
+        for (const action of actions) {
+          switch (action.type) {
+            case "progress-building": this.gameState.availableActions.matter += action.count; break;
+            case "tap-card": this.gameState.availableActions.energy += action.count; break;
+            case "scry-market": this.gameState.availableActions.data += action.count; break;
+            case "swap-market": this.gameState.availableActions.influence += action.count; break;
+          }
+        }
         if (actions.length > 0) {
-          this.collectedFalloutActions.push({
-            source: "fallout",
-            cardName: card.card.name,
-            actions,
-          });
+          this.actionLog.addEntry(`  Actions from ${card.card.name}: ${actions.map(a => `${a.count}× ${a.type}`).join(", ")}`, HEX.eggshell);
         }
       }
     }
@@ -1413,12 +1539,8 @@ export class ActiveWatchScene extends Phaser.Scene {
         });
       }
 
-      // Handle pending resource actions from purchase
-      if (result.pendingResourceActions && result.pendingResourceActions.length > 0) {
-        this.enterResourceActionResolution(result.pendingResourceActions, () => {
-          this.refreshAll();
-        });
-      }
+      // Actions from purchase are now accumulated in gameState.availableActions
+      // and shown in the ActionPool — no modal resolution needed
     }
   }
 
@@ -1449,7 +1571,36 @@ export class ActiveWatchScene extends Phaser.Scene {
         // Passive effect: locked market slots
         this.marketSlots[i].setLocked(isSlotLocked(this.gameState, row, slotIndex));
 
+        // Fresh investment highlight (invested this turn)
+        const slotKey = `${row}-${slotIndex}`;
+        this.marketSlots[i].setFreshInvestment(this.gameState.turnInvestments.includes(slotKey));
+
         this.wireMarketSlotInteractions(this.marketSlots[i], slotIndex, row);
+      }
+    }
+
+    // Mark cards beyond empty column gaps as unreachable (dimmed)
+    // Find the first empty column (no card in either row)
+    let firstEmptyCol = -1;
+    for (let col = 0; col < MARKET_SLOTS_PER_ROW; col++) {
+      const upperHas = !!allSlots[col];
+      const lowerHas = !!allSlots[col + MARKET_SLOTS_PER_ROW];
+      if (!upperHas && !lowerHas) {
+        firstEmptyCol = col;
+        break;
+      }
+    }
+    if (firstEmptyCol >= 0) {
+      // Dim all cards in columns beyond the gap
+      for (let col = firstEmptyCol + 1; col < MARKET_SLOTS_PER_ROW; col++) {
+        const upperFi = col;
+        const lowerFi = col + MARKET_SLOTS_PER_ROW;
+        if (this.marketSlots[upperFi]?.cardSprite) {
+          this.marketSlots[upperFi].cardSprite!.setAffordable(false);
+        }
+        if (this.marketSlots[lowerFi]?.cardSprite) {
+          this.marketSlots[lowerFi].cardSprite!.setAffordable(false);
+        }
       }
     }
 
@@ -1473,6 +1624,9 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // Era display
     this.eraDisplay.update(this.gameState.era, this.gameState.eraModifiers);
+
+    // Action pool
+    this.actionPool.updatePool(this.gameState.availableActions);
   }
 
   /**
@@ -1518,141 +1672,24 @@ export class ActiveWatchScene extends Phaser.Scene {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // RESOURCE ACTION RESOLUTION
+  // CLICK-TO-USE RESOURCE ACTIONS
   // ═══════════════════════════════════════════════════════════════════
 
   /**
-   * Enter resource action resolution mode.
-   * Groups are resolved one at a time (upper fallout first, then lower).
-   * Within a group, the player picks which action to resolve next.
+   * Consume one action token from the pool.
+   * Returns true if there was a token to consume.
    */
-  private enterResourceActionResolution(
-    groups: PendingResourceActionGroup[],
-    onComplete: () => void
-  ): void {
-    this.pendingActionGroups = [...groups];
-    this.onAllActionsResolved = onComplete;
-    this.advanceToNextActionGroup();
+  private consumePoolAction(key: keyof typeof this.gameState.availableActions): boolean {
+    if (this.gameState.availableActions[key] <= 0) return false;
+    this.gameState.availableActions[key]--;
+    return true;
   }
 
-  private advanceToNextActionGroup(): void {
-    if (this.pendingActionGroups.length === 0) {
-      // All groups resolved
-      this.currentActionGroup = null;
-      this.resourceActionPanel.hide();
-      this.refreshAll();
-      this.onAllActionsResolved?.();
-      this.onAllActionsResolved = null;
-      return;
-    }
+  // ── Matter: Progress Building (triggered by SectorDisplay click) ──
 
-    this.currentActionGroup = this.pendingActionGroups.shift()!;
-    this.showCurrentActionGroup();
-  }
-
-  private showCurrentActionGroup(): void {
-    if (!this.currentActionGroup) return;
-
-    // Check if group has any remaining actions
-    const totalActions = this.currentActionGroup.actions.reduce((sum, a) => sum + a.count, 0);
-    if (totalActions === 0) {
-      this.advanceToNextActionGroup();
-      return;
-    }
-
-    this.resourceActionPanel.show(this.currentActionGroup);
-    this.showMessage(
-      `Resolve resource actions from ${this.currentActionGroup.cardName}`,
-      HEX.pearlAqua
-    );
-  }
-
-  private handleResourceActionSelected(action: ResourceAction): void {
-    this.resourceActionPanel.hide();
-
-    switch (action.type) {
-      case "progress-building":
-        this.startProgressBuildingSelection();
-        break;
-      case "tap-card":
-        this.startTapCardSelection();
-        break;
-      case "scry-market":
-        this.startScryMarketAction();
-        break;
-      case "swap-market":
-        this.startSwapMarketSelection();
-        break;
-    }
-  }
-
-  private handleResourceActionSkipped(action: ResourceAction): void {
-    this.consumeOneAction(action.type);
-    this.actionLog.addEntry(`Skipped ${action.type} action.`, HEX.eggshell);
-    this.showCurrentActionGroup();
-  }
-
-  /** Decrement count for an action type in the current group. Remove if count hits 0. */
-  private consumeOneAction(type: ResourceAction["type"]): void {
-    if (!this.currentActionGroup) return;
-    const actionEntry = this.currentActionGroup.actions.find(a => a.type === type);
-    if (actionEntry) {
-      actionEntry.count--;
-      if (actionEntry.count <= 0) {
-        this.currentActionGroup.actions = this.currentActionGroup.actions.filter(a => a.type !== type);
-      }
-    }
-  }
-
-  // ── Matter: Progress Building ──────────────────────────────────────
-
-  private startProgressBuildingSelection(): void {
-    // Find all under-construction structures
-    const candidates: { instanceId: string; name: string; sectorIdx: number }[] = [];
-    for (const sector of this.gameState.ship.sectors) {
-      for (const card of sector.installedCards) {
-        if (card.underConstruction) {
-          candidates.push({ instanceId: card.instanceId, name: card.card.name, sectorIdx: sector.index });
-        }
-      }
-    }
-
-    if (candidates.length === 0) {
-      this.showMessage("No buildings under construction. Action skipped.", "#cc8844");
-      this.consumeOneAction("progress-building");
-      this.showCurrentActionGroup();
-      return;
-    }
-
-    if (candidates.length === 1) {
-      // Auto-select if only one candidate
-      this.resolveProgressBuilding(candidates[0].instanceId);
-      return;
-    }
-
-    // Highlight sectors with under-construction cards
-    this.showMessage("Click an under-construction building to progress it.");
-    // Use a simple click handler on sector displays
-    const cleanup = () => {
-      for (const sd of this.sectorDisplays) {
-        sd.removeAllListeners("pointerdown");
-      }
-    };
-
-    for (let i = 0; i < this.sectorDisplays.length; i++) {
-      const sector = this.gameState.ship.sectors[i];
-      const constructing = sector.installedCards.find(c => c.underConstruction);
-      if (constructing) {
-        this.sectorDisplays[i].setInteractive({ useHandCursor: true });
-        this.sectorDisplays[i].once("pointerdown", () => {
-          cleanup();
-          this.resolveProgressBuilding(constructing.instanceId);
-        });
-      }
-    }
-  }
-
-  private resolveProgressBuilding(instanceId: string): void {
+  /** Called when a sector with under-construction buildings is clicked and matter actions are available */
+  private useProgressBuilding(instanceId: string): void {
+    if (!this.consumePoolAction("matter")) return;
     const result = resolveProgressBuilding(this.gameState, instanceId);
     if (result.success) {
       this.gameState = result.state;
@@ -1660,61 +1697,17 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.showMessage(result.message);
     } else {
       this.showMessage(`! ${result.message}`, "#cc4444");
+      // Refund the action
+      this.gameState.availableActions.matter++;
     }
-    this.consumeOneAction("progress-building");
     this.refreshAll();
-    this.showCurrentActionGroup();
   }
 
-  // ── Energy: Tap Card ──────────────────────────────────────────────
+  // ── Energy: Tap Card (triggered by SectorDisplay click on tappable card) ──
 
-  private startTapCardSelection(): void {
-    // Find all tappable cards (untapped, not under construction, has tapEffect)
-    const candidates: { instanceId: string; name: string }[] = [];
-    for (const sector of this.gameState.ship.sectors) {
-      for (const card of sector.installedCards) {
-        if (!card.tapped && !card.underConstruction && card.card.tapEffect) {
-          candidates.push({ instanceId: card.instanceId, name: card.card.name });
-        }
-      }
-    }
-
-    if (candidates.length === 0) {
-      this.showMessage("No cards available to tap. Action skipped.", "#44cc44");
-      this.consumeOneAction("tap-card");
-      this.showCurrentActionGroup();
-      return;
-    }
-
-    if (candidates.length === 1) {
-      this.resolveTapCard(candidates[0].instanceId);
-      return;
-    }
-
-    this.showMessage("Click a card in the tableau to tap it.");
-    const cleanup = () => {
-      for (const sd of this.sectorDisplays) {
-        sd.removeAllListeners("pointerdown");
-      }
-    };
-
-    for (let i = 0; i < this.sectorDisplays.length; i++) {
-      const sector = this.gameState.ship.sectors[i];
-      const tappable = sector.installedCards.filter(
-        c => !c.tapped && !c.underConstruction && c.card.tapEffect
-      );
-      if (tappable.length > 0) {
-        this.sectorDisplays[i].setInteractive({ useHandCursor: true });
-        this.sectorDisplays[i].once("pointerdown", () => {
-          cleanup();
-          // If multiple tappable in this sector, just tap the first one for now
-          this.resolveTapCard(tappable[0].instanceId);
-        });
-      }
-    }
-  }
-
-  private resolveTapCard(instanceId: string): void {
+  /** Called when a tappable card in the tableau is clicked and energy actions are available */
+  private useTapCard(instanceId: string): void {
+    if (!this.consumePoolAction("energy")) return;
     const result = resolveTapCard(this.gameState, instanceId);
     if (result.success) {
       this.gameState = result.state;
@@ -1722,121 +1715,80 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.showMessage(result.message);
     } else {
       this.showMessage(`! ${result.message}`, "#cc4444");
+      this.gameState.availableActions.energy++;
     }
-    this.consumeOneAction("tap-card");
     this.refreshAll();
-    this.showCurrentActionGroup();
   }
 
-  // ── Data: Scry Market Deck ────────────────────────────────────────
+  // ── Data: Scry Market Deck (triggered by clicking world deck pile) ──
 
-  private startScryMarketAction(): void {
+  private useScryMarket(): void {
+    if (this.gameState.availableActions.data <= 0) return;
     const topCards = peekMarketDeck(this.gameState, 3);
     if (topCards.length === 0) {
-      this.showMessage("Market deck is empty. Action skipped.", "#4488cc");
-      this.consumeOneAction("scry-market");
-      this.showCurrentActionGroup();
+      this.showMessage("Market deck is empty.", "#4488cc");
       return;
     }
 
     const dialog = new ScryDialog(this, topCards);
     dialog.onConfirm = (order: number[]) => {
+      this.consumePoolAction("data");
       const result = resolveScryMarket(this.gameState, order);
       if (result.success) {
         this.gameState = result.state;
         this.actionLog.addEntry(result.message);
         this.showMessage(result.message);
       }
-      this.consumeOneAction("scry-market");
       this.refreshAll();
-      this.showCurrentActionGroup();
     };
   }
 
-  // ── Influence: Swap Market Cards ──────────────────────────────────
-
-  private swapSelection: { row: MarketRowId; col: number } | null = null;
-
-  private startSwapMarketSelection(): void {
-    this.swapSelection = null;
-    this.showMessage("Click a market card, then click an adjacent card to swap them.");
-
-    // Highlight all market slots that have cards
-    for (let fi = 0; fi < MARKET_SLOTS; fi++) {
-      const ms = this.marketSlots[fi];
-      if (!ms?.cardSprite) continue;
-      const isUpper = fi < MARKET_SLOTS_PER_ROW;
-      const row: MarketRowId = isUpper ? "upper" : "lower";
-      const col = isUpper ? fi : fi - MARKET_SLOTS_PER_ROW;
-
-      ms.setPurchaseHighlight("needs-invest");
-      ms.cardSprite.setInteractive({ useHandCursor: true });
-      ms.cardSprite.once("pointerdown", () => {
-        this.handleSwapClick(row, col);
-      });
-    }
-  }
+  // ── Influence: Swap Market Cards (triggered by clicking market cards) ──
 
   private handleSwapClick(row: MarketRowId, col: number): void {
-    if (!this.swapSelection) {
-      // First selection
-      this.swapSelection = { row, col };
-      this.showMessage("Now click an adjacent card to swap with.");
+    if (!this.swapMode) return;
 
-      // Re-highlight: only adjacent slots
-      for (let fi = 0; fi < MARKET_SLOTS; fi++) {
-        const ms = this.marketSlots[fi];
-        if (!ms) continue;
-        ms.setPurchaseHighlight(null);
-        if (ms.cardSprite) {
-          ms.cardSprite.removeAllListeners("pointerdown");
-        }
-      }
+    // This is the second click — execute the swap
+    const slotA = this.swapMode;
+    const slotB = { row, col };
 
-      // Highlight adjacent slots and wire them
-      const adjacentSlots = this.getAdjacentSlots(row, col);
-      for (const adj of adjacentSlots) {
-        const fi = adj.row === "upper" ? adj.col : adj.col + MARKET_SLOTS_PER_ROW;
-        const ms = this.marketSlots[fi];
-        if (!ms) continue;
-        ms.setPurchaseHighlight("needs-invest");
-        if (ms.cardSprite) {
-          ms.cardSprite.setInteractive({ useHandCursor: true });
-          ms.cardSprite.once("pointerdown", () => {
-            this.handleSwapClick(adj.row, adj.col);
-          });
-        }
-      }
+    // Clear swap mode + highlights
+    this.swapMode = null;
+    for (let fi = 0; fi < MARKET_SLOTS; fi++) {
+      this.marketSlots[fi]?.setPurchaseHighlight(null);
+    }
 
-      // Also highlight the selected slot
-      const selFi = row === "upper" ? col : col + MARKET_SLOTS_PER_ROW;
-      this.marketSlots[selFi]?.setPurchaseHighlight("target");
+    // Check adjacency
+    const adjacent = this.getAdjacentSlots(slotA.row, slotA.col);
+    const isAdj = adjacent.some(a => a.row === slotB.row && a.col === slotB.col);
+    if (!isAdj) {
+      this.showMessage("Cards must be adjacent to swap.", "#cc4444");
+      return;
+    }
+
+    if (!this.consumePoolAction("influence")) return;
+    const result = resolveSwapMarket(this.gameState, slotA, slotB);
+    if (result.success) {
+      this.gameState = result.state;
+      this.actionLog.addEntry(result.message);
+      this.showMessage(result.message);
     } else {
-      // Second selection — execute swap
-      const slotA = this.swapSelection;
-      const slotB = { row, col };
+      this.showMessage(`! ${result.message}`, "#cc4444");
+      this.gameState.availableActions.influence++;
+    }
+    this.refreshAll();
+  }
 
-      // Clear highlights
-      for (let fi = 0; fi < MARKET_SLOTS; fi++) {
-        const ms = this.marketSlots[fi];
-        if (!ms) continue;
-        ms.setPurchaseHighlight(null);
-        if (ms.cardSprite) ms.cardSprite.removeAllListeners("pointerdown");
-      }
+  private highlightSwapTargets(row: MarketRowId, col: number): void {
+    // Highlight the selected slot
+    const selFi = row === "upper" ? col : col + MARKET_SLOTS_PER_ROW;
+    this.marketSlots[selFi]?.setPurchaseHighlight("target");
 
-      const result = resolveSwapMarket(this.gameState, slotA, slotB);
-      if (result.success) {
-        this.gameState = result.state;
-        this.actionLog.addEntry(result.message);
-        this.showMessage(result.message);
-      } else {
-        this.showMessage(`! ${result.message}`, "#cc4444");
-      }
-
-      this.swapSelection = null;
-      this.consumeOneAction("swap-market");
-      this.refreshAll();
-      this.showCurrentActionGroup();
+    // Highlight adjacent slots
+    const adjacent = this.getAdjacentSlots(row, col);
+    for (const adj of adjacent) {
+      const fi = adj.row === "upper" ? adj.col : adj.col + MARKET_SLOTS_PER_ROW;
+      this.marketSlots[fi]?.setPurchaseHighlight("needs-invest");
     }
   }
 
@@ -1844,15 +1796,11 @@ export class ActiveWatchScene extends Phaser.Scene {
     const adjacent: { row: MarketRowId; col: number }[] = [];
     const maxCol = MARKET_SLOTS_PER_ROW - 1;
 
-    // Same row, left
     if (col > 0) adjacent.push({ row, col: col - 1 });
-    // Same row, right
     if (col < maxCol) adjacent.push({ row, col: col + 1 });
-    // Other row, same column
     const otherRow: MarketRowId = row === "upper" ? "lower" : "upper";
     adjacent.push({ row: otherRow, col });
 
-    // Only include slots that have cards
     return adjacent.filter(({ row: r, col: c }) => {
       const marketRow = getMarketRowById(this.gameState.transitMarket, r);
       return marketRow.slots[c] !== null;

@@ -126,4 +126,18 @@ export interface GameState {
 
   /** Random seed for deterministic replay (optional) */
   seed?: number;
+
+  /** Available resource action tokens for this turn (matter→progress, energy→tap, data→scry, influence→swap) */
+  availableActions: ActionPoolState;
+
+  /** Slot keys invested in this turn (e.g. "upper-2", "lower-0"). Cards with fresh investments cannot be bought. */
+  turnInvestments: string[];
+}
+
+/** Tracks how many of each resource action the player can still use this turn */
+export interface ActionPoolState {
+  matter: number;
+  energy: number;
+  data: number;
+  influence: number;
 }

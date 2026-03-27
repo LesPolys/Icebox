@@ -68,11 +68,6 @@ export class MarketSlot extends Phaser.GameObjects.Container {
       this.cardSprite.setScale(MARKET_CARD_SCALE);
       this.cardSprite.setMarketMode(true);
       this.add(this.cardSprite);
-
-      // Show crisis indicator for crisis-type cards
-      if (cardInstance.card.type === "crisis") {
-        this.setCrisisIndicator(true);
-      }
     } else {
       this.emptySlot.setVisible(true);
     }
@@ -252,5 +247,35 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     gfx.setDepth(15);
     this.add(gfx);
     this.lockGfx = gfx;
+  }
+
+  // ── Fresh investment indicator ──
+
+  private freshInvestGfx: Phaser.GameObjects.Graphics | null = null;
+  private freshInvestTween: Phaser.Tweens.Tween | null = null;
+
+  /** Show/hide a golden glow for slots invested in this turn. */
+  setFreshInvestment(fresh: boolean): void {
+    if (this.freshInvestGfx) { this.freshInvestGfx.destroy(); this.freshInvestGfx = null; }
+    if (this.freshInvestTween) { this.freshInvestTween.destroy(); this.freshInvestTween = null; }
+    if (!fresh || !this.cardSprite) return;
+
+    const hw = s(45);
+    const hh = s(65);
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(s(2), 0xddaa44, 0.8);
+    gfx.strokeRoundedRect(-hw, -hh, hw * 2, hh * 2, s(4));
+    gfx.setDepth(12);
+    this.add(gfx);
+    this.freshInvestGfx = gfx;
+
+    this.freshInvestTween = this.scene.tweens.add({
+      targets: gfx,
+      alpha: { from: 0.8, to: 0.3 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 }

@@ -90,6 +90,8 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
     era: STARTING_ERA,
     eraModifiers: { ...ERA_MODIFIERS[STARTING_ERA] },
     seed: 42,
+    availableActions: { matter: 0, energy: 0, data: 0, influence: 0 },
+    turnInvestments: [],
   };
 }
 

@@ -175,6 +175,8 @@ export function createNewGameState(allCards: Card[]): GameState {
     era: STARTING_ERA,
     eraModifiers: { ...ERA_MODIFIERS[STARTING_ERA] },
     seed: Math.floor(Math.random() * 2147483647),
+    availableActions: { matter: 0, energy: 0, data: 0, influence: 0 },
+    turnInvestments: [],
   };
 }
 

@@ -7,7 +7,7 @@ import { resolveEffect, emitTiming } from "./EffectResolver";
 import { getCostModifier, isActionDisabled, getExtraSlideCount, isSlotLocked } from "./effects/PassiveScanner";
 import { attachCrew, reassignCrew } from "./CrewManager";
 import { advanceAllConstruction, beginConstruction, fastTrack } from "./ConstructionManager";
-import { extractResourceActions, type PendingResourceActionGroup } from "./ResourceActionManager";
+import { extractResourceActions } from "./ResourceActionManager";
 
 /**
  * Pure logic for managing the Active Watch turn flow.
@@ -31,8 +31,6 @@ export interface ActionResult {
   state: GameState;
   message: string;
   effectsTriggered?: string[];
-  /** Pending resource actions that need player resolution (from falloff or purchase) */
-  pendingResourceActions?: PendingResourceActionGroup[];
 }
 
 /**
@@ -47,6 +45,10 @@ export interface StartTurnResult {
 export function startTurn(state: GameState): StartTurnResult {
   let s = structuredClone(state);
   s.turnNumber++;
+
+  // Clear turn-scoped state
+  s.availableActions = { matter: 0, energy: 0, data: 0, influence: 0 };
+  s.turnInvestments = [];
 
   // Draw cards — full hand on wake (turn 1 with empty hand), otherwise normal draw
   const isWake = s.turnNumber === 1 && s.mandateDeck.hand.length === 0;
@@ -177,6 +179,12 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number, 
     return { success: false, state, message: "Empty market slot." };
   }
 
+  // Check if this slot was invested in this turn — cannot buy cards you invested in
+  const slotKey = `${rowId}-${slotIndex}`;
+  if (s.turnInvestments.includes(slotKey)) {
+    return { success: false, state, message: "Cannot buy a card you invested in this turn." };
+  }
+
   // Check if slot is locked by a passive effect
   const marketRow = rowId === "upper" ? "upper" : "lower";
   if (isSlotLocked(s, marketRow, slotIndex)) {
@@ -184,18 +192,12 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number, 
   }
 
   // Positional cost: must pay exactly slotIndex resources total
+  // Note: resources are already deducted by the scene's investment drag flow.
+  // The payment parameter is for validation only — it records what was spent.
   const totalPayment = (payment.matter ?? 0) + (payment.energy ?? 0) +
                        (payment.data ?? 0) + (payment.influence ?? 0);
   if (totalPayment !== slotIndex) {
     return { success: false, state, message: `Must pay exactly ${slotIndex} resources for slot ${slotIndex}.` };
-  }
-
-  if (slotIndex > 0 && !canAfford(s.resources, payment)) {
-    return { success: false, state, message: "Cannot afford this card." };
-  }
-
-  if (slotIndex > 0) {
-    s.resources = spendResources(s.resources, payment);
   }
 
   // Capture investment before acquiring (it gets cleared)
@@ -234,16 +236,16 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number, 
     effectMessages.push(effResult.message);
   }
 
-  // Extract resource actions from investment on this card
-  const pendingResourceActions: PendingResourceActionGroup[] = [];
+  // Accumulate resource actions from investment into the action pool
   if (investment) {
     const actions = extractResourceActions(investment);
-    if (actions.length > 0) {
-      pendingResourceActions.push({
-        source: "purchase",
-        cardName: slot.card.name,
-        actions,
-      });
+    for (const action of actions) {
+      switch (action.type) {
+        case "progress-building": s.availableActions.matter += action.count; break;
+        case "tap-card": s.availableActions.energy += action.count; break;
+        case "scry-market": s.availableActions.data += action.count; break;
+        case "swap-market": s.availableActions.influence += action.count; break;
+      }
     }
   }
 
@@ -253,7 +255,6 @@ function buyFromMarket(state: GameState, rowId: MarketRowId, slotIndex: number, 
     state: s,
     message: `${buyVerb} ${slot.card.name} from the ${rowId} row.`,
     effectsTriggered: effectMessages,
-    pendingResourceActions: pendingResourceActions.length > 0 ? pendingResourceActions : undefined,
   };
 }
 
@@ -422,7 +423,6 @@ function drawExtra(
 function endTurn(state: GameState): ActionResult {
   let s = structuredClone(state);
   const allEffects: string[] = [];
-  const pendingResourceActions: PendingResourceActionGroup[] = [];
 
   // 1. Compact gaps — cards shift left to fill empty slots
   s.transitMarket = compactMarket(s.transitMarket);
@@ -443,15 +443,16 @@ function endTurn(state: GameState): ActionResult {
         s = fallout.state;
         allEffects.push(...fallout.messages);
 
-        // Extract resource actions from the investment on the fallen card
+        // Accumulate resource actions from fallout investments into the action pool
         if (falloutData.investment) {
           const actions = extractResourceActions(falloutData.investment);
-          if (actions.length > 0) {
-            pendingResourceActions.push({
-              source: "fallout",
-              cardName: falloutData.card.card.name,
-              actions,
-            });
+          for (const action of actions) {
+            switch (action.type) {
+              case "progress-building": s.availableActions.matter += action.count; break;
+              case "tap-card": s.availableActions.energy += action.count; break;
+              case "scry-market": s.availableActions.data += action.count; break;
+              case "swap-market": s.availableActions.influence += action.count; break;
+            }
           }
         }
       }
@@ -482,7 +483,6 @@ function endTurn(state: GameState): ActionResult {
     state: s,
     message: "Turn ended. Market slides.",
     effectsTriggered: allEffects,
-    pendingResourceActions: pendingResourceActions.length > 0 ? pendingResourceActions : undefined,
   };
 }
 
