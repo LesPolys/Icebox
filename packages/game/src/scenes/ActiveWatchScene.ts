@@ -101,11 +101,14 @@ export class ActiveWatchScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Reset arrays (Phaser reuses scene instances on restart)
+    // Reset arrays and flags (Phaser reuses scene instances on restart)
     this.marketSlots = [];
     this.sectorDisplays = [];
     this.marketColPositions = [];
     this.purchaseMode = null;
+    this.endTurnAnimating = false;
+    this.swapMode = null;
+    this.pendingSwapActivation = false;
 
     // Disable browser right-click menu for right-click interactions
     this.input.mouse?.disableContextMenu();
@@ -156,11 +159,24 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.eraDisplay.y + this.eraDisplay.boxH + s(8),
       this.eraDisplay.boxW
     );
+    this.actionPool.onActionClicked = (key) => this.handleActionPoolClick(key);
 
     // ─── Cancel purchase mode on click on empty space ───
     this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
+      // Cancel pending swap activation on empty-space click
+      if (this.pendingSwapActivation && currentlyOver.length === 0) {
+        this.pendingSwapActivation = false;
+        this.showMessage("Swap cancelled.");
+      }
+      // Cancel swap mode on empty-space click
+      if (this.swapMode && currentlyOver.length === 0) {
+        this.swapMode = null;
+        for (let fi = 0; fi < MARKET_SLOTS; fi++) {
+          this.marketSlots[fi]?.setPurchaseHighlight(null);
+        }
+        this.showMessage("Swap cancelled.");
+      }
       if (!this.purchaseMode) return;
-      // If clicking on any interactive element (market card, resource shape, button), don't cancel
       if (currentlyOver.length > 0) return;
       this.exitPurchaseMode();
     });
@@ -299,10 +315,11 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
-      // Influence action: if player has swap actions and clicks a market card
-      if (this.gameState.availableActions.influence > 0) {
+      // Influence swap: activated from ActionPool, first click selects source
+      if (this.pendingSwapActivation && this.gameState.availableActions.influence > 0) {
+        this.pendingSwapActivation = false;
         this.swapMode = { row, col: slotIndex };
-        this.showMessage("Select an adjacent card to swap with.");
+        this.showMessage("Now click an adjacent card to swap with.");
         this.highlightSwapTargets(row, slotIndex);
         return;
       }
@@ -1129,6 +1146,9 @@ export class ActiveWatchScene extends Phaser.Scene {
     for (let i = 0; i < MARKET_SLOTS; i++) {
       if (!this.marketSlots[i]) continue;
       this.marketSlots[i].setCard(allSlots[i] ?? null);
+      if (allSlots[i]?.card.type === "crisis") {
+        this.marketSlots[i].setCrisisIndicator(true);
+      }
       const isUpper = i < MARKET_SLOTS_PER_ROW;
       const row: MarketRowId = isUpper ? "upper" : "lower";
       const slotIndex = isUpper ? i : i - MARKET_SLOTS_PER_ROW;
@@ -1558,6 +1578,11 @@ export class ActiveWatchScene extends Phaser.Scene {
       if (this.marketSlots[i]) {
         this.marketSlots[i].setCard(allSlots[i] ?? null);
 
+        // Crisis indicator
+        if (allSlots[i]?.card.type === "crisis") {
+          this.marketSlots[i].setCrisisIndicator(true);
+        }
+
         // Determine row and slot index for this flat index
         // getAllMarketSlots order: upper 0-5, lower 6-11
         const isUpper = i < MARKET_SLOTS_PER_ROW;
@@ -1742,6 +1767,96 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.refreshAll();
     };
   }
+
+  // ── Action Pool Click Handler ──────────────────────────────────────
+
+  private handleActionPoolClick(resourceKey: string): void {
+    if (this.purchaseMode) return; // Don't interrupt purchase mode
+
+    switch (resourceKey) {
+      case "matter": {
+        // Find first under-construction building and prompt
+        const candidates: { instanceId: string; name: string }[] = [];
+        for (const sector of this.gameState.ship.sectors) {
+          for (const card of sector.installedCards) {
+            if (card.underConstruction) {
+              candidates.push({ instanceId: card.instanceId, name: card.card.name });
+            }
+          }
+        }
+        if (candidates.length === 0) {
+          this.showMessage("No buildings under construction.", "#cc8844");
+          return;
+        }
+        if (candidates.length === 1) {
+          new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+            `Progress ${candidates[0].name}?`,
+            () => this.useProgressBuilding(candidates[0].instanceId));
+        } else {
+          this.showMessage("Click a sector with a building under construction.");
+          // Set up one-shot click handlers on sectors
+          for (let i = 0; i < this.sectorDisplays.length; i++) {
+            const sector = this.gameState.ship.sectors[i];
+            const constructing = sector.installedCards.find(c => c.underConstruction);
+            if (constructing) {
+              this.sectorDisplays[i].once("pointerdown", () => {
+                new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+                  `Progress ${constructing.card.name}?`,
+                  () => this.useProgressBuilding(constructing.instanceId));
+              });
+            }
+          }
+        }
+        break;
+      }
+      case "energy": {
+        // Find tappable cards and prompt
+        const candidates: { instanceId: string; name: string }[] = [];
+        for (const sector of this.gameState.ship.sectors) {
+          for (const card of sector.installedCards) {
+            if (!card.tapped && !card.underConstruction && card.card.tapEffect) {
+              candidates.push({ instanceId: card.instanceId, name: card.card.name });
+            }
+          }
+        }
+        if (candidates.length === 0) {
+          this.showMessage("No cards available to tap.", "#44cc44");
+          return;
+        }
+        if (candidates.length === 1) {
+          new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+            `Tap ${candidates[0].name}?\n${candidates[0].name}`,
+            () => this.useTapCard(candidates[0].instanceId));
+        } else {
+          this.showMessage("Click a tappable card in the tableau.");
+          for (let i = 0; i < this.sectorDisplays.length; i++) {
+            const sector = this.gameState.ship.sectors[i];
+            const tappable = sector.installedCards.filter(
+              c => !c.tapped && !c.underConstruction && c.card.tapEffect
+            );
+            if (tappable.length > 0) {
+              this.sectorDisplays[i].once("pointerdown", () => {
+                new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+                  `Tap ${tappable[0].card.name}?`,
+                  () => this.useTapCard(tappable[0].instanceId));
+              });
+            }
+          }
+        }
+        break;
+      }
+      case "data":
+        this.useScryMarket();
+        break;
+      case "influence":
+        this.showMessage("Click a market card to select it for swapping.");
+        this.pendingSwapActivation = true;
+        break;
+    }
+  }
+
+  /** Flag: next market card click should enter swap mode */
+  private pendingSwapActivation = false;
 
   // ── Influence: Swap Market Cards (triggered by clicking market cards) ──
 

@@ -26,12 +26,16 @@ export class ActionPool extends Phaser.GameObjects.Container {
     label: Phaser.GameObjects.Text;
     tokens: Phaser.GameObjects.Graphics[];
     count: number;
+    hitArea: Phaser.GameObjects.Rectangle;
   }> = new Map();
   private panelW: number;
   private panelH: number;
 
   /** Current action counts */
   private poolState: ActionPoolState = { matter: 0, energy: 0, data: 0, influence: 0 };
+
+  /** Callback when player clicks an action row to activate it */
+  public onActionClicked: ((resourceKey: string) => void) | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, width: number) {
     super(scene, x, y);
@@ -69,7 +73,21 @@ export class ActionPool extends Phaser.GameObjects.Container {
       }).setOrigin(0, 0.5);
       this.add(label);
 
-      this.rows.set(meta.key, { label, tokens: [], count: 0 });
+      // Clickable hit area for the whole row
+      const hitArea = scene.add.rectangle(this.panelW / 2, rowY + rowH / 2, this.panelW, rowH, 0xffffff, 0);
+      hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on("pointerover", () => {
+        const r = this.rows.get(meta.key);
+        if (r && r.count > 0) hitArea.setFillStyle(0xffffff, 0.05);
+      });
+      hitArea.on("pointerout", () => hitArea.setFillStyle(0xffffff, 0));
+      hitArea.on("pointerdown", () => {
+        const r = this.rows.get(meta.key);
+        if (r && r.count > 0) this.onActionClicked?.(meta.key);
+      });
+      this.add(hitArea);
+
+      this.rows.set(meta.key, { label, tokens: [], count: 0, hitArea });
       rowY += rowH;
     }
 
