@@ -3,22 +3,25 @@ import type {
   CardInstance,
   FactionId,
   Card,
-  EntropyThresholds,
+  CrewSleepChoice,
 } from "@icebox/shared";
 import {
   ALL_FACTION_IDS,
-  SEVERITY_DIVISORS,
-  THRESHOLD_ESCALATION_PER_CYCLE,
   RESOURCE_DRAIN_PER_CYCLE,
   DOMINANT_FACTION_CARDS_PER_CYCLE,
   WEAKEST_FACTION_REMOVAL_PER_CYCLE,
   YEARS_PER_SLEEP,
+  CRYO_POD_COST,
+  MENTORSHIP_COST,
+  DIGITAL_ARCHIVE_COST,
   calculateArchiveSlots,
   shuffle,
   generateInstanceId,
+  canAfford,
+  spendResources,
   FACTIONS,
 } from "@icebox/shared";
-import { drainResources, getDeficit } from "./ResourceManager";
+import { drainResources } from "./ResourceManager";
 import { flushMarket, fillMarket } from "./MarketManager";
 import {
   calculateWorldScore,
@@ -34,6 +37,8 @@ import {
 } from "./AgingManager";
 import { createCardInstance } from "./GameStateManager";
 import { checkDefeat, checkVictory } from "./VictoryConditions";
+import { applyEraTransition } from "./EraEngine";
+import { emitTiming, resolveEffect } from "./effects/EffectRegistry";
 
 /**
  * Core cryosleep algorithm. Pure logic — no Phaser imports.
@@ -47,18 +52,21 @@ import { checkDefeat, checkVictory } from "./VictoryConditions";
 
 export type CryosleepEventType =
   | "cycle-start"
-  | "inertia-breach"
   | "market-flush"
   | "world-score"
   | "transformation-add"
   | "transformation-remove"
   | "card-death"
   | "card-transform"
-  | "threshold-escalation"
   | "resource-drain"
   | "hull-damage"
   | "global-law-set"
   | "dominance-recorded"
+  | "crew-mortality"
+  | "crew-cryo-pod"
+  | "crew-mentorship"
+  | "crew-digital-archive"
+  | "era-transition"
   | "defeat"
   | "victory"
   | "cycle-end";
@@ -94,7 +102,8 @@ export interface CryosleepResult {
 export function executeCryosleep(
   state: GameState,
   sleepDuration: number,
-  allCardDefinitions: Card[]
+  allCardDefinitions: Card[],
+  crewFatePlan?: Map<string, CrewSleepChoice>
 ): CryosleepResult {
   const events: CryosleepEvent[] = [];
   let currentState = structuredClone(state);
@@ -114,12 +123,13 @@ export function executeCryosleep(
     });
 
     // ═══════════════════════════════════════════
-    // PHASE 1: INERTIA CHECK
+    // PHASE 0: ON-SLEEP TRIGGERS
     // ═══════════════════════════════════════════
-    currentState = processInertiaCheck(currentState, cycle, events, allCardDefinitions);
+    const sleepResult = emitTiming(currentState, "on-sleep");
+    currentState = sleepResult.state;
 
     // ═══════════════════════════════════════════
-    // PHASE 2: THE FLUSH (Market → World Score)
+    // PHASE 1: THE FLUSH (Market → World Score)
     // ═══════════════════════════════════════════
     const { flushedCards: marketCards, market: emptyMarket } = flushMarket(
       currentState.transitMarket
@@ -145,7 +155,7 @@ export function executeCryosleep(
     });
 
     // ═══════════════════════════════════════════
-    // PHASE 3: THE TRANSFORMATION
+    // PHASE 2: THE TRANSFORMATION
     // ═══════════════════════════════════════════
     const dominant = resolveDominant(worldScore, currentState.worldDeck.drawPile);
     const weakest = resolveWeakest(worldScore, currentState.worldDeck.drawPile);
@@ -226,7 +236,7 @@ export function executeCryosleep(
     currentState.worldDeck = fillResult.worldDeck;
 
     // ═══════════════════════════════════════════
-    // PHASE 4: AGING TICK
+    // PHASE 3: AGING TICK
     // ═══════════════════════════════════════════
     const agingResult = processAgingPhase(currentState, allCardDefinitions);
     totalDeaths += agingResult.deaths.length;
@@ -248,28 +258,51 @@ export function executeCryosleep(
     currentState = agingResult.newState;
 
     // ═══════════════════════════════════════════
-    // PHASE 5: THRESHOLD ESCALATION
+    // PHASE 4: CREW MORTALITY
     // ═══════════════════════════════════════════
-    currentState.entropyThresholds = escalateThresholds(
-      currentState.entropyThresholds
-    );
+    currentState = processCrewMortality(currentState, cycle, events, crewFatePlan, allCardDefinitions);
+
+    // ═══════════════════════════════════════════
+    // PHASE 5: RESOURCE DRAIN & TIME PASSAGE
+    // ═══════════════════════════════════════════
+    const maintenanceMod = currentState.eraModifiers?.maintenanceCostModifier ?? 1;
+    const scaledDrain = {
+      matter: Math.round((RESOURCE_DRAIN_PER_CYCLE.matter ?? 0) * maintenanceMod),
+      energy: Math.round((RESOURCE_DRAIN_PER_CYCLE.energy ?? 0) * maintenanceMod),
+      data: Math.round((RESOURCE_DRAIN_PER_CYCLE.data ?? 0) * maintenanceMod),
+      influence: Math.round((RESOURCE_DRAIN_PER_CYCLE.influence ?? 0) * maintenanceMod),
+    };
     currentState.resources = drainResources(
       currentState.resources,
-      RESOURCE_DRAIN_PER_CYCLE
+      scaledDrain
     );
     currentState.totalSleepCycles++;
     currentState.yearsPassed += YEARS_PER_SLEEP;
 
     events.push({
-      type: "threshold-escalation",
-      cycle,
-      data: { newThresholds: { ...currentState.entropyThresholds } },
-    });
-    events.push({
       type: "resource-drain",
       cycle,
       data: { newResources: { ...currentState.resources } },
     });
+
+    // ═══════════════════════════════════════════
+    // PHASE 6: ERA TRANSITION
+    // ═══════════════════════════════════════════
+    const prevEra = currentState.era;
+    currentState = applyEraTransition(currentState);
+    if (currentState.era !== prevEra) {
+      events.push({
+        type: "era-transition",
+        cycle,
+        data: { prevEra, newEra: currentState.era, modifiers: { ...currentState.eraModifiers } },
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // PHASE 7: ON-WAKE TRIGGERS
+    // ═══════════════════════════════════════════
+    const wakeResult = emitTiming(currentState, "on-wake");
+    currentState = wakeResult.state;
 
     // Update ship presence
     currentState.ship = updateShipPresence(currentState.ship);
@@ -323,109 +356,6 @@ export function executeCryosleep(
 
 // ─── Phase Implementations ───────────────────────────────────────────
 
-function processInertiaCheck(
-  state: GameState,
-  cycle: number,
-  events: CryosleepEvent[],
-  allCardDefs: Card[]
-): GameState {
-  const s = state;
-  const t = s.entropyThresholds;
-
-  // Matter vs Hull Breach
-  const matterDeficit = getDeficit(s.resources, "matter", t.hullBreach);
-  if (matterDeficit > 0) {
-    const junkCount = Math.ceil(matterDeficit / SEVERITY_DIVISORS.hullBreach);
-    const hullBreachDef = allCardDefs.find((c) => c.id === "jk-001");
-    if (hullBreachDef) {
-      for (let i = 0; i < junkCount; i++) {
-        const junkInst = createCardInstance(hullBreachDef);
-        junkInst.zone = "mandate-deck";
-        s.mandateDeck.drawPile.push(junkInst);
-      }
-    }
-    // Hull damage from junk
-    const hullDamage = junkCount * s.rules.hullDamagePerJunk;
-    s.hullIntegrity = Math.max(0, s.hullIntegrity - hullDamage);
-
-    events.push({
-      type: "inertia-breach",
-      cycle,
-      data: { resource: "matter", deficit: matterDeficit, junkAdded: junkCount, hullDamage },
-    });
-  }
-
-  // Energy vs Power Down
-  const energyDeficit = getDeficit(s.resources, "energy", t.powerDown);
-  if (energyDeficit > 0) {
-    const depowerCount = Math.ceil(energyDeficit / SEVERITY_DIVISORS.powerDown);
-    let depowered = 0;
-    for (const sector of s.ship.sectors) {
-      const sorted = [...sector.installedCards]
-        .filter((c) => c.powered)
-        .sort((a, b) => a.card.cryosleep.survivalPriority - b.card.cryosleep.survivalPriority);
-      for (const card of sorted) {
-        if (depowered >= depowerCount) break;
-        card.powered = false;
-        depowered++;
-      }
-    }
-    events.push({
-      type: "inertia-breach",
-      cycle,
-      data: { resource: "energy", deficit: energyDeficit, depowered: depowered },
-    });
-  }
-
-  // Data vs Tech Decay
-  const dataDeficit = getDeficit(s.resources, "data", t.techDecay);
-  if (dataDeficit > 0) {
-    const decayCount = Math.ceil(dataDeficit / SEVERITY_DIVISORS.techDecay);
-    const vulnerable = s.worldDeck.drawPile
-      .filter(
-        (c) =>
-          c.card.tier >= s.rules.techDecayMinTier &&
-          c.card.cryosleep.decayVulnerability.includes("data")
-      )
-      .sort((a, b) => a.card.cryosleep.survivalPriority - b.card.cryosleep.survivalPriority);
-
-    const removed = vulnerable.splice(0, decayCount);
-    for (const card of removed) {
-      const idx = s.worldDeck.drawPile.indexOf(card);
-      if (idx >= 0) s.worldDeck.drawPile.splice(idx, 1);
-      card.zone = "vault";
-      s.vault.cards.push(card);
-    }
-    events.push({
-      type: "inertia-breach",
-      cycle,
-      data: { resource: "data", deficit: dataDeficit, decayed: removed.length },
-    });
-  }
-
-  // Influence vs Coup
-  const influenceDeficit = getDeficit(s.resources, "influence", t.coup);
-  if (influenceDeficit > 0) {
-    const coupCount = Math.ceil(influenceDeficit / SEVERITY_DIVISORS.coup);
-    // For now: add sedition junk to mandate
-    const seditionDef = allCardDefs.find((c) => c.id === "jk-003");
-    if (seditionDef) {
-      for (let i = 0; i < coupCount; i++) {
-        const junkInst = createCardInstance(seditionDef);
-        junkInst.zone = "mandate-deck";
-        s.mandateDeck.drawPile.push(junkInst);
-      }
-    }
-    events.push({
-      type: "inertia-breach",
-      cycle,
-      data: { resource: "influence", deficit: influenceDeficit, coupsTriggered: coupCount },
-    });
-  }
-
-  return s;
-}
-
 function processAgingPhase(
   state: GameState,
   allCardDefs: Card[]
@@ -472,8 +402,14 @@ function processAgingPhase(
   allDeaths.push(...worldResult.deaths);
   s.worldDeck.drawPile = worldResult.survivors;
 
-  // Process death outcomes
+  // Process death outcomes — fire on-death triggers, then apply outcomes
+  let ds = s;
   for (const death of allDeaths) {
+    // Fire on-death effects from the dying card before applying outcome
+    for (const effect of death.card.card.effects.filter((e) => e.timing === "on-death")) {
+      const deathEffResult = resolveEffect(ds, effect, death.card);
+      ds = deathEffResult.state;
+    }
     switch (death.outcome) {
       case "transform": {
         if (death.transformInto) {
@@ -481,12 +417,10 @@ function processAgingPhase(
           if (transformDef) {
             const newInst = createCardInstance(transformDef);
             newInst.zone = death.card.zone;
-            // Put transformed card where the dead card was
             if (death.card.zone === "mandate-deck" || death.card.zone === "hand" || death.card.zone === "discard") {
-              s.mandateDeck.discardPile.push(newInst);
+              ds.mandateDeck.discardPile.push(newInst);
             } else if (death.card.zone === "tableau") {
-              // Find the sector and add it
-              for (const sector of s.ship.sectors) {
+              for (const sector of ds.ship.sectors) {
                 if (cardSectorMap.get(death.card.instanceId) === sector.index) {
                   sector.installedCards.push(newInst);
                   break;
@@ -495,23 +429,23 @@ function processAgingPhase(
             }
           }
         }
-        s.graveyard.cards.push(death.card);
+        ds.graveyard.cards.push(death.card);
         break;
       }
       case "return-to-vault": {
         death.card.zone = "vault";
-        s.vault.cards.push(death.card);
+        ds.vault.cards.push(death.card);
         break;
       }
       case "destroy": {
         death.card.zone = "graveyard";
-        s.graveyard.cards.push(death.card);
+        ds.graveyard.cards.push(death.card);
         break;
       }
     }
   }
 
-  return { deaths: allDeaths, newState: s };
+  return { deaths: allDeaths, newState: ds };
 }
 
 function addFromVault(
@@ -583,13 +517,129 @@ function removeFromWorldDeck(
   return removed;
 }
 
-function escalateThresholds(thresholds: EntropyThresholds): EntropyThresholds {
-  return {
-    hullBreach: thresholds.hullBreach + THRESHOLD_ESCALATION_PER_CYCLE,
-    powerDown: thresholds.powerDown + THRESHOLD_ESCALATION_PER_CYCLE,
-    techDecay: thresholds.techDecay + THRESHOLD_ESCALATION_PER_CYCLE,
-    coup: thresholds.coup + THRESHOLD_ESCALATION_PER_CYCLE,
-  };
+/**
+ * Process crew mortality during cryosleep.
+ * By default all crew die. Players can pay to preserve them.
+ */
+function processCrewMortality(
+  state: GameState,
+  cycle: number,
+  events: CryosleepEvent[],
+  crewFatePlan: Map<string, CrewSleepChoice> | undefined,
+  allCardDefs: Card[]
+): GameState {
+  const s = structuredClone(state);
+
+  for (const sector of s.ship.sectors) {
+    const crewCards = sector.installedCards.filter(
+      (c) => c.card.type === "crew" && (c.zone === "attached" || c.zone === "tableau")
+    );
+
+    for (const crew of crewCards) {
+      const fate = crewFatePlan?.get(crew.instanceId) ?? "natural";
+
+      switch (fate) {
+        case "cryo-pod": {
+          if (canAfford(s.resources, CRYO_POD_COST)) {
+            s.resources = spendResources(s.resources, CRYO_POD_COST);
+            events.push({
+              type: "crew-cryo-pod",
+              cycle,
+              data: { crewName: crew.card.name, instanceId: crew.instanceId },
+            });
+            // Crew stays on structure — no action needed
+          } else {
+            // Can't afford, falls through to natural death
+            removeCrew(s, sector, crew);
+            events.push({
+              type: "crew-mortality",
+              cycle,
+              data: { crewName: crew.card.name, reason: "Cannot afford Cryo-Pod" },
+            });
+          }
+          break;
+        }
+        case "mentorship": {
+          if (canAfford(s.resources, MENTORSHIP_COST)) {
+            s.resources = spendResources(s.resources, MENTORSHIP_COST);
+            removeCrew(s, sector, crew);
+            // Add Junior archetype card to next starting hand
+            // (tracked as a flag; the actual card is created during legacy finalization)
+            events.push({
+              type: "crew-mentorship",
+              cycle,
+              data: {
+                crewName: crew.card.name,
+                skillTag: crew.card.crew?.skillTag,
+                instanceId: crew.instanceId,
+              },
+            });
+          } else {
+            removeCrew(s, sector, crew);
+            events.push({
+              type: "crew-mortality",
+              cycle,
+              data: { crewName: crew.card.name, reason: "Cannot afford Mentorship" },
+            });
+          }
+          break;
+        }
+        case "digital-archive": {
+          if (canAfford(s.resources, DIGITAL_ARCHIVE_COST)) {
+            s.resources = spendResources(s.resources, DIGITAL_ARCHIVE_COST);
+            // Transform crew into a [Tech] AI card
+            // For now, update the card's primary tag and remove stress
+            crew.card = {
+              ...crew.card,
+              primaryTag: "Tech",
+              type: "structure", // AI becomes a persistent structure
+            };
+            crew.currentStress = undefined;
+            crew.zone = "tableau";
+            events.push({
+              type: "crew-digital-archive",
+              cycle,
+              data: { crewName: crew.card.name, instanceId: crew.instanceId },
+            });
+          } else {
+            removeCrew(s, sector, crew);
+            events.push({
+              type: "crew-mortality",
+              cycle,
+              data: { crewName: crew.card.name, reason: "Cannot afford Digital Archive" },
+            });
+          }
+          break;
+        }
+        case "natural":
+        default: {
+          removeCrew(s, sector, crew);
+          events.push({
+            type: "crew-mortality",
+            cycle,
+            data: { crewName: crew.card.name, reason: "Natural mortality" },
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return s;
+}
+
+function removeCrew(
+  state: GameState,
+  sector: GameState["ship"]["sectors"][number],
+  crew: CardInstance
+): void {
+  const idx = sector.installedCards.findIndex((c) => c.instanceId === crew.instanceId);
+  if (idx >= 0) {
+    sector.installedCards.splice(idx, 1);
+    crew.zone = "graveyard";
+    crew.attachedTo = undefined;
+    state.graveyard.cards.push(crew);
+  }
 }
 
 /**

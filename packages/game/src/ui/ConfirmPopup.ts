@@ -1,9 +1,10 @@
 import Phaser from "phaser";
 import { NUM, HEX } from "@icebox/shared";
-import { s, fontSize as fs } from "./layout";
+import { s, fontSize as fs, GAME_W, GAME_H } from "./layout";
 
 /**
- * Small confirmation dialog with Yes / No buttons.
+ * Confirmation dialog with Yes / No buttons.
+ * Auto-sizes to fit message content.
  * Auto-destroys after a button is clicked.
  */
 export class ConfirmPopup extends Phaser.GameObjects.Container {
@@ -18,38 +19,55 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.setDepth(950);
 
-    const panelW = s(180);
-    const panelH = s(80);
+    const panelW = s(220);
+    const btnH = s(24);
+    const btnY_offset = s(10); // gap between text bottom and buttons
+    const bottomPad = s(12);
 
-    // Background
-    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.slab, 0.95);
-    bg.setStrokeStyle(s(1.5), NUM.graphite, 0.8);
-    this.add(bg);
-
-    // Message text
-    const text = scene.add.text(0, -s(18), message, {
-      fontSize: fs(9),
-      color: HEX.bone,
-      fontFamily: "'Space Grotesk', sans-serif",
-      wordWrap: { width: panelW - s(16) },
+    // Message text — create first to measure height
+    const text = scene.add.text(0, 0, message, {
+      fontSize: fs(10),
+      color: HEX.eggshell,
+      fontFamily: "monospace",
+      wordWrap: { width: panelW - s(24) },
       align: "center",
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, 0);
     this.add(text);
 
-    // Buttons
-    const btnW = s(60);
-    const btnH = s(24);
-    const btnY = s(18);
+    // Compute layout from text height
+    const textH = text.height;
+    const topPad = s(12);
+    const panelH = topPad + textH + btnY_offset + btnH + bottomPad;
 
-    this.createBtn(scene, -s(38), btnY, btnW, btnH, "Yes", NUM.chartreuse, "#ffffff", () => {
+    // Position text at top of panel
+    text.setY(-panelH / 2 + topPad);
+
+    // Background
+    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.midnightViolet, 0.95);
+    bg.setStrokeStyle(s(1.5), NUM.charcoalBlue, 0.8);
+    this.addAt(bg, 0); // behind text
+
+    // Buttons centered below text
+    const btnW = s(60);
+    const btnCenterY = panelH / 2 - bottomPad - btnH / 2;
+
+    this.createBtn(scene, -s(38), btnCenterY, btnW, btnH, "Yes", 0x44cc44, () => {
       onConfirm();
       this.destroy();
     });
 
-    this.createBtn(scene, s(38), btnY, btnW, btnH, "No", NUM.steel, HEX.concrete, () => {
+    this.createBtn(scene, s(38), btnCenterY, btnW, btnH, "No", 0xcc4444, () => {
       if (onCancel) onCancel();
       this.destroy();
     });
+
+    // Clamp to screen bounds
+    const halfW = panelW / 2;
+    const halfH = panelH / 2;
+    if (x - halfW < s(8)) this.x = halfW + s(8);
+    if (x + halfW > GAME_W - s(8)) this.x = GAME_W - halfW - s(8);
+    if (y - halfH < s(8)) this.y = halfH + s(8);
+    if (y + halfH > GAME_H - s(8)) this.y = GAME_H - halfH - s(8);
 
     // Scale-in animation
     this.setScale(0);
@@ -72,7 +90,6 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     h: number,
     label: string,
     color: number,
-    textColor: string,
     onClick: () => void
   ): void {
     const btnBg = scene.add.rectangle(x, y, w, h, color, 0.3);
@@ -85,8 +102,8 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
 
     const text = scene.add.text(x, y, label, {
       fontSize: fs(9),
-      color: textColor,
-      fontFamily: "'Orbitron', monospace",
+      color: "#ffffff",
+      fontFamily: "monospace",
       fontStyle: "bold",
     }).setOrigin(0.5);
     this.add(text);

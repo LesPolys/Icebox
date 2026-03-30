@@ -28,6 +28,7 @@ export class SuccessionScene extends Phaser.Scene {
   }
 
   init(data: { gameState: GameState; cardDefs: Card[] }): void {
+    (this as any).__restartData = data;
     this.gameState = data.gameState;
     this.cardDefs = data.cardDefs;
     this.selectedCards.clear();

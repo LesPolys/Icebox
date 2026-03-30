@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import type { GameState, Card } from "@icebox/shared";
-import { HEX, NUM } from "@icebox/shared";
 import {
   executeCryosleep,
   finalizeLegacy,
@@ -59,6 +58,7 @@ export class CryosleepScene extends Phaser.Scene {
     sleepDuration: number;
     archivedCardIds: string[];
   }): void {
+    (this as any).__restartData = data;
     this.gameState = data.gameState;
     this.cardDefs = data.cardDefs;
     this.sleepDuration = data.sleepDuration;
@@ -79,11 +79,11 @@ export class CryosleepScene extends Phaser.Scene {
 
     // Title
     this.add.text(width / 2, s(30), "C R Y O S L E E P", {
-      fontSize: fs(28), color: HEX.chartreuse, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      fontSize: fs(28), color: "#4466aa", fontFamily: "monospace", fontStyle: "bold",
     }).setOrigin(0.5);
 
     this.add.text(width / 2, s(60), `Sleeping for ${this.sleepDuration} cycle(s)...`, {
-      fontSize: fs(11), color: HEX.teal, fontFamily: "'Space Grotesk', sans-serif",
+      fontSize: fs(11), color: "#556677", fontFamily: "monospace",
     }).setOrigin(0.5);
 
     // Panel area
@@ -94,9 +94,9 @@ export class CryosleepScene extends Phaser.Scene {
 
     // Panel background
     const panelBg = this.add.graphics();
-    panelBg.fillStyle(NUM.slab, 0.6);
+    panelBg.fillStyle(0x111122, 0.6);
     panelBg.fillRoundedRect(panelLeft, this.panelTop, panelWidth, this.panelHeight, s(6));
-    panelBg.lineStyle(s(1), NUM.graphite, 0.5);
+    panelBg.lineStyle(s(1), 0x334466, 0.5);
     panelBg.strokeRoundedRect(panelLeft, this.panelTop, panelWidth, this.panelHeight, s(6));
 
     // Content container (scrollable)
@@ -121,15 +121,15 @@ export class CryosleepScene extends Phaser.Scene {
 
     // Progress
     this.progressText = this.add.text(width / 2, height - s(80), "", {
-      fontSize: fs(9), color: HEX.teal, fontFamily: "'Space Grotesk', sans-serif",
+      fontSize: fs(9), color: "#556677", fontFamily: "monospace",
     }).setOrigin(0.5);
 
     // Next button
-    this.btnBg = this.add.rectangle(width / 2, height - s(40), s(200), s(40), NUM.steel);
-    this.btnBg.setStrokeStyle(s(2), NUM.chartreuse);
+    this.btnBg = this.add.rectangle(width / 2, height - s(40), s(200), s(40), 0x2244aa);
+    this.btnBg.setStrokeStyle(s(2), 0x4466cc);
     this.btnBg.setInteractive({ useHandCursor: true });
     this.btnText = this.add.text(width / 2, height - s(40), "NEXT CYCLE", {
-      fontSize: fs(14), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      fontSize: fs(14), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
     }).setOrigin(0.5);
 
     this.btnBg.setDepth(100);
@@ -137,8 +137,8 @@ export class CryosleepScene extends Phaser.Scene {
     this.progressText.setDepth(100);
 
     this.btnBg.on("pointerdown", () => this.advance());
-    this.btnBg.on("pointerover", () => this.btnBg.setFillStyle(NUM.chartreuse));
-    this.btnBg.on("pointerout", () => this.btnBg.setFillStyle(NUM.steel));
+    this.btnBg.on("pointerover", () => this.btnBg.setFillStyle(0x3366cc));
+    this.btnBg.on("pointerout", () => this.btnBg.setFillStyle(0x2244aa));
 
     // Show first cycle
     this.showCyclePanel(0);
@@ -202,7 +202,7 @@ export class CryosleepScene extends Phaser.Scene {
   ): Phaser.GameObjects.Text {
     const contentWidth = this.scale.width - s(152);
     const t = this.add.text(x, y, text, {
-      fontFamily: "'Space Grotesk', sans-serif",
+      fontFamily: "monospace",
       wordWrap: { width: contentWidth },
       ...style,
     });
@@ -226,12 +226,11 @@ export class CryosleepScene extends Phaser.Scene {
 
     // Cycle header
     const header = this.addText(0, y, `CYCLE ${group.cycleNumber}`, {
-      fontSize: fs(18), color: HEX.chartreuse, fontStyle: "bold", fontFamily: "'Orbitron', monospace",
+      fontSize: fs(18), color: "#4466aa", fontStyle: "bold",
     });
     y += header.height + s(12);
 
     // Group events by category
-    const inertia = group.events.filter(e => e.type === "inertia-breach");
     const flush = group.events.find(e => e.type === "market-flush");
     const worldScore = group.events.find(e => e.type === "world-score");
     const adds = group.events.filter(e => e.type === "transformation-add");
@@ -239,34 +238,19 @@ export class CryosleepScene extends Phaser.Scene {
     const law = group.events.find(e => e.type === "global-law-set");
     const deaths = group.events.filter(e => e.type === "card-death");
     const transforms = group.events.filter(e => e.type === "card-transform");
-    const thresholds = group.events.find(e => e.type === "threshold-escalation");
     const drain = group.events.find(e => e.type === "resource-drain");
     const hull = group.events.find(e => e.type === "hull-damage");
     const defeat = group.events.find(e => e.type === "defeat");
     const victory = group.events.find(e => e.type === "victory");
-
-    // ── Inertia Breaches ──
-    if (inertia.length > 0) {
-      y = this.addSection(y, "INERTIA BREACHES", HEX.signalRed);
-      for (const ev of inertia) {
-        const d = ev.data;
-        let line = `${(d.resource as string).toUpperCase()}: deficit ${d.deficit}`;
-        if (d.junkAdded) line += ` — ${d.junkAdded} junk injected`;
-        if (d.depowered) line += ` — ${d.depowered} cards depowered`;
-        if (d.decayed) line += ` — ${d.decayed} cards decayed`;
-        if (d.coupsTriggered) line += ` — ${d.coupsTriggered} coups triggered`;
-        const t = this.addText(s(8), y, line, { fontSize: fs(9), color: HEX.signalRed });
-        y += t.height + s(4);
-      }
-      y += s(8);
-    }
+    const crewMortality = group.events.filter(e => e.type === "crew-mortality" || e.type === "crew-cryo-pod" || e.type === "crew-mentorship" || e.type === "crew-digital-archive");
+    const eraTransition = group.events.find(e => e.type === "era-transition");
 
     // ── Market & World Score ──
     if (flush || worldScore) {
-      y = this.addSection(y, "MARKET & WORLD SCORE", HEX.teal);
+      y = this.addSection(y, "MARKET & WORLD SCORE", "#6688aa");
       if (flush) {
         const t = this.addText(s(8), y, `${flush.data.flushedCount} cards flushed from market`, {
-          fontSize: fs(9), color: HEX.concrete,
+          fontSize: fs(9), color: "#8899aa",
         });
         y += t.height + s(4);
       }
@@ -278,7 +262,7 @@ export class CryosleepScene extends Phaser.Scene {
           .map(([fid, v]) => `  ${fid}: ${v}`)
           .join("\n");
         if (scoreLines) {
-          const t = this.addText(s(8), y, scoreLines, { fontSize: fs(9), color: HEX.concrete });
+          const t = this.addText(s(8), y, scoreLines, { fontSize: fs(9), color: "#8899aa" });
           y += t.height + s(4);
         }
       }
@@ -287,22 +271,22 @@ export class CryosleepScene extends Phaser.Scene {
 
     // ── Faction Changes ──
     if (adds.length > 0 || removes.length > 0 || law) {
-      y = this.addSection(y, "FACTION CHANGES", HEX.teal);
+      y = this.addSection(y, "FACTION CHANGES", "#66aa88");
       if (law) {
         const t = this.addText(s(8), y, `Global Law: ${law.data.faction} — ${law.data.description}`, {
-          fontSize: fs(9), color: HEX.teal,
+          fontSize: fs(9), color: "#88ccaa",
         });
         y += t.height + s(4);
       }
       for (const ev of adds) {
         const t = this.addText(s(8), y, `+ ${ev.data.faction} adds "${ev.data.cardName}"`, {
-          fontSize: fs(9), color: HEX.teal,
+          fontSize: fs(9), color: "#77bb88",
         });
         y += t.height + s(4);
       }
       for (const ev of removes) {
         const t = this.addText(s(8), y, `- ${ev.data.faction} loses "${ev.data.cardName}"`, {
-          fontSize: fs(9), color: HEX.signalRed,
+          fontSize: fs(9), color: "#aa7766",
         });
         y += t.height + s(4);
       }
@@ -311,45 +295,37 @@ export class CryosleepScene extends Phaser.Scene {
 
     // ── Aging: Deaths & Transforms ──
     if (deaths.length > 0 || transforms.length > 0) {
-      y = this.addSection(y, `AGING (${deaths.length + transforms.length} cards affected)`, HEX.concrete);
+      y = this.addSection(y, `AGING (${deaths.length + transforms.length} cards affected)`, "#aa6688");
       for (const ev of deaths) {
         const cause = ev.data.conditionDescription || ev.data.cause || "lifespan expired";
         const t = this.addText(s(8), y, `✝ "${ev.data.cardName}" — ${cause}`, {
-          fontSize: fs(9), color: HEX.concrete,
+          fontSize: fs(9), color: "#aa8899",
         });
         y += t.height + s(4);
       }
       for (const ev of transforms) {
         const t = this.addText(s(8), y, `↻ "${ev.data.cardName}" → "${ev.data.transformInto ?? "wreckage"}"`, {
-          fontSize: fs(9), color: HEX.concrete,
+          fontSize: fs(9), color: "#9988aa",
         });
         y += t.height + s(4);
       }
       y += s(8);
     }
 
-    // ── Entropy: Thresholds, Drain, Hull ──
-    if (thresholds || drain || hull) {
-      y = this.addSection(y, "ENTROPY", HEX.teal);
-      if (thresholds) {
-        const th = thresholds.data.newThresholds as Record<string, number>;
-        const t = this.addText(s(8), y,
-          `Thresholds: Hull ${th.hullBreach} | Power ${th.powerDown} | Tech ${th.techDecay} | Coup ${th.coup}`, {
-          fontSize: fs(9), color: HEX.teal,
-        });
-        y += t.height + s(4);
-      }
+    // ── Resource Drain & Hull ──
+    if (drain || hull) {
+      y = this.addSection(y, "MAINTENANCE", "#8866aa");
       if (drain) {
         const r = drain.data.newResources as Record<string, number>;
         const t = this.addText(s(8), y,
           `Resources: MAT ${r.matter} | ENG ${r.energy} | DAT ${r.data} | INF ${r.influence}`, {
-          fontSize: fs(9), color: HEX.teal,
+          fontSize: fs(9), color: "#9988bb",
         });
         y += t.height + s(4);
       }
       if (hull) {
         const t = this.addText(s(8), y, `Hull Integrity: ${hull.data.hullIntegrity}`, {
-          fontSize: fs(9), color: HEX.teal,
+          fontSize: fs(9), color: "#9988bb",
         });
         y += t.height + s(4);
       }
@@ -358,9 +334,9 @@ export class CryosleepScene extends Phaser.Scene {
 
     // ── Defeat / Victory ──
     if (defeat) {
-      y = this.addSection(y, "DEFEAT", HEX.signalRed);
+      y = this.addSection(y, "DEFEAT", "#ff4444");
       const t = this.addText(s(8), y, `${defeat.data.reason}`, {
-        fontSize: fs(12), color: HEX.signalRed,
+        fontSize: fs(12), color: "#ff6666",
       });
       y += t.height + s(8);
       // Stop progression
@@ -368,9 +344,9 @@ export class CryosleepScene extends Phaser.Scene {
       this.phase = "summary";
     }
     if (victory) {
-      y = this.addSection(y, "VICTORY", HEX.chartreuse);
+      y = this.addSection(y, "VICTORY", "#44ff44");
       const t = this.addText(s(8), y, `${victory.data.type} — Dominant: ${victory.data.dominantFaction}`, {
-        fontSize: fs(12), color: HEX.chartreuse,
+        fontSize: fs(12), color: "#66ff66",
       });
       y += t.height + s(8);
     }
@@ -402,7 +378,7 @@ export class CryosleepScene extends Phaser.Scene {
     let y = 0;
 
     const header = this.addText(0, y, "CRYOSLEEP COMPLETE", {
-      fontSize: fs(18), color: HEX.chartreuse, fontStyle: "bold", fontFamily: "'Orbitron', monospace",
+      fontSize: fs(18), color: "#4466aa", fontStyle: "bold",
     });
     y += header.height + s(16);
 
@@ -422,7 +398,7 @@ export class CryosleepScene extends Phaser.Scene {
     for (const line of stats) {
       if (line === "") { y += s(8); continue; }
       const t = this.addText(0, y, line, {
-        fontSize: fs(11), color: HEX.bone,
+        fontSize: fs(11), color: "#99bbcc",
       });
       y += t.height + s(4);
     }

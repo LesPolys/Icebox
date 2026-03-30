@@ -13,7 +13,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   backgroundColor: "#D8D4CC",
   scene: [BootScene, MainMenuScene, ActiveWatchScene, SuccessionScene, CryosleepScene],
   scale: {
-    mode: Phaser.Scale.FIT,
+    mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   render: {

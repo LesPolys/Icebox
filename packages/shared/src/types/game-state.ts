@@ -10,17 +10,18 @@ import type {
   GraveyardState,
 } from "./deck.js";
 
-// ─── Entropy Thresholds ──────────────────────────────────────────────
+// ─── Ship's Era (Societal State Machine) ────────────────────────────
 
-export interface EntropyThresholds {
-  /** Below this Matter total, Hull Breach junk enters the mandate */
-  hullBreach: number;
-  /** Below this Energy total, tableau cards lose power */
-  powerDown: number;
-  /** Below this Data total, advanced cards decay from world deck */
-  techDecay: number;
-  /** Below this Influence total, factions stage coups */
-  coup: number;
+/** The ship's societal state, determined by reserves at sleep time */
+export type EraState = "Zenith" | "Unraveling" | "Struggle" | "Ascension";
+
+export interface EraModifiers {
+  /** +/- to base market slides per turn */
+  marketSlideModifier: number;
+  /** Multiplier for resource drain during sleep (maintenance) */
+  maintenanceCostModifier: number;
+  /** +/- turns to construction time */
+  constructionTimeModifier: number;
 }
 
 // ─── Game Rules (tunable gameplay constants) ────────────────────────
@@ -67,9 +68,6 @@ export interface GameState {
 
   /** Player resources */
   resources: ResourceTotals;
-
-  /** Entropy thresholds (escalate each sleep cycle) */
-  entropyThresholds: EntropyThresholds;
 
   /** The Vault (all possible cards for this timeline) */
   vault: VaultState;
@@ -120,6 +118,26 @@ export interface GameState {
     effectId: string;
   } | null;
 
+  /** Current societal era of the ship */
+  era: EraState;
+
+  /** Active era modifiers for the current watch */
+  eraModifiers: EraModifiers;
+
   /** Random seed for deterministic replay (optional) */
   seed?: number;
+
+  /** Available resource action tokens for this turn (matter→progress, energy→tap, data→scry, influence→swap) */
+  availableActions: ActionPoolState;
+
+  /** Slot keys invested in this turn (e.g. "upper-2", "lower-0"). Cards with fresh investments cannot be bought. */
+  turnInvestments: string[];
+}
+
+/** Tracks how many of each resource action the player can still use this turn */
+export interface ActionPoolState {
+  matter: number;
+  energy: number;
+  data: number;
+  influence: number;
 }

@@ -301,25 +301,31 @@ export function fillMarket(
   market: TransitMarketState,
   worldDeck: WorldDeckState
 ): { market: TransitMarketState; worldDeck: WorldDeckState } {
-  let drawPile = [...worldDeck.drawPile];
+  const drawPile = [...worldDeck.drawPile];
+  const upperSlots = [...market.upperRow.slots];
+  const lowerSlots = [...market.lowerRow.slots];
+  const numCols = upperSlots.length;
 
-  const fillRow = (row: MarketRowState): MarketRowState => {
-    const slots = [...row.slots];
-    for (let i = 0; i < slots.length; i++) {
-      if (slots[i] === null && drawPile.length > 0) {
-        const card = drawPile.shift()!;
-        card.zone = "transit-market";
-        slots[i] = card;
-      }
+  // Fill column-by-column, top then bottom, left to right
+  for (let col = 0; col < numCols; col++) {
+    if (upperSlots[col] === null && drawPile.length > 0) {
+      const card = drawPile.shift()!;
+      card.zone = "transit-market";
+      upperSlots[col] = card;
     }
-    return { slots, investments: [...row.investments] };
-  };
-
-  const upperRow = fillRow(market.upperRow);
-  const lowerRow = fillRow(market.lowerRow);
+    if (lowerSlots[col] === null && drawPile.length > 0) {
+      const card = drawPile.shift()!;
+      card.zone = "transit-market";
+      lowerSlots[col] = card;
+    }
+  }
 
   return {
-    market: { ...market, upperRow, lowerRow },
+    market: {
+      ...market,
+      upperRow: { slots: upperSlots, investments: [...market.upperRow.investments] },
+      lowerRow: { slots: lowerSlots, investments: [...market.lowerRow.investments] },
+    },
     worldDeck: { drawPile },
   };
 }

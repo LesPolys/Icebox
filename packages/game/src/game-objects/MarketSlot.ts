@@ -3,10 +3,10 @@ import type { CardInstance, ResourceCost } from "@icebox/shared";
 import { NUM } from "@icebox/shared";
 import { CardSprite } from "./CardSprite";
 import { drawResourceShape, RESOURCE_META } from "./ResourceBar";
-import { s } from "../ui/layout";
+import { s, fontSize as fs } from "../ui/layout";
 
 /** Scale applied to market cards so they fit cleanly in columns. */
-const MARKET_CARD_SCALE = 0.55;
+const MARKET_CARD_SCALE = 0.72;
 
 type PurchaseHighlight = "target" | "needs-invest" | "invested" | null;
 
@@ -28,6 +28,14 @@ export class MarketSlot extends Phaser.GameObjects.Container {
   private highlightGfx: Phaser.GameObjects.Graphics;
   private highlightMode: PurchaseHighlight = null;
   private highlightTween: Phaser.Tweens.Tween | null = null;
+
+  // Crisis indicator
+  private crisisGfx: Phaser.GameObjects.Graphics | null = null;
+  private crisisLabel: Phaser.GameObjects.Text | null = null;
+  private crisisTween: Phaser.Tweens.Tween | null = null;
+
+  // Lock indicator
+  private lockGfx: Phaser.GameObjects.Graphics | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, slotIndex: number, scaled = false) {
     super(scene, x, y);
@@ -52,6 +60,8 @@ export class MarketSlot extends Phaser.GameObjects.Container {
       this.cardSprite = null;
     }
 
+    this.setCrisisIndicator(false);
+
     if (cardInstance) {
       this.emptySlot.setVisible(false);
       this.cardSprite = new CardSprite(this.scene, 0, 0, cardInstance);
@@ -75,29 +85,40 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     this.investmentIcons = [];
     if (!resource) return;
 
-    // Collect all non-zero resource entries, expanded (e.g., matter:2 → 2 hexagons)
-    const icons: (typeof RESOURCE_META)[number][] = [];
+    // Collect non-zero resource entries as grouped (shape + count)
+    const groups: { meta: (typeof RESOURCE_META)[number]; count: number }[] = [];
     for (const meta of RESOURCE_META) {
       const val = resource[meta.key as keyof ResourceCost] ?? 0;
-      for (let n = 0; n < val; n++) icons.push(meta);
+      if (val > 0) groups.push({ meta, count: val });
     }
-    if (icons.length === 0) return;
+    if (groups.length === 0) return;
 
     const iconSize = s(8);
-    const gap = s(14);
-    const totalW = (icons.length - 1) * gap;
+    const gap = s(22);
+    const totalW = (groups.length - 1) * gap;
     const startX = -totalW / 2;
     const iconY = s(38); // near bottom of scaled card
 
-    for (let i = 0; i < icons.length; i++) {
+    for (let i = 0; i < groups.length; i++) {
+      const { meta, count } = groups[i];
       const gfx = this.scene.add.graphics();
-      // Draw a small dark backing circle for contrast
+      // Dark backing circle for contrast
       gfx.fillStyle(0x000000, 0.5);
       gfx.fillCircle(startX + i * gap, iconY, iconSize + s(2));
-      drawResourceShape(gfx, icons[i].shape, startX + i * gap, iconY, iconSize, icons[i].numColor, 0.8, 1);
+      drawResourceShape(gfx, meta.shape, startX + i * gap, iconY, iconSize, meta.numColor, 0.8, 1);
       gfx.setDepth(10 + i);
       this.add(gfx);
       this.investmentIcons.push(gfx);
+
+      // Show count number over the shape if > 1
+      if (count > 1) {
+        const countText = this.scene.add.text(startX + i * gap, iconY, String(count), {
+          fontSize: `${s(10)}px`, color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+          stroke: "#000000", strokeThickness: s(2),
+        }).setOrigin(0.5).setDepth(11 + i);
+        this.add(countText);
+        this.investmentIcons.push(countText as any);
+      }
     }
   }
 
@@ -139,8 +160,8 @@ export class MarketSlot extends Phaser.GameObjects.Container {
       return;
     }
 
-    const hw = s(36);
-    const hh = s(52);
+    const hw = s(46);
+    const hh = s(64);
 
     let color: number;
     let alpha: number;
@@ -174,5 +195,87 @@ export class MarketSlot extends Phaser.GameObjects.Container {
         ease: "Sine.easeInOut",
       });
     }
+  }
+
+  // ── Crisis indicator ──
+
+  /** Show/hide a pulsing red border + "CRISIS" label for crisis cards. */
+  setCrisisIndicator(active: boolean): void {
+    if (this.crisisTween) { this.crisisTween.destroy(); this.crisisTween = null; }
+    if (this.crisisGfx) { this.crisisGfx.destroy(); this.crisisGfx = null; }
+    if (this.crisisLabel) { this.crisisLabel.destroy(); this.crisisLabel = null; }
+    if (!active) return;
+
+    const hw = s(46);
+    const hh = s(64);
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(s(2.5), 0xcc3333, 0.8);
+    gfx.strokeRoundedRect(-hw, -hh, hw * 2, hh * 2, s(4));
+    this.add(gfx);
+    this.crisisGfx = gfx;
+
+    this.crisisTween = this.scene.tweens.add({
+      targets: gfx,
+      alpha: { from: 1, to: 0.3 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+
+    const label = this.scene.add.text(0, -hh - s(8), "CRISIS", {
+      fontSize: fs(8), color: "#cc3333", fontFamily: "monospace", fontStyle: "bold",
+    }).setOrigin(0.5, 1).setDepth(20);
+    this.add(label);
+    this.crisisLabel = label;
+  }
+
+  // ── Lock indicator ──
+
+  /** Show/hide a lock icon overlay for locked market slots. */
+  setLocked(locked: boolean): void {
+    if (this.lockGfx) { this.lockGfx.destroy(); this.lockGfx = null; }
+    if (!locked) return;
+
+    const gfx = this.scene.add.graphics();
+    // Lock body
+    gfx.fillStyle(0xcc3333, 0.6);
+    gfx.fillRect(-s(8), -s(4), s(16), s(12));
+    // Lock shackle
+    gfx.lineStyle(s(2), 0xcc3333, 0.8);
+    gfx.strokeCircle(0, -s(8), s(6));
+    gfx.setDepth(15);
+    this.add(gfx);
+    this.lockGfx = gfx;
+  }
+
+  // ── Fresh investment indicator ──
+
+  private freshInvestGfx: Phaser.GameObjects.Graphics | null = null;
+  private freshInvestTween: Phaser.Tweens.Tween | null = null;
+
+  /** Show/hide a golden glow for slots invested in this turn. */
+  setFreshInvestment(fresh: boolean): void {
+    if (this.freshInvestGfx) { this.freshInvestGfx.destroy(); this.freshInvestGfx = null; }
+    if (this.freshInvestTween) { this.freshInvestTween.destroy(); this.freshInvestTween = null; }
+    if (!fresh || !this.cardSprite) return;
+
+    const hw = s(45);
+    const hh = s(65);
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(s(2), 0xddaa44, 0.8);
+    gfx.strokeRoundedRect(-hw, -hh, hw * 2, hh * 2, s(4));
+    gfx.setDepth(12);
+    this.add(gfx);
+    this.freshInvestGfx = gfx;
+
+    this.freshInvestTween = this.scene.tweens.add({
+      targets: gfx,
+      alpha: { from: 0.8, to: 0.3 },
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
   }
 }

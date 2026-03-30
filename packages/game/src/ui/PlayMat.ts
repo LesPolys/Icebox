@@ -4,14 +4,11 @@ import { s, fontSize as fs, LAYOUT, MAIN_CX } from "./layout";
 
 /**
  * Visual "play mat" enclosing the sectors and hand area.
- * Contains two large circular buttons:
- *   - SLEEP (above discard pile)
- *   - END TURN (above deck pile)
+ * Contains END TURN button above the deck pile.
  * Buttons are added directly to the scene at high depth so the hand never covers them.
  */
 export class PlayMat extends Phaser.GameObjects.Container {
   public onEndTurn: (() => void) | null = null;
-  public onSleep: (() => void) | null = null;
 
   private bgGfx: Phaser.GameObjects.Graphics;
   private highlightTween: Phaser.Tweens.Tween | null = null;
@@ -35,23 +32,11 @@ export class PlayMat extends Phaser.GameObjects.Container {
     this.drawBg(false);
     this.add(this.bgGfx);
 
-    // Action buttons — positioned above player discard (left) and deck (right) piles
-    // Created as direct scene objects at high depth so hand cards can't cover them
+    // Action button — positioned above player deck (right) pile
+    // Created as direct scene object at high depth so hand cards can't cover it
     const r = LAYOUT.playMatBtnRadius;
     const pileOffsetX = w / 2 + s(55); // matches createPlayerPiles offset
     const btnY = top + r + s(8);       // above the play mat area
-
-    this.createCircleBtn(
-      scene,
-      cx - pileOffsetX,
-      btnY,
-      r,
-      "❄",
-      NUM.teal,
-      () => { if (this.onSleep) this.onSleep(); },
-      Math.round(r * 4 / 3),
-      "Enter Cryosleep — skip to Succession phase"
-    );
 
     this.createCircleBtn(
       scene,
@@ -59,7 +44,7 @@ export class PlayMat extends Phaser.GameObjects.Container {
       btnY,
       r,
       "END",
-      NUM.slab,
+      NUM.midnightViolet,
       () => { if (this.onEndTurn) this.onEndTurn(); },
       undefined,
       "End Turn — resolve market and draw cards"
@@ -85,22 +70,22 @@ export class PlayMat extends Phaser.GameObjects.Container {
       gfx.clear();
       gfx.fillStyle(fillColor, 0.85);
       gfx.fillCircle(0, 0, radius);
-      gfx.lineStyle(s(2), NUM.graphite, 0.7);
+      gfx.lineStyle(s(2), NUM.charcoalBlue, 0.7);
       gfx.strokeCircle(0, 0, radius);
     };
     const drawHover = () => {
       gfx.clear();
       gfx.fillStyle(fillColor, 1);
       gfx.fillCircle(0, 0, radius);
-      gfx.lineStyle(s(2), NUM.bone, 0.9);
+      gfx.lineStyle(s(2), NUM.eggshell, 0.9);
       gfx.strokeCircle(0, 0, radius);
     };
     drawNormal();
 
     const text = scene.add.text(0, 0, label, {
       fontSize: labelSize ? `${labelSize}px` : fs(12),
-      color: HEX.bone,
-      fontFamily: "'Orbitron', monospace",
+      color: HEX.eggshell,
+      fontFamily: "monospace",
       fontStyle: "bold",
     }).setOrigin(0.5);
 
@@ -111,8 +96,8 @@ export class PlayMat extends Phaser.GameObjects.Container {
       tooltipBg = scene.add.graphics();
       tooltipText = scene.add.text(0, -radius - s(20), tooltip, {
         fontSize: fs(8),
-        color: HEX.bone,
-        fontFamily: "'Space Grotesk', sans-serif",
+        color: HEX.eggshell,
+        fontFamily: "monospace",
         backgroundColor: "#1a1a2e",
         padding: { x: 6, y: 3 },
       }).setOrigin(0.5).setVisible(false);
@@ -128,7 +113,7 @@ export class PlayMat extends Phaser.GameObjects.Container {
     });
     hitArea.on("pointerout", () => {
       drawNormal();
-      text.setColor(HEX.bone);
+      text.setColor(HEX.eggshell);
       if (tooltipText) tooltipText.setVisible(false);
     });
     hitArea.on("pointerdown", onClick);
@@ -145,14 +130,14 @@ export class PlayMat extends Phaser.GameObjects.Container {
     const h = this.matH;
     this.bgGfx.clear();
     if (highlighted) {
-      this.bgGfx.fillStyle(NUM.chartreuse, 0.15);
+      this.bgGfx.fillStyle(NUM.darkCyan, 0.15);
       this.bgGfx.fillRoundedRect(-w / 2, -h / 2, w, h, s(12));
-      this.bgGfx.lineStyle(s(2.5), NUM.chartreuse, 0.6);
+      this.bgGfx.lineStyle(s(2.5), NUM.darkCyan, 0.6);
       this.bgGfx.strokeRoundedRect(-w / 2, -h / 2, w, h, s(12));
     } else {
-      this.bgGfx.fillStyle(NUM.slab, 0.12);
+      this.bgGfx.fillStyle(NUM.midnightViolet, 0.12);
       this.bgGfx.fillRoundedRect(-w / 2, -h / 2, w, h, s(12));
-      this.bgGfx.lineStyle(s(1.5), NUM.graphite, 0.35);
+      this.bgGfx.lineStyle(s(1.5), NUM.charcoalBlue, 0.35);
       this.bgGfx.strokeRoundedRect(-w / 2, -h / 2, w, h, s(12));
     }
   }
