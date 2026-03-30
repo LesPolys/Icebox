@@ -68,8 +68,8 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     const title = scene.add.text(
       panelLeft + this.padding, this.panelTop + s(3),
       "MESSAGES", {
-        fontSize: fs(7), color: HEX.darkCyan,
-        fontFamily: "monospace", fontStyle: "bold",
+        fontSize: fs(7), color: HEX.chartreuse,
+        fontFamily: "'Orbitron', monospace", fontStyle: "bold",
       }
     ).setOrigin(0, 0);
     this.panelContainer.add(title);
@@ -103,7 +103,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     this.toggleBtn.add(this.notifDot);
 
     this.notifText = scene.add.text(-s(8), -s(12), "", {
-      fontSize: fs(6), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(6), color: "#ffffff", fontFamily: "'Space Mono', monospace", fontStyle: "bold",
     }).setOrigin(0.5).setVisible(false);
     this.toggleBtn.add(this.notifText);
 
@@ -138,9 +138,9 @@ export class MessagePanel extends Phaser.GameObjects.Container {
   private drawBg(): void {
     const panelLeft = this.panelRight - this.panelW;
     this.bgGfx.clear();
-    this.bgGfx.fillStyle(NUM.midnightViolet, 0.8);
+    this.bgGfx.fillStyle(NUM.slab, 0.8);
     this.bgGfx.fillRoundedRect(panelLeft, this.panelTop, this.panelW, this.panelH, s(4));
-    this.bgGfx.lineStyle(s(1), NUM.charcoalBlue, 0.5);
+    this.bgGfx.lineStyle(s(1), NUM.graphite, 0.5);
     this.bgGfx.strokeRoundedRect(panelLeft, this.panelTop, this.panelW, this.panelH, s(4));
   }
 
@@ -151,13 +151,13 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     const tabY = this.panelTop + s(20);
 
     const gfx = scene.add.graphics();
-    gfx.fillStyle(NUM.midnightViolet, 0.85);
+    gfx.fillStyle(NUM.slab, 0.85);
     gfx.fillRoundedRect(0, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
-    gfx.lineStyle(s(1), NUM.charcoalBlue, 0.5);
+    gfx.lineStyle(s(1), NUM.graphite, 0.5);
     gfx.strokeRoundedRect(0, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
 
     const arrow = scene.add.text(tabW / 2, 0, "◀", {
-      fontSize: fs(8), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(8), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
 
     const hitArea = scene.add.rectangle(tabW / 2, 0, tabW, tabH, 0x000000, 0);
@@ -174,10 +174,10 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     const by = this.panelTop + this.panelH - this.padding - btnH / 2;
 
     const gfx = scene.add.graphics();
-    gfx.fillStyle(NUM.charcoalBlue, 0.7);
+    gfx.fillStyle(NUM.graphite, 0.7);
     gfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, s(3));
     const label = scene.add.text(0, 0, "▼", {
-      fontSize: fs(7), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(7), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
     const hit = scene.add.rectangle(0, 0, btnW, btnH, 0x000000, 0);
     hit.setInteractive({ useHandCursor: true });
@@ -195,7 +195,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
   private updateNotifDot(): void {
     if (this.unreadCount > 0 && this.collapsed) {
       this.notifDot.clear();
-      this.notifDot.fillStyle(0xcc4444, 1);
+      this.notifDot.fillStyle(NUM.signalRed, 1);
       this.notifDot.fillCircle(-s(8), -s(12), s(7));
       this.notifDot.setVisible(true);
       this.notifText.setText(`${this.unreadCount}`);
@@ -259,7 +259,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
   addMessage(text: string, color?: string): void {
     this.entries.push({
       text,
-      color: color ?? HEX.pearlAqua,
+      color: color ?? HEX.bone,
       timestamp: Date.now(),
     });
 
@@ -290,7 +290,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
       yPositions.push(cumulativeY);
       // Estimate height: create temp text to measure
       const tmp = this.scene.add.text(0, 0, this.entries[i].text, {
-        fontSize: fs(12), fontFamily: "monospace",
+        fontSize: fs(12), fontFamily: "'Space Grotesk', sans-serif",
         wordWrap: { width: wrapWidth },
       });
       cumulativeY += tmp.height + this.lineGap;
@@ -308,7 +308,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
       const text = this.scene.add.text(0, y, entry.text, {
         fontSize: fs(12),
         color: entry.color,
-        fontFamily: "monospace",
+        fontFamily: "'Space Grotesk', sans-serif",
         wordWrap: { width: wrapWidth },
       }).setOrigin(0, 0);
 

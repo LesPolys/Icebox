@@ -13,23 +13,23 @@ export class PhaseIndicator extends Phaser.GameObjects.Container {
 
     this.phaseText = scene.add.text(0, 0, "ACTIVE WATCH", {
       fontSize: fs(12),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+      color: HEX.chartreuse,
+      fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
     }).setOrigin(0, 0.5);
     this.add(this.phaseText);
 
     this.turnText = scene.add.text(0, s(18), "Turn 1", {
       fontSize: fs(10),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
+      color: HEX.teal,
+      fontFamily: "'Space Mono', monospace",
     }).setOrigin(0, 0.5);
     this.add(this.turnText);
 
     this.sleepText = scene.add.text(0, s(32), "Sleeps: 0", {
       fontSize: fs(10),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
+      color: HEX.teal,
+      fontFamily: "'Space Mono', monospace",
     }).setOrigin(0, 0.5);
     this.add(this.sleepText);
 

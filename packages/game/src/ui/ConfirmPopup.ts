@@ -22,15 +22,15 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     const panelH = s(80);
 
     // Background
-    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.midnightViolet, 0.95);
-    bg.setStrokeStyle(s(1.5), NUM.charcoalBlue, 0.8);
+    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.slab, 0.95);
+    bg.setStrokeStyle(s(1.5), NUM.graphite, 0.8);
     this.add(bg);
 
     // Message text
     const text = scene.add.text(0, -s(18), message, {
       fontSize: fs(9),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "'Space Grotesk', sans-serif",
       wordWrap: { width: panelW - s(16) },
       align: "center",
     }).setOrigin(0.5);
@@ -41,12 +41,12 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     const btnH = s(24);
     const btnY = s(18);
 
-    this.createBtn(scene, -s(38), btnY, btnW, btnH, "Yes", 0x44cc44, () => {
+    this.createBtn(scene, -s(38), btnY, btnW, btnH, "Yes", NUM.chartreuse, "#ffffff", () => {
       onConfirm();
       this.destroy();
     });
 
-    this.createBtn(scene, s(38), btnY, btnW, btnH, "No", 0xcc4444, () => {
+    this.createBtn(scene, s(38), btnY, btnW, btnH, "No", NUM.steel, HEX.concrete, () => {
       if (onCancel) onCancel();
       this.destroy();
     });
@@ -72,6 +72,7 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     h: number,
     label: string,
     color: number,
+    textColor: string,
     onClick: () => void
   ): void {
     const btnBg = scene.add.rectangle(x, y, w, h, color, 0.3);
@@ -84,8 +85,8 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
 
     const text = scene.add.text(x, y, label, {
       fontSize: fs(9),
-      color: "#ffffff",
-      fontFamily: "monospace",
+      color: textColor,
+      fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
     }).setOrigin(0.5);
     this.add(text);

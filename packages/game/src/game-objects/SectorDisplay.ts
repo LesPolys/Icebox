@@ -35,21 +35,21 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.bg = scene.add.image(0, 0, "sector-bg");
     this.add(this.bg);
 
-    // Sector name — eggshell for readability
+    // Sector name — teal accent
     this.nameText = scene.add.text(0, s(-60), SECTOR_NAMES[sectorIndex], {
       fontSize: fs(11),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
+      color: HEX.teal,
+      fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
     });
     this.nameText.setOrigin(0.5);
     this.add(this.nameText);
 
-    // Dominant faction indicator — darkCyan default
+    // Dominant faction indicator — teal default
     this.dominantText = scene.add.text(0, s(-44), "No faction dominant", {
       fontSize: fs(8),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+      color: HEX.teal,
+      fontFamily: "'Space Grotesk', sans-serif",
     });
     this.dominantText.setOrigin(0.5);
     this.add(this.dominantText);
@@ -58,13 +58,23 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.slotsContainer = scene.add.container(0, s(10));
     this.add(this.slotsContainer);
 
-    // Create 3 empty slot indicators (compact)
+    // Create 3 empty slot indicators (compact) with connector nubs
+    const slotGfx = scene.add.graphics();
+    this.slotsContainer.add(slotGfx);
     for (let i = 0; i < 3; i++) {
       const slotX = (i - 1) * (CARD_WIDTH * 0.45 + s(6));
-      const slot = scene.add.rectangle(slotX, 0, CARD_WIDTH * 0.45 + s(2), s(60), NUM.midnightViolet, 0.3);
-      slot.setStrokeStyle(s(1), NUM.charcoalBlue, 0.3);
+      const slot = scene.add.rectangle(slotX, 0, CARD_WIDTH * 0.45 + s(2), s(60), NUM.slab, 0.3);
+      slot.setStrokeStyle(s(1), NUM.graphite, 0.3);
       this.slotsContainer.add(slot);
       this.slotIndicators.push(slot);
+
+      // Connector nub centered above each slot
+      const nubW = s(8);
+      const nubH = s(4);
+      const nubX = slotX - nubW / 2;
+      const nubY = -s(60) / 2 - nubH;
+      slotGfx.fillStyle(NUM.graphite, 0.5);
+      slotGfx.fillRoundedRect(nubX, nubY, nubW, nubH, s(1));
     }
 
     // Drop highlight overlay (hidden by default)
@@ -91,7 +101,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
       this.bg.setAlpha(0.2);
     } else {
       this.dominantText.setText("No faction dominant");
-      this.dominantText.setColor(HEX.darkCyan);
+      this.dominantText.setColor(HEX.teal);
       this.bg.clearTint();
       this.bg.setAlpha(1);
     }

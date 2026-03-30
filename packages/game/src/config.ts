@@ -10,7 +10,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: "game-container",
   width: window.innerWidth,
   height: window.innerHeight,
-  backgroundColor: "#212121",
+  backgroundColor: "#D8D4CC",
   scene: [BootScene, MainMenuScene, ActiveWatchScene, SuccessionScene, CryosleepScene],
   scale: {
     mode: Phaser.Scale.FIT,

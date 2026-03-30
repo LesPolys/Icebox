@@ -25,8 +25,8 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     super(scene, 0, 0);
 
     // Background — origin (0,0) is the top-left of the panel
-    this.bg = scene.add.rectangle(0, 0, PANEL_W, PANEL_H, NUM.midnightViolet, 0.95);
-    this.bg.setStrokeStyle(s(1), NUM.charcoalBlue);
+    this.bg = scene.add.rectangle(0, 0, PANEL_W, PANEL_H, NUM.slab, 0.95);
+    this.bg.setStrokeStyle(s(1), NUM.graphite);
     this.bg.setOrigin(0, 0);
     this.add(this.bg);
 
@@ -34,45 +34,45 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     const textX = PANEL_W / 2;
 
     this.nameText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(14), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(14), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
       wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.nameText);
 
     yPos += s(30);
     this.typeText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(10), color: HEX.darkCyan, fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5, 0);
     this.add(this.typeText);
 
     yPos += s(20);
     this.factionText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(10), color: HEX.darkCyan, fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5, 0);
     this.add(this.factionText);
 
     yPos += s(20);
     this.costText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.chartreuse, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5, 0);
     this.add(this.costText);
 
     yPos += s(25);
     this.effectsText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(9), color: HEX.glow, fontFamily: "'Space Grotesk', sans-serif",
       wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.effectsText);
 
     yPos += s(80);
     this.lifespanText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(9), color: HEX.concrete, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5, 0);
     this.add(this.lifespanText);
 
     yPos += s(20);
     this.flavorText = scene.add.text(textX, yPos, "", {
-      fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "italic",
+      fontSize: fs(8), color: HEX.concrete, fontFamily: "'Space Grotesk', sans-serif", fontStyle: "italic",
       wordWrap: { width: PANEL_W - s(20) }, align: "center",
     }).setOrigin(0.5, 0);
     this.add(this.flavorText);
@@ -120,7 +120,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       this.factionText.setColor(FACTIONS[card.faction].color);
     } else {
       this.factionText.setText("Neutral");
-      this.factionText.setColor(HEX.darkCyan);
+      this.factionText.setColor(HEX.teal);
     }
 
     const costParts: string[] = [];

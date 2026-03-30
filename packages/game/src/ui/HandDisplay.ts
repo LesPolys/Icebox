@@ -78,20 +78,20 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     this.handZoneTopY = y - CARD_HEIGHT / 2 - HAND_PADDING - s(40);
 
     // Hand area background
-    this.handBg = scene.add.rectangle(0, 0, MIN_HAND_WIDTH, CARD_HEIGHT + HAND_PADDING * 2, NUM.midnightViolet, 0.5);
+    this.handBg = scene.add.rectangle(0, 0, MIN_HAND_WIDTH, CARD_HEIGHT + HAND_PADDING * 2, NUM.slab, 0.5);
     this.add(this.handBg);
 
     // Hand area border
     this.handBorder = scene.add.rectangle(0, 0, MIN_HAND_WIDTH, CARD_HEIGHT + HAND_PADDING * 2);
-    this.handBorder.setStrokeStyle(s(2), NUM.charcoalBlue, 0.7);
+    this.handBorder.setStrokeStyle(s(2), NUM.graphite, 0.7);
     this.handBorder.setFillStyle(0x000000, 0);
     this.add(this.handBorder);
 
     // "HAND" label
     this.handLabel = scene.add.text(0, -(CARD_HEIGHT / 2 + HAND_PADDING + s(2)), "HAND", {
       fontSize: fs(9),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+      color: HEX.chartreuse,
+      fontFamily: "'Orbitron', monospace",
     });
     this.handLabel.setOrigin(0.5, 1);
     this.add(this.handLabel);

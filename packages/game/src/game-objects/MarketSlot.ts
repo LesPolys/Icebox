@@ -146,7 +146,7 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     let alpha: number;
     switch (mode) {
       case "target":
-        color = NUM.darkCyan;
+        color = NUM.chartreuse;
         alpha = 0.7;
         break;
       case "needs-invest":

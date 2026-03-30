@@ -5,10 +5,10 @@ import { s, fontSize as fs } from "../ui/layout";
 
 /** Resource metadata — shared with MarketSlot for investment visuals. */
 export const RESOURCE_META = [
-  { key: "matter",    label: "MAT", color: "#e88a3a", numColor: 0xe88a3a, shape: "hexagon" },
-  { key: "energy",    label: "ENG", color: "#55cc55", numColor: 0x55cc55, shape: "circle" },
-  { key: "data",      label: "DAT", color: "#4488ff", numColor: 0x4488ff, shape: "diamond" },
-  { key: "influence", label: "INF", color: "#cc77dd", numColor: 0xcc77dd, shape: "square" },
+  { key: "matter",    label: "MAT", color: "#CC6622", numColor: 0xCC6622, shape: "hexagon" },
+  { key: "energy",    label: "ENG", color: "#22BB44", numColor: 0x22BB44, shape: "circle" },
+  { key: "data",      label: "DAT", color: "#3366FF", numColor: 0x3366FF, shape: "diamond" },
+  { key: "influence", label: "INF", color: "#8844CC", numColor: 0x8844CC, shape: "square" },
 ] as const;
 
 export type ResourceKey = (typeof RESOURCE_META)[number]["key"];
@@ -93,8 +93,8 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
     // Background
     const totalW = RESOURCE_META.length * ResourceBar.COLUMN_WIDTH + s(30);
-    const bg = scene.add.rectangle(0, 0, totalW, s(78), NUM.midnightViolet, 0.85);
-    bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.6);
+    const bg = scene.add.rectangle(0, 0, totalW, s(78), NUM.slab, 0.85);
+    bg.setStrokeStyle(s(1), NUM.graphite, 0.6);
     this.add(bg);
 
     // Center the columns within the bar
@@ -105,7 +105,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
       // Label above
       const label = scene.add.text(colX, s(-28), res.label, {
-        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace", fontStyle: "bold",
+        fontSize: fs(10), color: HEX.chartreuse, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
       }).setOrigin(0.5);
       this.labels[res.key] = label;
       this.add(label);
@@ -119,7 +119,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
       // Value text centered in shape
       const value = scene.add.text(colX, s(-3), "0", {
-        fontSize: fs(14), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+        fontSize: fs(14), color: HEX.bone, fontFamily: "'Space Mono', monospace", fontStyle: "bold",
         stroke: "#000000", strokeThickness: s(2.5),
       }).setOrigin(0.5);
       this.values[res.key] = value;
@@ -127,7 +127,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
       // Threshold indicator below
       const threshold = scene.add.text(colX, s(26), "T:0", {
-        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
+        fontSize: fs(10), color: HEX.teal, fontFamily: "'Space Mono', monospace",
       }).setOrigin(0.5);
       this.thresholdTexts[res.key] = threshold;
       this.add(threshold);
@@ -249,7 +249,7 @@ export class ResourceBar extends Phaser.GameObjects.Container {
         this.shapes[res.key].clear();
         drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, 0xff4444);
       } else {
-        this.values[res.key].setColor("#ffffff");
+        this.values[res.key].setColor(HEX.bone);
         this.shapes[res.key].clear();
         drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
       }

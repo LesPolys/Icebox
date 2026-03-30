@@ -42,17 +42,17 @@ export class CardSprite extends Phaser.GameObjects.Container {
 
     // Selection highlight (hidden by default)
     this.highlight = scene.add.rectangle(0, 0, CARD_WIDTH + s(8), CARD_HEIGHT + s(8));
-    this.highlight.setStrokeStyle(s(4), NUM.darkCyan);
-    this.highlight.setFillStyle(NUM.darkCyan, 0.12);
+    this.highlight.setStrokeStyle(s(4), NUM.chartreuse);
+    this.highlight.setFillStyle(NUM.chartreuse, 0.12);
     this.highlight.setVisible(false);
     this.add(this.highlight);
     this.sendToBack(this.highlight);
 
-    // Card name — eggshell for readability
+    // Card name — Orbitron bold, bone
     this.nameText = scene.add.text(0, s(-65), card.name, {
       fontSize: fs(10),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
       wordWrap: { width: CARD_WIDTH - s(12) },
       align: "center",
@@ -60,16 +60,16 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.nameText.setOrigin(0.5, 0);
     this.add(this.nameText);
 
-    // Card type — darkCyan for better contrast than vintageGrape
-    this.typeText = scene.add.text(0, s(-40), `[${card.type}]`, {
+    // Card type — Space Mono, teal
+    this.typeText = scene.add.text(0, s(-40), `[${card.type.toUpperCase()}]`, {
       fontSize: fs(8),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+      color: HEX.teal,
+      fontFamily: "'Space Mono', monospace",
     });
     this.typeText.setOrigin(0.5, 0);
     this.add(this.typeText);
 
-    // Cost display — pearlAqua
+    // Cost display — teal
     const costParts: string[] = [];
     if (card.cost.matter) costParts.push(`M:${card.cost.matter}`);
     if (card.cost.energy) costParts.push(`E:${card.cost.energy}`);
@@ -78,28 +78,29 @@ export class CardSprite extends Phaser.GameObjects.Container {
 
     this.costText = scene.add.text(0, s(-25), costParts.join(" ") || "Free", {
       fontSize: fs(9),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
+      color: HEX.chartreuse,
+      fontFamily: "'Space Mono', monospace",
+      fontStyle: "bold",
     });
     this.costText.setOrigin(0.5, 0);
     this.add(this.costText);
 
-    // Faction — darkCyan (readable on dark bg)
-    const factionLabel = card.faction === "neutral" ? "Neutral" : card.faction;
-    this.factionText = scene.add.text(0, s(10), factionLabel, {
-      fontSize: fs(8),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+    // Faction — graphite on the shell footer area
+    const factionLabel = card.faction === "neutral" ? "Neutral" : card.faction.toUpperCase();
+    this.factionText = scene.add.text(0, CARD_HEIGHT / 2 - s(12), factionLabel, {
+      fontSize: fs(7),
+      color: HEX.graphite,
+      fontFamily: "'Space Mono', monospace",
     });
     this.factionText.setOrigin(0.5, 0);
     this.add(this.factionText);
 
-    // Effect description (first effect only) — pearlAqua
+    // Effect description — Space Grotesk, glow
     if (card.effects.length > 0) {
       const effectDesc = scene.add.text(0, s(25), card.effects[0].description, {
         fontSize: fs(7),
-        color: HEX.pearlAqua,
-        fontFamily: "monospace",
+        color: HEX.glow,
+        fontFamily: "'Space Grotesk', sans-serif",
         wordWrap: { width: CARD_WIDTH - s(16) },
         align: "center",
       });
@@ -112,10 +113,10 @@ export class CardSprite extends Phaser.GameObjects.Container {
     const lifespanStr = cardInstance.remainingLifespan !== null
       ? `${cardInstance.remainingLifespan}`
       : "~";
-    this.lifespanText = scene.add.text(CARD_WIDTH / 2 - s(10), CARD_HEIGHT / 2 - s(16), lifespanStr, {
-      fontSize: fs(9),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
+    this.lifespanText = scene.add.text(CARD_WIDTH / 2 - s(10), CARD_HEIGHT / 2 - s(26), lifespanStr, {
+      fontSize: fs(8),
+      color: HEX.concrete,
+      fontFamily: "'Space Mono', monospace",
     });
     this.lifespanText.setOrigin(1, 0.5);
     this.add(this.lifespanText);
@@ -124,8 +125,8 @@ export class CardSprite extends Phaser.GameObjects.Container {
     if (!cardInstance.powered) {
       const depowered = scene.add.text(0, s(55), "[DEPOWERED]", {
         fontSize: fs(8),
-        color: HEX.dustyMauve,
-        fontFamily: "monospace",
+        color: HEX.signalRed,
+        fontFamily: "'Space Mono', monospace",
       });
       depowered.setOrigin(0.5, 0);
       this.add(depowered);
@@ -211,13 +212,13 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.dragGhostActive = enabled;
     if (enabled) {
       this.setAlpha(0.6);
-      this.highlight.setStrokeStyle(s(4), NUM.darkCyan);
-      this.highlight.setFillStyle(NUM.darkCyan, 0.15);
+      this.highlight.setStrokeStyle(s(4), NUM.chartreuse);
+      this.highlight.setFillStyle(NUM.chartreuse, 0.15);
       this.highlight.setVisible(true);
     } else {
       this.setAlpha(1);
-      this.highlight.setStrokeStyle(s(4), NUM.darkCyan);
-      this.highlight.setFillStyle(NUM.darkCyan, 0.12);
+      this.highlight.setStrokeStyle(s(4), NUM.chartreuse);
+      this.highlight.setFillStyle(NUM.chartreuse, 0.12);
       if (!this.selected) this.highlight.setVisible(false);
     }
   }

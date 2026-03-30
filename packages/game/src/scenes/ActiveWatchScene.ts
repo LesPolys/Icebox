@@ -109,7 +109,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // ─── Right gutter: Deck count + Info panel ───
     this.deckCountText = this.add.text(LAYOUT.deckCountX, LAYOUT.deckCountY, "", {
-      fontSize: fontSize(10), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(10), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(1, 0);
     this.infoPanel = new InfoPanel(this);
 
@@ -159,7 +159,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // Label above everything
     this.add.text(cx, LAYOUT.marketLabelY, "TRANSIT MARKET", {
-      fontSize: fontSize(10), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fontSize(10), color: HEX.chartreuse, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5);
 
     // Column numbers — bordered badges above the box
@@ -169,13 +169,13 @@ export class ActiveWatchScene extends Phaser.Scene {
       const colX = cx + (col - 2.5) * cs;
       this.marketColPositions.push(colX);
       const badge = this.add.graphics();
-      badge.fillStyle(NUM.midnightViolet, 0.8);
+      badge.fillStyle(NUM.slab, 0.8);
       badge.fillCircle(colX, badgeY, badgeR);
-      badge.lineStyle(s(1.5), NUM.charcoalBlue, 0.7);
+      badge.lineStyle(s(1.5), NUM.graphite, 0.7);
       badge.strokeCircle(colX, badgeY, badgeR);
       badge.setDepth(9);
       this.add.text(colX, badgeY, `${col}`, {
-        fontSize: fontSize(11), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
+        fontSize: fontSize(11), color: HEX.bone, fontFamily: "'Space Mono', monospace", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(10);
     }
 
@@ -187,13 +187,13 @@ export class ActiveWatchScene extends Phaser.Scene {
     const boxH = LAYOUT.marketRow2Y - LAYOUT.marketRow1Y + s(120);
 
     const gfx = this.add.graphics();
-    gfx.fillStyle(NUM.midnightViolet, 0.3);
+    gfx.fillStyle(NUM.slab, 0.3);
     gfx.fillRoundedRect(boxLeft, boxTop, boxW, boxH, s(6));
-    gfx.lineStyle(s(1.5), NUM.charcoalBlue, 0.5);
+    gfx.lineStyle(s(1.5), NUM.graphite, 0.5);
     gfx.strokeRoundedRect(boxLeft, boxTop, boxW, boxH, s(6));
 
     // Column dividers — vertical lines between each column
-    gfx.lineStyle(s(1), NUM.charcoalBlue, 0.3);
+    gfx.lineStyle(s(1), NUM.graphite, 0.3);
     for (let i = 0; i < numCols - 1; i++) {
       const divX = cx + (i - 2.5) * cs + cs / 2;
       gfx.lineBetween(divX, boxTop + s(4), divX, boxTop + boxH - s(4));
@@ -231,7 +231,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       back.setAlpha(0.6 + i * 0.15);
     }
     this.worldDeckCountText = this.add.text(deckX, deckY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(9), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
   }
 
@@ -618,10 +618,10 @@ export class ActiveWatchScene extends Phaser.Scene {
       back.setAlpha(0.6 + i * 0.15);
     }
     this.add.text(deckX, pileY - s(55), "DECK", {
-      fontSize: fontSize(8), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(8), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
     this.playerDeckCountText = this.add.text(deckX, pileY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(9), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5).setDepth(10);
 
     // Player discard pile — left of play mat
@@ -638,10 +638,10 @@ export class ActiveWatchScene extends Phaser.Scene {
       back.setAngle(-3 + i * 3); // slight scatter
     }
     this.add.text(discardX, pileY - s(55), "DISCARD", {
-      fontSize: fontSize(8), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(8), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
     this.playerDiscardCountText = this.add.text(discardX, pileY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fontSize(9), color: HEX.teal, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5).setDepth(10);
   }
 
@@ -817,7 +817,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       if (extraSlides > 0) {
         this.actionLog.addEntry(
           `Market slides ${totalSlides}× (${extraSlides} extra from hazards).`,
-          HEX.eggshell
+          HEX.bone
         );
       }
 
@@ -831,7 +831,7 @@ export class ActiveWatchScene extends Phaser.Scene {
           this.actionLog.setTurn(this.gameState.turnNumber);
           if (turnResult.reshuffled) {
             this.showMessage("Discard reshuffled into deck.");
-            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
+            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.chartreuse);
           }
           this.refreshAll();
 
@@ -1007,7 +1007,7 @@ export class ActiveWatchScene extends Phaser.Scene {
         this.gameState = fr.state;
         for (const msg of fr.messages) {
           this.showMessage(msg);
-          this.actionLog.addEntry(msg, HEX.eggshell);
+          this.actionLog.addEntry(msg, HEX.bone);
         }
       }
     }
@@ -1015,7 +1015,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     for (const claim of slideResult.claimedInvestments) {
       const msg = `${claim.faction} claimed invested resources.`;
       this.showMessage(msg);
-      this.actionLog.addEntry(msg, HEX.eggshell);
+      this.actionLog.addEntry(msg, HEX.bone);
       if (this.gameState.globalFactionPresence[claim.faction] !== undefined) {
         const totalRes = (claim.resources.matter ?? 0) + (claim.resources.energy ?? 0) +
                          (claim.resources.data ?? 0) + (claim.resources.influence ?? 0);
@@ -1173,12 +1173,12 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.actionLog.addEntry(result.message);
       if (result.effectsTriggered?.length) {
         for (const eff of result.effectsTriggered) {
-          this.actionLog.addEntry(`  ${eff}`, HEX.eggshell);
+          this.actionLog.addEntry(`  ${eff}`, HEX.bone);
         }
       }
     } else {
-      this.showMessage(`! ${result.message}`, "#cc4444");
-      this.actionLog.addEntry(`! ${result.message}`, "#cc4444");
+      this.showMessage(`! ${result.message}`, HEX.signalRed);
+      this.actionLog.addEntry(`! ${result.message}`, HEX.signalRed);
     }
     this.handDisplay.clearSelection();
     this.infoPanel.hide();

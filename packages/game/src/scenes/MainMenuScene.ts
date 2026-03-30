@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { HEX, NUM } from "@icebox/shared";
 import { hasSave, loadGame } from "../systems/SaveManager";
 import { ActiveWatchScene } from "./ActiveWatchScene";
 import { s, fontSize as fs } from "../ui/layout";
@@ -17,8 +18,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.add
       .text(width / 2, s(150), "ICEBOX", {
         fontSize: fs(64),
-        color: "#6688cc",
-        fontFamily: "monospace",
+        color: HEX.chartreuse,
+        fontFamily: "'Orbitron', monospace",
         fontStyle: "bold",
       })
       .setOrigin(0.5);
@@ -27,8 +28,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.add
       .text(width / 2, s(220), "A Generation Ship Deckbuilder", {
         fontSize: fs(18),
-        color: "#445577",
-        fontFamily: "monospace",
+        color: HEX.teal,
+        fontFamily: "'Space Grotesk', sans-serif",
       })
       .setOrigin(0.5);
 
@@ -51,8 +52,8 @@ export class MainMenuScene extends Phaser.Scene {
     this.add
       .text(width - s(10), height - s(10), "v0.1.0 — Prototype", {
         fontSize: fs(12),
-        color: "#333355",
-        fontFamily: "monospace",
+        color: HEX.concrete,
+        fontFamily: "'Space Mono', monospace",
       })
       .setOrigin(1, 1);
   }
@@ -63,12 +64,12 @@ export class MainMenuScene extends Phaser.Scene {
       .text(x, y, label, {
         fontSize: fs(18),
         color: "#ffffff",
-        fontFamily: "monospace",
+        fontFamily: "'Orbitron', monospace",
       })
       .setOrigin(0.5);
 
     btn.on("pointerover", () => {
-      btn.setTint(0x3366cc);
+      btn.setTint(NUM.chartreuse);
       text.setColor("#ffffff");
     });
     btn.on("pointerout", () => {
