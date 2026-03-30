@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Barok Glyph Extractor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a1a; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; padding: 16px; }
+  h1 { font-size: 20px; margin-bottom: 4px; color: #D4FF00; }
+  .info { font-size: 13px; color: #999; margin-bottom: 12px; }
+
+  .layout { display: flex; gap: 16px; flex-wrap: wrap; }
+  .left { flex: 1; min-width: 500px; }
+  .right { width: 300px; display: flex; flex-direction: column; gap: 6px; }
+
+  #canvas-wrap {
+    position: relative; border: 2px solid #555; border-radius: 8px;
+    overflow: hidden; cursor: crosshair; width: 100%; height: 500px;
+  }
+  #canvas-wrap.has-image { border-color: #00CCAA; }
+  #canvas-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+  .controls button { padding: 6px 14px; background: #333; color: #D4FF00; border: 1px solid #555; border-radius: 6px; cursor: pointer; font-size: 13px; width: 100%; margin-bottom: 4px; }
+  .controls button:hover { background: #444; }
+  .controls button.primary { background: #D4FF00; color: #111; font-weight: bold; }
+  .controls label { font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .controls input[type=range] { width: 120px; }
+  .step-label { color: #00CCAA; font-size: 12px; font-weight: bold; margin-top: 8px; display: block; }
+  #file-input { display: none; }
+
+  .glyph-grid { display: flex; flex-wrap: wrap; gap: 3px; margin: 8px 0; }
+  .glyph-cell {
+    width: 48px; height: 56px; background: #222; border: 1px solid #444; border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+  }
+  .glyph-cell.has-glyph { border-color: #00CCAA; }
+  .glyph-cell .lbl { color: #D4FF00; font-weight: bold; font-size: 13px; }
+  .glyph-cell svg { width: 36px; height: 36px; }
+  .glyph-cell .remove { position: absolute; top: 1px; right: 3px; color: #666; font-size: 10px; cursor: pointer; }
+  .glyph-cell .remove:hover { color: #CC3333; }
+
+  .preview-section { margin-top: 12px; }
+  .preview-section h2 { font-size: 14px; color: #00CCAA; margin-bottom: 4px; }
+  .preview-row { display: flex; flex-wrap: wrap; gap: 2px; align-items: flex-end; padding: 10px; border-radius: 6px; margin-bottom: 6px; }
+  .preview-dark { background: #111; }
+  .preview-light { background: #C8C0B8; }
+
+  #output-area {
+    width: 100%; height: 200px; background: #111; color: #0f0; border: 1px solid #333;
+    border-radius: 6px; font-family: 'Consolas', monospace; font-size: 12px; padding: 10px; resize: vertical;
+  }
+  .status { font-size: 12px; color: #888; margin-top: 4px; min-height: 1.5em; }
+
+  #char-modal {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center;
+  }
+  #char-modal.show { display: flex; }
+  #char-modal-inner {
+    background: #222; border: 2px solid #D4FF00; border-radius: 12px; padding: 20px;
+    text-align: center; min-width: 200px;
+  }
+  #char-modal-inner h3 { color: #D4FF00; margin-bottom: 8px; }
+  #char-modal-inner input {
+    font-size: 28px; width: 60px; text-align: center; background: #111; color: #E8E6E0;
+    border: 1px solid #555; border-radius: 6px; padding: 4px; text-transform: uppercase;
+  }
+  #char-modal-inner button { padding: 6px 20px; background: #D4FF00; color: #111; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin: 4px; }
+  #char-modal-inner button.cancel { background: #444; color: #e0e0e0; }
+</style>
+</head>
+<body>
+<h1>BAROK GLYPH EXTRACTOR</h1>
+<p class="info">Lasso each character &rarr; type the letter &rarr; repeat. Scroll to zoom, right-drag to pan.</p>
+
+<div class="layout">
+  <div class="left">
+    <div id="canvas-wrap">
+      <canvas id="img-canvas"></canvas>
+      <canvas id="overlay"></canvas>
+    </div>
+    <p class="status" id="status">Drop an image or click to browse.</p>
+  </div>
+  <input type="file" id="file-input" accept="image/*">
+
+  <div class="right controls">
+    <span class="step-label">IMAGE</span>
+    <button onclick="document.getElementById('file-input').click()">Load Image</button>
+
+    <span class="step-label">SETTINGS</span>
+    <label>Threshold: <input type="range" id="threshold" min="0" max="255" value="140"> <span id="thresh-val">140</span></label>
+    <label>Trace quality: <input type="range" id="trace-quality" min="0" max="10" value="1" step="0.5"> <span id="quality-val">1</span></label>
+    <label><input type="checkbox" id="invert" checked> Invert (dark on light)</label>
+
+    <span class="step-label">GLYPHS (<span id="glyph-count">0</span>)</span>
+    <div class="glyph-grid" id="glyph-grid"></div>
+
+    <span class="step-label">EXPORT</span>
+    <button class="primary" onclick="doExport()">Export GLYPHS</button>
+    <button onclick="doCopy()">Copy to Clipboard</button>
+  </div>
+</div>
+
+<div class="preview-section">
+  <h2>Preview (on dark)</h2>
+  <div class="preview-row preview-dark" id="preview-dark"></div>
+  <h2>Preview (on light)</h2>
+  <div class="preview-row preview-light" id="preview-light"></div>
+</div>
+
+<h2 style="font-size:14px;color:#00CCAA;margin:12px 0 6px;">Exported GLYPHS</h2>
+<textarea id="output-area" readonly></textarea>
+
+<div id="char-modal">
+  <div id="char-modal-inner">
+    <h3>What character?</h3>
+    <div id="modal-preview" style="margin:8px 0;"></div>
+    <input type="text" id="char-input" maxlength="1" autocomplete="off">
+    <div style="margin-top:8px;">
+      <button onclick="confirmChar()">Save</button>
+      <button class="cancel" onclick="cancelChar()">Skip</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/imagetracerjs@1.2.6/imagetracer_v1.2.6.js"></script>
+<script>
+(function(){
+  // Elements
+  var imgC = document.getElementById('img-canvas');
+  var imgCtx = imgC.getContext('2d');
+  var olC = document.getElementById('overlay');
+  var olCtx = olC.getContext('2d');
+  var wrap = document.getElementById('canvas-wrap');
+  var fileInput = document.getElementById('file-input');
+  var statusEl = document.getElementById('status');
+
+  var img = null;        // loaded Image object
+  var glyphs = {};       // saved glyphs
+
+  // View: the canvas is always the same pixel size (matches wrap).
+  // We store a virtual camera: which rectangle of the image is visible.
+  var viewX = 0, viewY = 0, viewW = 0, viewH = 0; // image-space rect that maps to the canvas
+
+  // Lasso points in IMAGE coordinates
+  var lasso = [];
+  var drawing = false;
+
+  // Pan
+  var panning = false, panAnchor = null, panViewAnchor = null;
+
+  // Pending glyph
+  var pendingPath = '', pendingW = 0;
+
+  // ── Canvas sizing ──
+  function sizeCanvases() {
+    var rect = wrap.getBoundingClientRect();
+    var w = Math.round(rect.width);
+    var h = Math.round(rect.height);
+    if (imgC.width !== w || imgC.height !== h) {
+      imgC.width = w; imgC.height = h;
+      olC.width = w; olC.height = h;
+    }
+  }
+
+  // ── Coordinate transforms ──
+  // Canvas pixel → image pixel
+  function c2i(cx, cy) {
+    return {
+      x: viewX + (cx / imgC.width) * viewW,
+      y: viewY + (cy / imgC.height) * viewH
+    };
+  }
+  // Image pixel → canvas pixel
+  function i2c(ix, iy) {
+    return {
+      x: ((ix - viewX) / viewW) * imgC.width,
+      y: ((iy - viewY) / viewH) * imgC.height
+    };
+  }
+
+  // ── Drawing ──
+  function redraw() {
+    if (!img) return;
+    sizeCanvases();
+    imgCtx.imageSmoothingEnabled = true;
+    imgCtx.clearRect(0, 0, imgC.width, imgC.height);
+    // Draw the portion of the image defined by view rect
+    imgCtx.drawImage(img, viewX, viewY, viewW, viewH, 0, 0, imgC.width, imgC.height);
+    drawOverlay();
+  }
+
+  function drawOverlay() {
+    olCtx.clearRect(0, 0, olC.width, olC.height);
+    if (lasso.length < 2) return;
+    olCtx.strokeStyle = '#D4FF00';
+    olCtx.lineWidth = 2;
+    olCtx.lineJoin = 'round';
+    olCtx.beginPath();
+    var p0 = i2c(lasso[0].x, lasso[0].y);
+    olCtx.moveTo(p0.x, p0.y);
+    for (var i = 1; i < lasso.length; i++) {
+      var p = i2c(lasso[i].x, lasso[i].y);
+      olCtx.lineTo(p.x, p.y);
+    }
+    if (!drawing) {
+      olCtx.closePath();
+      olCtx.fillStyle = 'rgba(212,255,0,0.1)';
+      olCtx.fill();
+    }
+    olCtx.stroke();
+  }
+
+  // ── Image loading ──
+  wrap.addEventListener('dragover', function(e) { e.preventDefault(); });
+  wrap.addEventListener('drop', function(e) {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files[0]) loadFile(fileInput.files[0]);
+  });
+
+  function loadFile(file) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var i = new Image();
+      i.onload = function() {
+        img = i;
+        // Fit entire image in view
+        sizeCanvases();
+        var aspect = img.width / img.height;
+        var cAspect = imgC.width / imgC.height;
+        if (aspect > cAspect) {
+          viewW = img.width; viewH = img.width / cAspect;
+          viewX = 0; viewY = -(viewH - img.height) / 2;
+        } else {
+          viewH = img.height; viewW = img.height * cAspect;
+          viewX = -(viewW - img.width) / 2; viewY = 0;
+        }
+        wrap.classList.add('has-image');
+        redraw();
+        statusEl.textContent = 'Lasso around a character. Scroll=zoom, right-drag=pan.';
+      };
+      i.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ── Mouse: left=lasso, right=pan, wheel=zoom ──
+  function getCanvasXY(e) {
+    var r = olC.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  olC.addEventListener('mousedown', function(e) {
+    if (!img) { fileInput.click(); return; }
+    e.preventDefault();
+    var pos = getCanvasXY(e);
+
+    // Right button = pan
+    if (e.button === 2) {
+      panning = true;
+      panAnchor = pos;
+      panViewAnchor = { x: viewX, y: viewY };
+      olC.style.cursor = 'grabbing';
+      return;
+    }
+
+    // Left button = lasso
+    if (e.button === 0) {
+      var ip = c2i(pos.x, pos.y);
+      lasso = [ip];
+      drawing = true;
+    }
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (panning && panAnchor) {
+      var pos = getCanvasXY(e);
+      var dx = pos.x - panAnchor.x;
+      var dy = pos.y - panAnchor.y;
+      // Convert canvas pixel delta to image pixel delta
+      var idx = -(dx / imgC.width) * viewW;
+      var idy = -(dy / imgC.height) * viewH;
+      viewX = panViewAnchor.x + idx;
+      viewY = panViewAnchor.y + idy;
+      redraw();
+      return;
+    }
+
+    if (!drawing) return;
+    var pos = getCanvasXY(e);
+    var ip = c2i(pos.x, pos.y);
+    lasso.push(ip);
+    drawOverlay();
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (panning) {
+      panning = false;
+      olC.style.cursor = 'crosshair';
+      return;
+    }
+    if (!drawing) return;
+    drawing = false;
+    if (lasso.length < 10) { lasso = []; drawOverlay(); return; }
+    traceLasso();
+  });
+
+  olC.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+  // Zoom
+  olC.addEventListener('wheel', function(e) {
+    if (!img) return;
+    e.preventDefault();
+    var pos = getCanvasXY(e);
+    // Image point under cursor before zoom
+    var ip = c2i(pos.x, pos.y);
+    var factor = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    viewW *= factor;
+    viewH *= factor;
+    // Adjust so the image point stays under cursor
+    viewX = ip.x - (pos.x / imgC.width) * viewW;
+    viewY = ip.y - (pos.y / imgC.height) * viewH;
+    redraw();
+  }, { passive: false });
+
+  // ── Trace lasso ──
+  function traceLasso() {
+    if (typeof ImageTracer === 'undefined') { statusEl.textContent = 'imagetracerjs loading...'; return; }
+    var thresh = parseInt(document.getElementById('threshold').value);
+    var quality = parseFloat(document.getElementById('trace-quality').value);
+    var invert = document.getElementById('invert').checked;
+
+    // Bounding box of lasso in image coords
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < lasso.length; i++) {
+      var p = lasso[i];
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    minX = Math.max(0, Math.floor(minX));
+    minY = Math.max(0, Math.floor(minY));
+    maxX = Math.min(img.width, Math.ceil(maxX));
+    maxY = Math.min(img.height, Math.ceil(maxY));
+    var rw = maxX - minX, rh = maxY - minY;
+    if (rw < 3 || rh < 3) { lasso = []; drawOverlay(); return; }
+
+    // Extract region
+    var c = document.createElement('canvas');
+    c.width = rw; c.height = rh;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, minX, minY, rw, rh, 0, 0, rw, rh);
+
+    // Build lasso mask
+    var mc = document.createElement('canvas');
+    mc.width = rw; mc.height = rh;
+    var mctx = mc.getContext('2d');
+    mctx.fillStyle = '#000';
+    mctx.fillRect(0, 0, rw, rh);
+    mctx.fillStyle = '#fff';
+    mctx.beginPath();
+    mctx.moveTo(lasso[0].x - minX, lasso[0].y - minY);
+    for (var i = 1; i < lasso.length; i++) {
+      mctx.lineTo(lasso[i].x - minX, lasso[i].y - minY);
+    }
+    mctx.closePath();
+    mctx.fill();
+    var mask = mctx.getImageData(0, 0, rw, rh).data;
+
+    // Binarize + mask
+    var idata = ctx.getImageData(0, 0, rw, rh);
+    var d = idata.data;
+    var bgVal = invert ? 255 : 0;
+    for (var i = 0; i < d.length; i += 4) {
+      if (mask[i] < 128) {
+        d[i] = d[i+1] = d[i+2] = bgVal; d[i+3] = 255;
+        continue;
+      }
+      var gray = d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114;
+      var val = invert ? (gray < thresh ? 0 : 255) : (gray >= thresh ? 0 : 255);
+      d[i] = d[i+1] = d[i+2] = val; d[i+3] = 255;
+    }
+    ctx.putImageData(idata, 0, 0);
+
+    // Tight trim
+    var tL = rw, tR = 0, tT = rh, tB = 0;
+    for (var y = 0; y < rh; y++) {
+      for (var x = 0; x < rw; x++) {
+        if (d[(y*rw+x)*4] === 0) {
+          if (x < tL) tL = x; if (x > tR) tR = x;
+          if (y < tT) tT = y; if (y > tB) tB = y;
+        }
+      }
+    }
+    if (tR <= tL || tB <= tT) {
+      statusEl.textContent = 'No character pixels found. Adjust threshold?';
+      lasso = []; drawOverlay(); return;
+    }
+    var pad = 2;
+    tL = Math.max(0, tL-pad); tT = Math.max(0, tT-pad);
+    tR = Math.min(rw-1, tR+pad); tB = Math.min(rh-1, tB+pad);
+    var tw = tR-tL+1, th = tB-tT+1;
+
+    var tc = document.createElement('canvas');
+    tc.width = tw; tc.height = th;
+    tc.getContext('2d').drawImage(c, tL, tT, tw, th, 0, 0, tw, th);
+    var tdata = tc.getContext('2d').getImageData(0, 0, tw, th);
+
+    // Trace
+    var opts = {
+      ltres: quality, qtres: quality, pathomit: 4,
+      colorsampling: 0, numberofcolors: 2,
+      colorquantcycles: 1, blurradius: 0, blurdelta: 20,
+      strokewidth: 0, linefilter: false, roundcoords: 1,
+      pal: [{r:255,g:255,b:255,a:255},{r:0,g:0,b:0,a:255}]
+    };
+    var td = ImageTracer.imagedataToTracedata(tdata, opts);
+
+    var paths = [];
+    [1,0].forEach(function(li) {
+      if (paths.length > 0) return;
+      if (!td.layers || !td.layers[li]) return;
+      td.layers[li].forEach(function(p) {
+        if (!p.segments || p.segments.length < 3) return;
+        var s = '';
+        p.segments.forEach(function(seg, si) {
+          if (si === 0) s += 'M'+seg.x1+' '+seg.y1+' ';
+          if (seg.type === 'L') s += 'L'+seg.x2+' '+seg.y2+' ';
+          else if (seg.type === 'Q') s += 'Q'+seg.x2+' '+seg.y2+' '+seg.x3+' '+seg.y3+' ';
+        });
+        s += 'Z';
+        paths.push(s);
+      });
+    });
+
+    var sf = 100/th;
+    var sw = Math.round(tw*sf);
+    var scaled = scalePath(paths.join(' '), sf);
+
+    pendingPath = scaled;
+    pendingW = sw;
+
+    var prev = document.getElementById('modal-preview');
+    prev.innerHTML = scaled
+      ? '<svg viewBox="0 0 '+sw+' 100" width="80" height="80" style="background:#111;border-radius:4px;"><path d="'+scaled+'" fill="#D4FF00" fill-rule="evenodd"/></svg>'
+      : '<span style="color:#CC3333;">No paths</span>';
+
+    document.getElementById('char-modal').classList.add('show');
+    var inp = document.getElementById('char-input');
+    inp.value = '';
+    setTimeout(function(){ inp.focus(); }, 50);
+  }
+
+  // ── Modal ──
+  window.confirmChar = function() {
+    var ch = document.getElementById('char-input').value.toUpperCase().trim();
+    if (!ch || !pendingPath) return;
+    glyphs[ch] = { w: pendingW, pathData: pendingPath };
+    closeModal();
+    updateUI();
+    statusEl.textContent = '"'+ch+'" saved ('+Object.keys(glyphs).length+' total). Next character.';
+  };
+  window.cancelChar = function() { closeModal(); };
+  function closeModal() {
+    document.getElementById('char-modal').classList.remove('show');
+    pendingPath = ''; pendingW = 0;
+    lasso = []; drawOverlay();
+  }
+  document.getElementById('char-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') confirmChar();
+    if (e.key === 'Escape') cancelChar();
+  });
+
+  // ── Util ──
+  function scalePath(str, s) {
+    var t = str.match(/[MmLlQqCcSsTtAaHhVvZz]|[-+]?[0-9]*\.?[0-9]+/g);
+    if (!t) return '';
+    var o = [];
+    for (var i = 0; i < t.length; i++) {
+      if (/^[A-Za-z]$/.test(t[i])) o.push(t[i]);
+      else o.push(Math.round(parseFloat(t[i])*s*10)/10);
+    }
+    return o.join(' ');
+  }
+
+  function updateUI() {
+    var keys = Object.keys(glyphs).sort();
+    document.getElementById('glyph-count').textContent = keys.length;
+    var grid = document.getElementById('glyph-grid');
+    grid.innerHTML = '';
+    keys.forEach(function(ch) {
+      var g = glyphs[ch];
+      var cell = document.createElement('div');
+      cell.className = 'glyph-cell has-glyph';
+      cell.innerHTML =
+        '<span class="lbl">'+ch+'</span>'+
+        '<svg viewBox="0 0 '+g.w+' 100"><path d="'+g.pathData+'" fill="#D4FF00" fill-rule="evenodd"/></svg>'+
+        '<span class="remove" data-ch="'+ch+'">&times;</span>';
+      cell.querySelector('.remove').onclick = function(e) {
+        e.stopPropagation(); delete glyphs[this.dataset.ch]; updateUI();
+      };
+      grid.appendChild(cell);
+    });
+
+    ['preview-dark','preview-light'].forEach(function(id) {
+      var row = document.getElementById(id);
+      row.innerHTML = '';
+      var color = id === 'preview-dark' ? '#E8E6E0' : '#0A0A0A';
+      keys.forEach(function(ch) {
+        var g = glyphs[ch];
+        var h=40, w=g.w*(h/100);
+        var span = document.createElement('span');
+        span.innerHTML = '<svg viewBox="0 0 '+g.w+' 100" width="'+w+'" height="'+h+'" style="display:inline-block;vertical-align:bottom;" title="'+ch+'"><path d="'+g.pathData+'" fill="'+color+'" fill-rule="evenodd"/></svg>';
+        row.appendChild(span);
+      });
+    });
+  }
+
+  window.doExport = function() {
+    var keys = Object.keys(glyphs).sort();
+    if (!keys.length) { statusEl.textContent = 'No glyphs yet!'; return; }
+    var out = 'var GLYPHS = {\n';
+    keys.forEach(function(ch, i) {
+      var g = glyphs[ch];
+      var key = ch === "'" ? "\"'\"" : "'"+ch+"'";
+      out += '  '+key+': ['+g.w+", '"+g.pathData+"']"+(i<keys.length-1?',':'')+'\n';
+    });
+    out += "  ' ': [30, '']\n};\n";
+    document.getElementById('output-area').value = out;
+    statusEl.textContent = 'Exported '+keys.length+' glyphs!';
+  };
+  window.doCopy = function() {
+    var a = document.getElementById('output-area');
+    a.select(); document.execCommand('copy');
+    statusEl.textContent = 'Copied!';
+  };
+
+  document.getElementById('threshold').oninput = function() { document.getElementById('thresh-val').textContent = this.value; };
+  document.getElementById('trace-quality').oninput = function() { document.getElementById('quality-val').textContent = this.value; };
+
+  // Handle resize
+  window.addEventListener('resize', function() { if (img) redraw(); });
+})();
+</script>
+</body>
+</html>
