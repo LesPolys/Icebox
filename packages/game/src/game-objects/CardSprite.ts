@@ -3,8 +3,14 @@ import type { CardInstance } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
 
-export const CARD_WIDTH = s(120);
-export const CARD_HEIGHT = s(170);
+export let CARD_WIDTH = s(120);
+export let CARD_HEIGHT = s(170);
+
+/** Recompute card dimensions after layout recalculation. */
+export function recalculateCardDimensions(): void {
+  CARD_WIDTH = s(120);
+  CARD_HEIGHT = s(170);
+}
 
 /**
  * Visual representation of a card. Colored rectangle with text overlay.
@@ -28,6 +34,11 @@ export class CardSprite extends Phaser.GameObjects.Container {
   private dragGhostActive = false;
   private affordableOverlay: Phaser.GameObjects.Graphics | null = null;
   private isAffordable = true;
+  private stressPipsGfx: Phaser.GameObjects.Graphics | null = null;
+  private stressPipsTween: Phaser.Tweens.Tween | null = null;
+  private statusOverlay: Phaser.GameObjects.Graphics | null = null;
+  private statusLabel: Phaser.GameObjects.Text | null = null;
+  private constructionBar: Phaser.GameObjects.Graphics | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, cardInstance: CardInstance) {
     super(scene, x, y);
@@ -161,9 +172,10 @@ export class CardSprite extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
-  private getTextureKey(): string {
+  getTextureKey(): string {
     const card = this.cardInstance.card;
     if (card.type === "junk") return "card-junk";
+    if (card.type === "crisis") return "card-crisis";
     if (card.faction === "neutral") return "card-neutral";
     return `card-${card.faction}`;
   }
@@ -241,6 +253,193 @@ export class CardSprite extends Phaser.GameObjects.Container {
       if (this.affordableOverlay) {
         this.affordableOverlay.setVisible(false);
       }
+    }
+  }
+
+  /**
+   * Draw stress pips for crew cards.
+   * Filled circles = remaining stress, empty circles = lost stress.
+   * At 1 remaining stress, pips pulse red as a burnout warning.
+   */
+  setStressPips(currentStress: number, maxStress: number): void {
+    // Clean up previous
+    if (this.stressPipsGfx) {
+      this.stressPipsGfx.destroy();
+      this.stressPipsGfx = null;
+    }
+    if (this.stressPipsTween) {
+      this.stressPipsTween.destroy();
+      this.stressPipsTween = null;
+    }
+
+    if (maxStress <= 0) return;
+
+    const gfx = this.scene.add.graphics();
+    const pipRadius = s(4);
+    const gap = s(10);
+    const totalW = (maxStress - 1) * gap;
+    const startX = -totalW / 2;
+    const pipY = CARD_HEIGHT / 2 - s(8);
+
+    for (let i = 0; i < maxStress; i++) {
+      const cx = startX + i * gap;
+      if (i < currentStress) {
+        // Filled pip (remaining stress)
+        gfx.fillStyle(0x55cc55, 0.9);
+        gfx.fillCircle(cx, pipY, pipRadius);
+        gfx.lineStyle(s(1), 0x338833, 0.8);
+        gfx.strokeCircle(cx, pipY, pipRadius);
+      } else {
+        // Empty pip (lost stress)
+        gfx.fillStyle(0x444444, 0.4);
+        gfx.fillCircle(cx, pipY, pipRadius);
+        gfx.lineStyle(s(1), 0x666666, 0.5);
+        gfx.strokeCircle(cx, pipY, pipRadius);
+      }
+    }
+
+    this.add(gfx);
+    this.stressPipsGfx = gfx;
+
+    // Burnout warning: pulse red at 1 remaining stress
+    if (currentStress === 1) {
+      this.stressPipsTween = this.scene.tweens.add({
+        targets: gfx,
+        alpha: { from: 1, to: 0.3 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    }
+  }
+
+  /**
+   * Show a damage overlay on structures (cracked/sparking visual).
+   * Call with "damaged" for a cracked appearance.
+   */
+  setDamageOverlay(active: boolean): void {
+    if (this.statusOverlay) {
+      this.statusOverlay.destroy();
+      this.statusOverlay = null;
+    }
+    if (this.statusLabel) {
+      this.statusLabel.destroy();
+      this.statusLabel = null;
+    }
+
+    if (!active) return;
+
+    const gfx = this.scene.add.graphics();
+    const hw = CARD_WIDTH / 2;
+    const hh = CARD_HEIGHT / 2;
+
+    // Semi-transparent red overlay
+    gfx.fillStyle(0xcc4444, 0.1);
+    gfx.fillRect(-hw, -hh, CARD_WIDTH, CARD_HEIGHT);
+
+    // Crack lines
+    gfx.lineStyle(s(2), 0xcc4444, 0.5);
+    gfx.lineBetween(-hw * 0.3, -hh * 0.6, hw * 0.1, 0);
+    gfx.lineBetween(hw * 0.1, 0, -hw * 0.1, hh * 0.5);
+    gfx.lineBetween(hw * 0.1, 0, hw * 0.4, hh * 0.3);
+
+    // Spark dots
+    gfx.fillStyle(0xffaa44, 0.6);
+    gfx.fillCircle(hw * 0.1, 0, s(2));
+    gfx.fillCircle(-hw * 0.2, hh * 0.2, s(1.5));
+
+    this.add(gfx);
+    this.statusOverlay = gfx;
+
+    const label = this.scene.add.text(0, -hh + s(6), "DAMAGED", {
+      fontSize: fs(7),
+      color: "#cc4444",
+      fontFamily: "monospace",
+      fontStyle: "bold",
+    }).setOrigin(0.5, 0);
+    this.add(label);
+    this.statusLabel = label;
+  }
+
+  /**
+   * Show an under-construction overlay with scaffolding and progress bar.
+   * @param progress  Turns elapsed (0 to completionTime)
+   * @param total     Total turns required (0 means resource-only)
+   */
+  setConstructionOverlay(active: boolean, progress = 0, total = 0): void {
+    if (this.statusOverlay) {
+      this.statusOverlay.destroy();
+      this.statusOverlay = null;
+    }
+    if (this.statusLabel) {
+      this.statusLabel.destroy();
+      this.statusLabel = null;
+    }
+    if (this.constructionBar) {
+      this.constructionBar.destroy();
+      this.constructionBar = null;
+    }
+
+    if (!active) return;
+
+    const gfx = this.scene.add.graphics();
+    const hw = CARD_WIDTH / 2;
+    const hh = CARD_HEIGHT / 2;
+
+    // Scaffolding overlay — semi-transparent with hash pattern
+    gfx.fillStyle(0x886644, 0.12);
+    gfx.fillRect(-hw, -hh, CARD_WIDTH, CARD_HEIGHT);
+
+    // Scaffolding lines (diagonal hatching)
+    gfx.lineStyle(s(1), 0x886644, 0.25);
+    for (let i = -6; i <= 6; i++) {
+      const offset = i * s(20);
+      gfx.lineBetween(-hw + offset, -hh, -hw + offset + CARD_HEIGHT, hh);
+    }
+
+    // Scaffold frame
+    gfx.lineStyle(s(2), 0xaa8844, 0.4);
+    gfx.strokeRect(-hw + s(4), -hh + s(4), CARD_WIDTH - s(8), CARD_HEIGHT - s(8));
+
+    this.add(gfx);
+    this.statusOverlay = gfx;
+
+    // Label
+    const label = this.scene.add.text(0, -hh + s(6), "BUILDING", {
+      fontSize: fs(7),
+      color: "#aa8844",
+      fontFamily: "monospace",
+      fontStyle: "bold",
+    }).setOrigin(0.5, 0);
+    this.add(label);
+    this.statusLabel = label;
+
+    // Progress bar (only shown if time-based)
+    if (total > 0) {
+      const barGfx = this.scene.add.graphics();
+      const barW = CARD_WIDTH - s(20);
+      const barH = s(6);
+      const barX = -barW / 2;
+      const barY = hh - s(16);
+      const fillFraction = Math.min(1, progress / total);
+
+      // Background
+      barGfx.fillStyle(0x333333, 0.6);
+      barGfx.fillRect(barX, barY, barW, barH);
+
+      // Fill
+      if (fillFraction > 0) {
+        barGfx.fillStyle(0xaa8844, 0.8);
+        barGfx.fillRect(barX, barY, barW * fillFraction, barH);
+      }
+
+      // Border
+      barGfx.lineStyle(s(1), 0xaa8844, 0.5);
+      barGfx.strokeRect(barX, barY, barW, barH);
+
+      this.add(barGfx);
+      this.constructionBar = barGfx;
     }
   }
 }

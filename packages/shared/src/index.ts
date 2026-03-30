@@ -13,6 +13,13 @@ export type {
 export type {
   CardType,
   CardTier,
+  PrimaryCategoryTag,
+  AttributeTag,
+  SkillTag,
+  CrewSleepChoice,
+  CrewData,
+  ConstructionData,
+  CrisisData,
   EffectTiming,
   EffectType,
   CardEffect,
@@ -48,24 +55,34 @@ export type {
 
 export type {
   GameRules,
-  EntropyThresholds,
+  EraState,
+  EraModifiers,
   GamePhase,
   GameState,
+  ActionPoolState,
 } from "./types/game-state.js";
 
 // ─── Constants ───────────────────────────────────────────────────────
 export { PALETTE, HEX, NUM } from "./constants/palette.js";
 export { FACTIONS, getFaction } from "./constants/factions.js";
 export {
-  STARTING_THRESHOLDS,
-  THRESHOLD_ESCALATION_PER_CYCLE,
-  SEVERITY_DIVISORS,
   RESOURCE_DRAIN_PER_CYCLE,
   MAX_SLEEP_DURATION,
   MIN_SLEEP_DURATION,
   DOMINANT_FACTION_CARDS_PER_CYCLE,
   WEAKEST_FACTION_REMOVAL_PER_CYCLE,
-} from "./constants/thresholds.js";
+} from "./constants/entropy.js";
+export {
+  CRYO_POD_COST,
+  MENTORSHIP_COST,
+  DIGITAL_ARCHIVE_COST,
+  DEFAULT_REASSIGN_COST,
+} from "./constants/crew.js";
+export {
+  ERA_MODIFIERS,
+  ERA_TRANSITION_THRESHOLDS,
+  STARTING_ERA,
+} from "./constants/era.js";
 export {
   STARTING_RESOURCES,
   DEFAULT_HAND_SIZE,

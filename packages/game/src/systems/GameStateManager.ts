@@ -7,7 +7,8 @@ import type {
 } from "@icebox/shared";
 import {
   STARTING_RESOURCES,
-  STARTING_THRESHOLDS,
+  STARTING_ERA,
+  ERA_MODIFIERS,
   MARKET_SLOTS_PER_ROW,
   STARTING_HULL_INTEGRITY,
   DEFAULT_STRUCTURE_SLOTS,
@@ -24,13 +25,20 @@ import {
  * Creates a CardInstance from a Card definition.
  */
 export function createCardInstance(card: Card): CardInstance {
-  return {
+  const instance: CardInstance = {
     card,
     instanceId: generateInstanceId(),
     remainingLifespan: card.aging.lifespan,
     powered: true,
     zone: "vault",
   };
+
+  // Initialize crew-specific state
+  if (card.type === "crew" && card.crew) {
+    instance.currentStress = card.crew.maxStress;
+  }
+
+  return instance;
 }
 
 /**
@@ -40,24 +48,22 @@ export function createNewGameState(allCards: Card[]): GameState {
   resetMarketRowCounter();
 
   const locationCards = allCards.filter((c) => c.type === "location");
-  const starterIds = new Set(["vf-001", "sw-001", "ac-001"]);
-  // Mandate deck only gets actions, structures, and institutions.
-  // Hazards, events, and junk are world-deck-only (market effects).
-  const mandateTypes = new Set(["action", "structure", "institution"]);
-  const mandateEligible = allCards.filter(
-    (c) => mandateTypes.has(c.type) && !starterIds.has(c.id)
-  );
+  const starterIds = new Set(["st-001", "st-002", "st-003", "st-004", "st-005", "st-006", "st-007", "st-008", "st-009", "st-010"]);
+  const starterStructureIds = new Set(["ns-001", "ns-002", "ns-003"]);
 
-  // World deck gets everything except locations and starters
-  const worldEligible = allCards.filter(
-    (c) => c.type !== "location" && !starterIds.has(c.id) && !mandateTypes.has(c.type)
-  );
-
-  const mandateInstances = mandateEligible.map((c) => {
+  // Starters always go into the player's starting mandate deck
+  const starterCards = allCards.filter((c) => starterIds.has(c.id));
+  const starterInstances = starterCards.map((c) => {
     const inst = createCardInstance(c);
     inst.zone = "mandate-deck";
     return inst;
   });
+
+  // World deck gets hazards, events, junk, and non-starter structures/actions/institutions/crew
+  const excludedIds = new Set([...starterIds, ...starterStructureIds]);
+  const worldEligible = allCards.filter(
+    (c) => c.type !== "location" && !excludedIds.has(c.id)
+  );
 
   const worldInstances = worldEligible.map((c) => {
     const inst = createCardInstance(c);
@@ -65,14 +71,9 @@ export function createNewGameState(allCards: Card[]): GameState {
     return inst;
   });
 
-  // Also add surplus mandate-eligible cards to the world deck
   const rules = createDefaultRules();
-  const shuffledMandate = shuffle(mandateInstances);
-  const mandateCards = shuffledMandate.slice(0, rules.startingDeckSize);
-  const surplusMandate = shuffledMandate.slice(rules.startingDeckSize);
-  surplusMandate.forEach((c) => (c.zone = "world-deck"));
-
-  const worldDeckCards = [...worldInstances, ...surplusMandate];
+  const mandateCards = shuffle(starterInstances);
+  const worldDeckCards = [...worldInstances];
 
   const sectorLocations = locationCards.slice(0, 3);
 
@@ -98,9 +99,9 @@ export function createNewGameState(allCards: Card[]): GameState {
   ];
 
   const starterStructures: Record<number, string> = {
-    0: "vf-001",
-    1: "sw-001",
-    2: "ac-001",
+    0: "ns-001",  // Emergency Shelter in Engineering
+    1: "ns-002",  // Trading Post in Habitat
+    2: "ns-003",  // Relay Antenna in Command
   };
   for (const [sectorIdx, cardId] of Object.entries(starterStructures)) {
     const card = allCards.find((c) => c.id === cardId);
@@ -144,7 +145,6 @@ export function createNewGameState(allCards: Card[]): GameState {
     phase: "active-watch",
     totalSleepCycles: 0,
     resources: { ...STARTING_RESOURCES },
-    entropyThresholds: { ...STARTING_THRESHOLDS },
     vault: { cards: [] },
     worldDeck: { drawPile: remainingWorldDeck },
     transitMarket: {
@@ -172,7 +172,11 @@ export function createNewGameState(allCards: Card[]): GameState {
       return h;
     })(),
     globalLaw: null,
+    era: STARTING_ERA,
+    eraModifiers: { ...ERA_MODIFIERS[STARTING_ERA] },
     seed: Math.floor(Math.random() * 2147483647),
+    availableActions: { matter: 0, energy: 0, data: 0, influence: 0 },
+    turnInvestments: [],
   };
 }
 

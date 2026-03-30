@@ -29,10 +29,19 @@ export class BootScene extends Phaser.Scene {
     BootScene.cardDefinitions = (coreSetData as { cards: Card[] }).cards;
     console.log(`Loaded ${BootScene.cardDefinitions.length} card definitions`);
 
-    this.generateCardTextures();
-    this.generateUITextures();
+    this.regenerateTextures();
 
     this.scene.start(MainMenuScene.KEY);
+  }
+
+  /** Generate (or re-generate) all textures at the current scale. */
+  regenerateTextures(): void {
+    this.generateCardTextures();
+    this.generateUITextures();
+  }
+
+  private removeIfExists(key: string): void {
+    if (this.textures.exists(key)) this.textures.remove(key);
   }
 
   private generateCardTextures(): void {
@@ -68,6 +77,7 @@ export class BootScene extends Phaser.Scene {
     // Outer border
     backGfx.lineStyle(lw, NUM.charcoalBlue, 1);
     backGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-back");
     backGfx.generateTexture("card-back", cardW, cardH);
     backGfx.destroy();
 
@@ -81,6 +91,7 @@ export class BootScene extends Phaser.Scene {
       gfx.fillRoundedRect(0, 0, cardW, headerH, { tl: r, tr: r, bl: 0, br: 0 });
       gfx.lineStyle(lw, color, 1);
       gfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+      this.removeIfExists(`card-${factionId}`);
       gfx.generateTexture(`card-${factionId}`, cardW, cardH);
       gfx.destroy();
     }
@@ -93,6 +104,7 @@ export class BootScene extends Phaser.Scene {
     neutralGfx.fillRoundedRect(0, 0, cardW, headerH, { tl: r, tr: r, bl: 0, br: 0 });
     neutralGfx.lineStyle(lw, NUM.vintageGrape, 1);
     neutralGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-neutral");
     neutralGfx.generateTexture("card-neutral", cardW, cardH);
     neutralGfx.destroy();
 
@@ -104,8 +116,21 @@ export class BootScene extends Phaser.Scene {
     junkGfx.fillRoundedRect(0, 0, cardW, headerH, { tl: r, tr: r, bl: 0, br: 0 });
     junkGfx.lineStyle(lw, NUM.dustyMauve, 1);
     junkGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-junk");
     junkGfx.generateTexture("card-junk", cardW, cardH);
     junkGfx.destroy();
+
+    // Crisis card (red tint — danger/urgency)
+    const crisisGfx = this.add.graphics();
+    crisisGfx.fillStyle(NUM.midnightViolet, 1);
+    crisisGfx.fillRoundedRect(0, 0, cardW, cardH, r);
+    crisisGfx.fillStyle(0xcc3333, 0.35);
+    crisisGfx.fillRoundedRect(0, 0, cardW, headerH, { tl: r, tr: r, bl: 0, br: 0 });
+    crisisGfx.lineStyle(lw, 0xcc3333, 1);
+    crisisGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-crisis");
+    crisisGfx.generateTexture("card-crisis", cardW, cardH);
+    crisisGfx.destroy();
 
     // Empty slot
     const emptyGfx = this.add.graphics();
@@ -113,6 +138,7 @@ export class BootScene extends Phaser.Scene {
     emptyGfx.fillRoundedRect(0, 0, cardW, cardH, r);
     emptyGfx.lineStyle(s(1), NUM.vintageGrape, 0.4);
     emptyGfx.strokeRoundedRect(0, 0, cardW, cardH, r);
+    this.removeIfExists("card-empty");
     emptyGfx.generateTexture("card-empty", cardW, cardH);
     emptyGfx.destroy();
   }
@@ -128,17 +154,19 @@ export class BootScene extends Phaser.Scene {
     btnGfx.fillRoundedRect(0, 0, btnW, btnH, r);
     btnGfx.lineStyle(s(2), NUM.darkCyan, 1);
     btnGfx.strokeRoundedRect(0, 0, btnW, btnH, r);
+    this.removeIfExists("btn-primary");
     btnGfx.generateTexture("btn-primary", btnW, btnH);
     btnGfx.destroy();
 
-    // Sector background — sized to fit within sectorSpacing (300) with gaps
-    const secW = s(280);
-    const secH = s(150);
+    // Sector background — 345 wide, 370 spacing
+    const secW = s(345);
+    const secH = s(215);
     const sectorGfx = this.add.graphics();
     sectorGfx.fillStyle(NUM.midnightViolet, 0.7);
     sectorGfx.fillRoundedRect(0, 0, secW, secH, r);
     sectorGfx.lineStyle(s(1), NUM.charcoalBlue, 0.6);
     sectorGfx.strokeRoundedRect(0, 0, secW, secH, r);
+    this.removeIfExists("sector-bg");
     sectorGfx.generateTexture("sector-bg", secW, secH);
     sectorGfx.destroy();
   }

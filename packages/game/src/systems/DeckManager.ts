@@ -90,6 +90,17 @@ export function addToDiscard(
 }
 
 /**
+ * Add a card to the bottom of the draw pile (e.g., bought from market).
+ */
+export function addToBottomOfDeck(
+  deck: MandateDeckState,
+  card: CardInstance
+): MandateDeckState {
+  card.zone = "mandate-deck";
+  return { ...deck, drawPile: [...deck.drawPile, card] };
+}
+
+/**
  * Add a card directly to the draw pile (e.g., junk injection).
  */
 export function addToDrawPile(

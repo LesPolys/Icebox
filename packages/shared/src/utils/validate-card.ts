@@ -18,13 +18,13 @@ export function validateCard(card: unknown): ValidationError[] {
     }
   }
 
-  // ID format
-  if (typeof c.id === "string" && !/^[a-z]{1,4}-\d{3}[a-z]?$/.test(c.id)) {
-    errors.push({ field: "id", message: "id must match pattern: 1-4 lowercase letters, dash, 3 digits, optional letter suffix (e.g., vf-001, vf-001b)" });
+  // ID format: prefix-suffix (e.g., vf-s01, loc-eng-base, jk-hull-01, st-001, hz-001, ns-001, wc-001)
+  if (typeof c.id === "string" && !/^[a-z]{2,4}(-[a-z0-9]+)+$/.test(c.id)) {
+    errors.push({ field: "id", message: "id must be kebab-case with 2-4 letter prefix (e.g., vf-s01, loc-eng-base, jk-hull-01)" });
   }
 
   // CardType
-  const validTypes = ["location", "structure", "institution", "action", "event", "hazard", "junk"];
+  const validTypes = ["location", "structure", "institution", "action", "event", "hazard", "junk", "crew", "crisis"];
   if (!validTypes.includes(c.type as string)) {
     errors.push({ field: "type", message: `type must be one of: ${validTypes.join(", ")}` });
   }
@@ -96,6 +96,74 @@ export function validateCard(card: unknown): ValidationError[] {
   // Junk-specific validation
   if (c.type === "junk" && c.junk == null) {
     errors.push({ field: "junk", message: "junk data is required for junk-type cards" });
+  }
+
+  // Crew-specific validation
+  if (c.type === "crew") {
+    if (c.crew == null || typeof c.crew !== "object") {
+      errors.push({ field: "crew", message: "crew data is required for crew-type cards" });
+    } else {
+      const crew = c.crew as Record<string, unknown>;
+      const validSkillTags = ["Engineer", "Botanist", "Orator", "Logic"];
+      if (!validSkillTags.includes(crew.skillTag as string)) {
+        errors.push({ field: "crew.skillTag", message: `skillTag must be one of: ${validSkillTags.join(", ")}` });
+      }
+      if (typeof crew.maxStress !== "number" || crew.maxStress < 3 || crew.maxStress > 5) {
+        errors.push({ field: "crew.maxStress", message: "maxStress must be a number between 3 and 5" });
+      }
+      if (typeof crew.expertAbilityDescription !== "string" || crew.expertAbilityDescription.length === 0) {
+        errors.push({ field: "crew.expertAbilityDescription", message: "expertAbilityDescription is required" });
+      }
+    }
+  }
+
+  // Primary category tag validation (optional)
+  if (c.primaryTag != null) {
+    const validPrimaryTags = ["Machine", "Organic", "Law", "Tech"];
+    if (!validPrimaryTags.includes(c.primaryTag as string)) {
+      errors.push({ field: "primaryTag", message: `primaryTag must be one of: ${validPrimaryTags.join(", ")}` });
+    }
+  }
+
+  // Attribute tags validation (optional)
+  if (c.attributeTags != null) {
+    if (!Array.isArray(c.attributeTags)) {
+      errors.push({ field: "attributeTags", message: "attributeTags must be an array" });
+    } else {
+      const validAttrTags = ["Hazard", "Persistent", "Fragile", "Heavy"];
+      for (const tag of c.attributeTags as string[]) {
+        if (!validAttrTags.includes(tag)) {
+          errors.push({ field: "attributeTags", message: `Invalid attribute tag: ${tag}` });
+        }
+      }
+    }
+  }
+
+  // Construction validation (optional, only for structures)
+  if (c.construction != null) {
+    if (c.type !== "structure") {
+      errors.push({ field: "construction", message: "construction data is only valid for structure-type cards" });
+    } else {
+      const con = c.construction as Record<string, unknown>;
+      if (con.completionTime != null && (typeof con.completionTime !== "number" || (con.completionTime as number) < 0)) {
+        errors.push({ field: "construction.completionTime", message: "completionTime must be a non-negative number" });
+      }
+    }
+  }
+
+  // Crisis-type cards must have crisis data
+  if (c.type === "crisis" && (c.crisis == null || (c.crisis as Record<string, unknown>).isCrisis !== true)) {
+    errors.push({ field: "crisis", message: "crisis data with isCrisis=true is required for crisis-type cards" });
+  }
+
+  // Crisis validation (optional)
+  if (c.crisis != null) {
+    const crisis = c.crisis as Record<string, unknown>;
+    if (crisis.isCrisis === true) {
+      if (crisis.proactiveCost != null && typeof crisis.proactiveCost === "object") {
+        validateResourceCost(crisis.proactiveCost as Record<string, unknown>, "crisis.proactiveCost", errors);
+      }
+    }
   }
 
   return errors;

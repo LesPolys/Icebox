@@ -17,7 +17,8 @@ import type {
 } from "@icebox/shared";
 import {
   STARTING_RESOURCES,
-  STARTING_THRESHOLDS,
+  STARTING_ERA,
+  ERA_MODIFIERS,
   MARKET_SLOTS_PER_ROW,
   STARTING_HULL_INTEGRITY,
   ALL_FACTION_IDS,
@@ -61,7 +62,6 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
     phase: "active-watch",
     totalSleepCycles: 0,
     resources: { ...STARTING_RESOURCES },
-    entropyThresholds: { ...STARTING_THRESHOLDS },
     vault: { cards: [] },
     worldDeck: { drawPile: worldDeckCards },
     transitMarket: market,
@@ -87,7 +87,11 @@ function makeMinimalState(market: TransitMarketState, worldDeckCards: CardInstan
       return h;
     })(),
     globalLaw: null,
+    era: STARTING_ERA,
+    eraModifiers: { ...ERA_MODIFIERS[STARTING_ERA] },
     seed: 42,
+    availableActions: { matter: 0, energy: 0, data: 0, influence: 0 },
+    turnInvestments: [],
   };
 }
 
