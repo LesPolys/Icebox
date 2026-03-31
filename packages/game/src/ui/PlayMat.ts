@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs, LAYOUT, MAIN_CX } from "./layout";
-import { renderBarokText, measureBarokText } from "./BarokFont";
 
 /**
  * Visual "play mat" enclosing the sectors and hand area.
@@ -16,7 +15,7 @@ export class PlayMat extends Phaser.GameObjects.Container {
   private matW: number;
   private matH: number;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, endBtnX: number, endBtnY: number) {
     const cx = MAIN_CX;
     const top = LAYOUT.playMatTop;
     const bottom = LAYOUT.playMatBottom;
@@ -33,16 +32,13 @@ export class PlayMat extends Phaser.GameObjects.Container {
     this.drawBg(false);
     this.add(this.bgGfx);
 
-    // Action button — positioned above player deck (right) pile
-    // Created as direct scene object at high depth so hand cards can't cover it
+    // END button — positioned by caller (right of market deck)
     const r = LAYOUT.playMatBtnRadius;
-    const pileOffsetX = w / 2 + s(55); // matches createPlayerPiles offset
-    const btnY = top + r + s(8);       // above the play mat area
 
     this.createCircleBtn(
       scene,
-      cx + pileOffsetX,
-      btnY,
+      endBtnX,
+      endBtnY,
       r,
       "END",
       NUM.slab,
@@ -83,11 +79,14 @@ export class PlayMat extends Phaser.GameObjects.Container {
     };
     drawNormal();
 
-    // Barok font label (two versions: normal bone + hover white)
-    const barokSize = labelSize ?? s(12);
-    const labelW = measureBarokText(label, barokSize);
-    const normalLabel = renderBarokText(scene, label, NUM.bone, barokSize, -labelW / 2, -barokSize * 0.55);
-    const hoverLabel = renderBarokText(scene, label, 0xffffff, barokSize, -labelW / 2, -barokSize * 0.55);
+    // Label (two versions: normal bone + hover white)
+    const btnFontSize = labelSize ?? s(12);
+    const normalLabel = scene.add.text(0, 0, label, {
+      fontSize: `${btnFontSize}px`, color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
+    const hoverLabel = scene.add.text(0, 0, label, {
+      fontSize: `${btnFontSize}px`, color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
     hoverLabel.setVisible(false);
 
     // Tooltip text (hidden by default, shown on hover)

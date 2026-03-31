@@ -3,7 +3,6 @@ import type { SectorState, CardInstance } from "@icebox/shared";
 import { SECTOR_NAMES, FACTIONS, NUM, HEX } from "@icebox/shared";
 import { CardSprite, CARD_WIDTH } from "./CardSprite";
 import { s, fontSize as fs } from "../ui/layout";
-import { renderBarokText, measureBarokText } from "../ui/BarokFont";
 
 /**
  * Visual display for one ship sector (compact version).
@@ -14,7 +13,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
   public sectorIndex: number;
   private bg: Phaser.GameObjects.Image;
   private titleContainer: Phaser.GameObjects.Container;
-  private nameContainer: Phaser.GameObjects.Container;
+  private nameText: Phaser.GameObjects.Text;
   private dominantText: Phaser.GameObjects.Text;
   private slotsContainer: Phaser.GameObjects.Container;
   private cardSprites: CardSprite[] = [];
@@ -45,10 +44,11 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.titleContainer = scene.add.container(0, s(-88));
     this.add(this.titleContainer);
 
-    // Barok font for sector name
     const sectorName = SECTOR_NAMES[sectorIndex];
-    this.nameContainer = renderBarokText(scene, sectorName, NUM.bone, s(12), 0, 0);
-    this.titleContainer.add(this.nameContainer);
+    this.nameText = scene.add.text(0, 0, sectorName.toUpperCase(), {
+      fontSize: fs(12), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0, 0);
+    this.titleContainer.add(this.nameText);
 
     this.dominantText = scene.add.text(s(4), 0, "", {
       fontSize: fs(9),
@@ -97,11 +97,11 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
 
   private repositionTitle(): void {
     // Center the combined "Name  >> Faction" as a unit
-    const nameW = measureBarokText(SECTOR_NAMES[this.sectorIndex], s(12));
+    const nameW = this.nameText.width;
     const domW = this.dominantText.width;
     const gap = s(4);
     const totalW = nameW + gap + domW;
-    this.nameContainer.setX(-totalW / 2);
+    this.nameText.setX(-totalW / 2);
     this.dominantText.setX(-totalW / 2 + nameW + gap);
   }
 

@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import type { ResourceTotals } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
-import { renderBarokText, measureBarokText, BarokLabel } from "../ui/BarokFont";
 
 /** Resource metadata — shared with MarketSlot for investment visuals. */
 export const RESOURCE_META = [
@@ -68,7 +67,7 @@ export function drawResourceShape(
  */
 export class ResourceBar extends Phaser.GameObjects.Container {
   private labels: Record<string, Phaser.GameObjects.Text> = {};
-  private values: Record<string, BarokLabel> = {};
+  private values: Record<string, Phaser.GameObjects.Text> = {};
   private thresholdTexts: Record<string, Phaser.GameObjects.Text> = {};
   private shapes: Record<string, Phaser.GameObjects.Graphics> = {};
   private hitAreas: Record<string, Phaser.GameObjects.Rectangle> = {};
@@ -122,12 +121,10 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       const res = RESOURCE_META[i];
       const colX = startX + i * ResourceBar.COLUMN_WIDTH;
 
-      // Label above (Barok font)
-      const labelW = measureBarokText(res.label, s(10));
-      const labelContainer = renderBarokText(scene, res.label, NUM.chartreuse, s(10), colX - labelW / 2, s(-32) - s(5));
-      this.add(labelContainer);
-      // Keep dummy text for interface compatibility
-      const label = scene.add.text(0, 0, "").setVisible(false);
+      // Label above
+      const label = scene.add.text(colX, s(-30), res.label, {
+        fontSize: fs(10), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      }).setOrigin(0.5);
       this.labels[res.key] = label;
       this.add(label);
 
@@ -138,8 +135,10 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       this.shapes[res.key] = shapeGfx;
       this.add(shapeGfx);
 
-      // Value text centered in shape (Barok font)
-      const value = new BarokLabel(scene, colX - s(7), s(-10), "0", NUM.bone, s(14));
+      // Value text centered in shape
+      const value = scene.add.text(colX, s(-2), "0", {
+        fontSize: fs(14), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      }).setOrigin(0.5);
       this.values[res.key] = value;
       this.add(value);
 

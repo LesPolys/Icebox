@@ -3,7 +3,6 @@ import { NUM, HEX } from "@icebox/shared";
 import type { ActionPoolState } from "@icebox/shared";
 import { s, fontSize as fs } from "./layout";
 import { RESOURCE_META, drawResourceShape } from "../game-objects/ResourceBar";
-import { renderBarokText, measureBarokText } from "./BarokFont";
 
 /**
  * Persistent UI widget showing available resource action tokens.
@@ -54,12 +53,10 @@ export class ActionPool extends Phaser.GameObjects.Container {
     this.bg.setOrigin(0, 0);
     this.add(this.bg);
 
-    // Title (Barok font)
-    const titleW = measureBarokText("ACTION POOL", s(8));
-    const titleContainer = renderBarokText(scene, "ACTION POOL", NUM.chartreuse, s(8), this.panelW / 2 - titleW / 2, pad);
-    this.add(titleContainer);
-    // Keep reference for potential future updates (unused but matches original field)
-    this.titleText = scene.add.text(0, 0, "").setVisible(false);
+    // Title
+    this.titleText = scene.add.text(this.panelW / 2, pad, "ACTION POOL", {
+      fontSize: fs(8), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5, 0);
     this.add(this.titleText);
 
     // Create rows for each resource type

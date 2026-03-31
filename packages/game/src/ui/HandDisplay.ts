@@ -90,7 +90,7 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     // "HAND" label — inside the hand area, near the top
     this.handLabel = scene.add.text(0, -(CARD_HEIGHT / 2 + HAND_PADDING) + s(6), "HAND", {
       fontSize: fs(9),
-      color: HEX.chartreuse,
+      color: "#ffffff",
       fontFamily: "'Orbitron', monospace",
     });
     this.handLabel.setOrigin(0.5, 0);

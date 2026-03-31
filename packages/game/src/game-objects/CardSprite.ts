@@ -61,50 +61,51 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.add(this.highlight);
     this.sendToBack(this.highlight);
 
-    // Card name — Orbitron bold, bone
+    // Card name — fixed position below notch
     this.nameText = scene.add.text(0, s(-65), card.name, {
-      fontSize: fs(10),
+      fontSize: fs(9),
       color: HEX.bone,
       fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
-      wordWrap: { width: CARD_WIDTH - s(12) },
+      wordWrap: { width: CARD_WIDTH - s(16) },
       align: "center",
     });
     this.nameText.setOrigin(0.5, 0);
     this.add(this.nameText);
 
-    // Card type — Space Mono, abyss
-    this.typeText = scene.add.text(0, s(-40), `[${card.type.toUpperCase()}]`, {
-      fontSize: fs(8),
+    // Card type
+    this.typeText = scene.add.text(0, s(-38), `[${card.type.toUpperCase()}]`, {
+      fontSize: fs(7),
       color: HEX.abyss,
       fontFamily: "'Space Mono', monospace",
+      fontStyle: "bold",
     });
     this.typeText.setOrigin(0.5, 0);
     this.add(this.typeText);
 
-    // Cost display — teal
+    // Cost display
     const costParts: string[] = [];
     if (card.cost.matter) costParts.push(`M:${card.cost.matter}`);
     if (card.cost.energy) costParts.push(`E:${card.cost.energy}`);
     if (card.cost.data) costParts.push(`D:${card.cost.data}`);
     if (card.cost.influence) costParts.push(`I:${card.cost.influence}`);
 
-    this.costText = scene.add.text(0, s(-25), costParts.join(" ") || "Free", {
-      fontSize: fs(9),
-      color: HEX.chartreuse,
+    this.costText = scene.add.text(0, s(-24), costParts.join(" ") || "Free", {
+      fontSize: fs(8),
+      color: HEX.abyss,
       fontFamily: "'Space Mono', monospace",
       fontStyle: "bold",
     });
     this.costText.setOrigin(0.5, 0);
     this.add(this.costText);
 
-    // Effect description — Space Grotesk, glow
+    // Effect description — fixed zone between cost and footer
     if (card.effects.length > 0) {
-      const effectDesc = scene.add.text(0, s(25), card.effects[0].description, {
-        fontSize: fs(7),
-        color: HEX.glow,
+      const effectDesc = scene.add.text(0, s(-6), card.effects[0].description, {
+        fontSize: fs(10),
+        color: HEX.abyss,
         fontFamily: "'Space Grotesk', sans-serif",
-        wordWrap: { width: CARD_WIDTH - s(16) },
+        wordWrap: { width: CARD_WIDTH - s(20) },
         align: "center",
       });
       effectDesc.setOrigin(0.5, 0);
@@ -112,11 +113,11 @@ export class CardSprite extends Phaser.GameObjects.Container {
       this.add(effectDesc);
     }
 
-    // Lifespan indicator
+    // Lifespan indicator — shell footer
     const lifespanStr = cardInstance.remainingLifespan !== null
       ? `${cardInstance.remainingLifespan}`
       : "~";
-    this.lifespanText = scene.add.text(CARD_WIDTH / 2 - s(10), CARD_HEIGHT / 2 - s(26), lifespanStr, {
+    this.lifespanText = scene.add.text(CARD_WIDTH / 2 - s(10), s(57), lifespanStr, {
       fontSize: fs(8),
       color: HEX.concrete,
       fontFamily: "'Space Mono', monospace",
@@ -124,18 +125,19 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.lifespanText.setOrigin(1, 0.5);
     this.add(this.lifespanText);
 
-    // Code 128 barcode encoding the card definition ID (in footer area)
+    // Code 128 barcode — scaled to fit card width
     const barcodeWidths = encodeCode128B(card.id);
     this.barcodeGfx = scene.add.graphics();
-    // Calculate total barcode width to center it
-    let totalBarcodeW = 0;
-    for (const bw of barcodeWidths) totalBarcodeW += bw * s(0.8);
+    let totalUnits = 0;
+    for (const bw of barcodeWidths) totalUnits += bw;
+    const maxBarcodeW = CARD_WIDTH - s(24);
+    const unitW = maxBarcodeW / totalUnits;
     const barcodeH = s(8);
-    const barcodeStartX = -totalBarcodeW / 2;
-    const barcodeY = CARD_HEIGHT / 2 - s(14);
+    const barcodeStartX = -maxBarcodeW / 2;
+    const barcodeY = s(67);
     let bx = barcodeStartX;
     for (let bi = 0; bi < barcodeWidths.length; bi++) {
-      const w = barcodeWidths[bi] * s(0.8);
+      const w = barcodeWidths[bi] * unitW;
       if (bi % 2 === 0) {
         this.barcodeGfx.fillStyle(NUM.graphite, 0.5);
         this.barcodeGfx.fillRect(bx, barcodeY, w, barcodeH);

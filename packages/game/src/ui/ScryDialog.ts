@@ -36,7 +36,7 @@ export class ScryDialog extends Phaser.GameObjects.Container {
     // Title
     const title = scene.add.text(0, -panelH / 2 + s(14), "SCRY: REORDER MARKET DECK", {
       fontSize: fs(12),
-      color: HEX.teal,
+      color: HEX.bone,
       fontFamily: "Orbitron",
       fontStyle: "bold",
     }).setOrigin(0.5, 0);

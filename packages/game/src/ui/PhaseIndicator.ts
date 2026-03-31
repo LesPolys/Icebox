@@ -2,10 +2,9 @@ import Phaser from "phaser";
 import type { GamePhase } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "./layout";
-import { renderBarokText, measureBarokText } from "./BarokFont";
 
 export class PhaseIndicator extends Phaser.GameObjects.Container {
-  private phaseContainers: Map<string, Phaser.GameObjects.Container> = new Map();
+  private phaseContainers: Map<string, Phaser.GameObjects.Text> = new Map();
   private turnText: Phaser.GameObjects.Text;
   private sleepText: Phaser.GameObjects.Text;
   private bgGfx: Phaser.GameObjects.Graphics;
@@ -27,7 +26,7 @@ export class PhaseIndicator extends Phaser.GameObjects.Container {
     this.bgGfx.strokeRoundedRect(0, 0, this.boxW, this.boxH, s(6));
     this.add(this.bgGfx);
 
-    // Pre-render all phase labels as Barok text
+    // Pre-render all phase labels
     const phaseLabels: Record<GamePhase, string> = {
       "active-watch": "ACTIVE WATCH",
       succession: "SUCCESSION",
@@ -35,10 +34,11 @@ export class PhaseIndicator extends Phaser.GameObjects.Container {
       "game-over": "GAME OVER",
     };
     for (const [, label] of Object.entries(phaseLabels)) {
-      const container = renderBarokText(scene, label, NUM.chartreuse, s(12), pad, pad);
-      container.setVisible(false);
-      this.add(container);
-      this.phaseContainers.set(label, container);
+      const text = scene.add.text(pad, pad, label, {
+        fontSize: fs(12), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      }).setOrigin(0, 0).setVisible(false);
+      this.add(text);
+      this.phaseContainers.set(label, text);
     }
     // Show default
     this.phaseContainers.get("ACTIVE WATCH")?.setVisible(true);

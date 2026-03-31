@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import type { EraState, EraModifiers } from "@icebox/shared";
 import { NUM, HEX, ERA_MODIFIERS } from "@icebox/shared";
 import { s, fontSize as fs } from "./layout";
-import { renderBarokText, measureBarokText } from "./BarokFont";
 
 /** Color and icon config per era. */
 const ERA_VISUALS: Record<EraState, { color: string; numColor: number; icon: string; desatColor: string; desatNum: number }> = {
@@ -85,9 +84,10 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     this.bg.strokeRoundedRect(0, 0, this.boxW, this.boxH, s(6));
     this.add(this.bg);
 
-    // Title (Barok font)
-    const eraTitleW = measureBarokText("ERA", s(7));
-    this.add(renderBarokText(scene, "ERA", NUM.teal, s(7), this.boxW / 2 - eraTitleW / 2, s(3)));
+    // Title
+    this.add(scene.add.text(this.boxW / 2, s(5), "ERA", {
+      fontSize: fs(7), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5, 0));
 
     // 2x2 grid: [Zenith, Unraveling] / [Struggle, Ascension]
     const gridTop = pad + GRID_TOP_OFFSET();
@@ -138,7 +138,7 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     // ── Tooltip container (hidden by default) ──
     this.tooltipContainer = scene.add.container(0, 0);
     this.tooltipContainer.setVisible(false);
-    this.tooltipContainer.setDepth(100);
+    this.tooltipContainer.setDepth(500);
 
     this.tooltipBg = scene.add.graphics();
     this.tooltipContainer.add(this.tooltipBg);

@@ -20,7 +20,6 @@ import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
 import { CardSprite, CARD_WIDTH, CARD_HEIGHT } from "../game-objects/CardSprite";
 import { EraDisplay } from "../ui/EraDisplay";
-import { renderBarokText, measureBarokText, BarokLabel } from "../ui/BarokFont";
 import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
 import { SuccessionScene } from "./SuccessionScene";
@@ -56,9 +55,9 @@ export class ActiveWatchScene extends Phaser.Scene {
 
   private eraDisplay!: EraDisplay;
   private eraTheme!: EraTheme;
-  private worldDeckCountText!: BarokLabel;
-  private playerDeckCountText!: BarokLabel;
-  private playerDiscardCountText!: BarokLabel;
+  private worldDeckCountText!: Phaser.GameObjects.Text;
+  private playerDeckCountText!: Phaser.GameObjects.Text;
+  private playerDiscardCountText!: Phaser.GameObjects.Text;
 
   // ── Purchase mode state ──
   private purchaseMode: {
@@ -115,7 +114,12 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.input.mouse?.disableContextMenu();
 
     // ─── Play mat (rendered below everything) ───
-    this.playMat = new PlayMat(this);
+    // END button positioned to the right of the market deck
+    const marketDeckX = MAIN_CX + 2.5 * LAYOUT.marketColSpacing + s(55) + s(70);
+    const marketDeckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
+    const endBtnX = marketDeckX + s(120);
+    const endBtnY = marketDeckY;
+    this.playMat = new PlayMat(this, endBtnX, endBtnY);
     this.playMat.onEndTurn = () => {
       this.animatedEndTurn();
     };
@@ -223,9 +227,9 @@ export class ActiveWatchScene extends Phaser.Scene {
       badge.lineStyle(s(1.5), NUM.graphite, 0.8);
       badge.strokeCircle(colX, badgeY, badgeR);
       badge.setDepth(9);
-      const colNumW = measureBarokText(`${col}`, s(11));
-      const colNumContainer = renderBarokText(this, `${col}`, NUM.bone, s(11), colX - colNumW / 2, badgeY - s(6));
-      colNumContainer.setDepth(10);
+      const colNumText = this.add.text(colX, badgeY, `${col}`, {
+        fontSize: fontSize(11), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+      }).setOrigin(0.5).setDepth(10);
     }
 
     // Box background — starts below the badge row
@@ -284,8 +288,10 @@ export class ActiveWatchScene extends Phaser.Scene {
     worldBackShadow.setAlpha(0.5);
     const worldBack = this.add.image(deckX, deckY, "card-back");
     worldBack.setDisplaySize(CARD_WIDTH * worldDeckScale, s(170) * worldDeckScale);
-    // Count text below the card (Barok font)
-    this.worldDeckCountText = new BarokLabel(this, deckX - s(10), deckY + s(78), "", NUM.abyss, s(9));
+    // Count text below the card
+    this.worldDeckCountText = this.add.text(deckX, deckY + s(82), "", {
+      fontSize: fontSize(9), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
+    }).setOrigin(0.5);
 
     // Click on world deck pile → scry action (data)
     const deckHitArea = this.add.rectangle(deckX, deckY, s(80), s(110), 0x000000, 0);
@@ -812,7 +818,10 @@ export class ActiveWatchScene extends Phaser.Scene {
   private createPlayerPiles(): void {
     const matCx = MAIN_CX;
     const matW = LAYOUT.playMatW;
-    const pileY = (LAYOUT.playMatTop + LAYOUT.playMatBottom) / 2;
+    const playerPileScale = 0.65;
+    const cardH = s(170) * playerPileScale;
+    // Align pile tops with top of playmat
+    const pileY = LAYOUT.playMatTop + cardH / 2 + s(20);
 
     // Player draw pile — right of play mat
     const deckX = matCx + matW / 2 + s(55);
@@ -820,16 +829,17 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.playerDeckPileY = pileY;
 
     // Stacked card-backs for draw pile (offset card behind for depth)
-    const playerPileScale = 0.65;
     const playerBackShadow = this.add.image(deckX + s(2), pileY + s(1.5), "card-back");
-    playerBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    playerBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, cardH);
     playerBackShadow.setAlpha(0.5);
     const playerBack = this.add.image(deckX, pileY, "card-back");
-    playerBack.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
-    const deckLabelW = measureBarokText("DECK", s(8));
-    renderBarokText(this, "DECK", NUM.abyss, s(8), deckX - deckLabelW / 2, pileY - s(72));
-    this.playerDeckCountText = new BarokLabel(this, deckX - s(8), pileY + s(60), "", NUM.abyss, s(9));
-    this.playerDeckCountText.setDepth(10);
+    playerBack.setDisplaySize(CARD_WIDTH * playerPileScale, cardH);
+    this.add.text(deckX, pileY - cardH / 2 - s(12), "DECK", {
+      fontSize: fontSize(8), color: HEX.abyss, fontFamily: "'Orbitron', monospace",
+    }).setOrigin(0.5);
+    this.playerDeckCountText = this.add.text(deckX, pileY + cardH / 2 + s(10), "", {
+      fontSize: fontSize(9), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
+    }).setOrigin(0.5);
 
     // Player discard pile — left of play mat
     const discardX = matCx - matW / 2 - s(55);
@@ -838,14 +848,16 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // Stacked card-backs for discard pile (offset card behind for depth)
     const discardBackShadow = this.add.image(discardX + s(2), pileY + s(1.5), "card-back");
-    discardBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    discardBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, cardH);
     discardBackShadow.setAlpha(0.5);
     const discardBack = this.add.image(discardX, pileY, "card-back");
-    discardBack.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
-    const discardLabelW = measureBarokText("DISCARD", s(8));
-    renderBarokText(this, "DISCARD", NUM.abyss, s(8), discardX - discardLabelW / 2, pileY - s(72));
-    this.playerDiscardCountText = new BarokLabel(this, discardX - s(8), pileY + s(60), "", NUM.abyss, s(9));
-    this.playerDiscardCountText.setDepth(10);
+    discardBack.setDisplaySize(CARD_WIDTH * playerPileScale, cardH);
+    this.add.text(discardX, pileY - cardH / 2 - s(12), "DISCARD", {
+      fontSize: fontSize(8), color: HEX.abyss, fontFamily: "'Orbitron', monospace",
+    }).setOrigin(0.5);
+    this.playerDiscardCountText = this.add.text(discardX, pileY + cardH / 2 + s(10), "", {
+      fontSize: fontSize(9), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
+    }).setOrigin(0.5);
   }
 
   // ─── Hand Callbacks ────────────────────────────────────────────────
@@ -1353,6 +1365,9 @@ export class ActiveWatchScene extends Phaser.Scene {
         }
       }
     }
+
+    // Update action pool live as cards fall off
+    this.actionPool.updatePool(this.gameState.availableActions);
 
     // Reactive cryosleep: crisis card fell off the market
     if (reactiveSleep) {
