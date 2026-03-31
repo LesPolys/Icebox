@@ -16,6 +16,14 @@
  *   concrete     #6B6860   — muted text, disabled states
  *   teal         #00CCAA   — secondary accent (type badges, data readouts)
  *   glow         #88FFDD   — effect descriptions
+ *   lime         #A0DD22   — positive feedback, growth
+ *   spring       #66CC55   — success states, completion
+ *   emerald      #33BB88   — green-teal bridge, health
+ *   ocean        #1199AA   — cool info text, secondary data
+ *   slate        #336688   — muted labels, tertiary text
+ *   indigo       #6B55A0   — body text on dark panels
+ *   grape        #3D2255   — deep accents, borders on dark
+ *   abyss        #1A0E2E   — extreme dark backgrounds
  *   warm-gray    #C8C0B8   — surface backgrounds, card shells
  *   paper        #D8D4CC   — game board surface
  */
@@ -32,6 +40,14 @@ export const PALETTE = {
   concrete:   { hex: "#6B6860", num: 0x6B6860 },
   teal:       { hex: "#00CCAA", num: 0x00CCAA },
   glow:       { hex: "#88FFDD", num: 0x88FFDD },
+  lime:       { hex: "#A0DD22", num: 0xA0DD22 },
+  spring:     { hex: "#66CC55", num: 0x66CC55 },
+  emerald:    { hex: "#33BB88", num: 0x33BB88 },
+  ocean:      { hex: "#1199AA", num: 0x1199AA },
+  slate:      { hex: "#336688", num: 0x336688 },
+  indigo:     { hex: "#6B55A0", num: 0x6B55A0 },
+  grape:      { hex: "#3D2255", num: 0x3D2255 },
+  abyss:      { hex: "#1A0E2E", num: 0x1A0E2E },
   warmGray:   { hex: "#C8C0B8", num: 0xC8C0B8 },
   paper:      { hex: "#D8D4CC", num: 0xD8D4CC },
 } as const;
@@ -49,6 +65,14 @@ export const HEX = {
   concrete:   "#6B6860",
   teal:       "#00CCAA",
   glow:       "#88FFDD",
+  lime:       "#A0DD22",
+  spring:     "#66CC55",
+  emerald:    "#33BB88",
+  ocean:      "#1199AA",
+  slate:      "#336688",
+  indigo:     "#6B55A0",
+  grape:      "#3D2255",
+  abyss:      "#1A0E2E",
   warmGray:   "#C8C0B8",
   paper:      "#D8D4CC",
 } as const;
@@ -66,6 +90,14 @@ export const NUM = {
   concrete:   0x6B6860,
   teal:       0x00CCAA,
   glow:       0x88FFDD,
+  lime:       0xA0DD22,
+  spring:     0x66CC55,
+  emerald:    0x33BB88,
+  ocean:      0x1199AA,
+  slate:      0x336688,
+  indigo:     0x6B55A0,
+  grape:      0x3D2255,
+  abyss:      0x1A0E2E,
   warmGray:   0xC8C0B8,
   paper:      0xD8D4CC,
 } as const;

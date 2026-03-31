@@ -2,13 +2,14 @@ import Phaser from "phaser";
 import type { ResourceTotals } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
+import { renderBarokText, measureBarokText, BarokLabel } from "../ui/BarokFont";
 
 /** Resource metadata — shared with MarketSlot for investment visuals. */
 export const RESOURCE_META = [
-  { key: "matter",    label: "MAT", color: "#e88a3a", numColor: 0xe88a3a, shape: "hexagon" },
-  { key: "energy",    label: "ENG", color: "#55cc55", numColor: 0x55cc55, shape: "circle" },
-  { key: "data",      label: "DAT", color: "#4488ff", numColor: 0x4488ff, shape: "diamond" },
-  { key: "influence", label: "INF", color: "#cc77dd", numColor: 0xcc77dd, shape: "square" },
+  { key: "matter",    label: "MAT", color: "#CC6622", numColor: 0xCC6622, shape: "hexagon" },
+  { key: "energy",    label: "ENG", color: "#22BB44", numColor: 0x22BB44, shape: "circle" },
+  { key: "data",      label: "DAT", color: "#3366FF", numColor: 0x3366FF, shape: "diamond" },
+  { key: "influence", label: "INF", color: "#8844CC", numColor: 0x8844CC, shape: "square" },
 ] as const;
 
 export type ResourceKey = (typeof RESOURCE_META)[number]["key"];
@@ -67,13 +68,13 @@ export function drawResourceShape(
  */
 export class ResourceBar extends Phaser.GameObjects.Container {
   private labels: Record<string, Phaser.GameObjects.Text> = {};
-  private values: Record<string, Phaser.GameObjects.Text> = {};
+  private values: Record<string, BarokLabel> = {};
   private thresholdTexts: Record<string, Phaser.GameObjects.Text> = {};
   private shapes: Record<string, Phaser.GameObjects.Graphics> = {};
   private hitAreas: Record<string, Phaser.GameObjects.Rectangle> = {};
 
-  private static SHAPE_SIZE = s(18);
-  private static COLUMN_WIDTH = s(70);
+  private static SHAPE_SIZE = s(22);
+  private static COLUMN_WIDTH = s(90);
 
   // ── Drag state ──
   private dragGhost: Phaser.GameObjects.Graphics | null = null;
@@ -91,11 +92,29 @@ export class ResourceBar extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
 
-    // Background
+    // Background with tab indents
     const totalW = RESOURCE_META.length * ResourceBar.COLUMN_WIDTH + s(30);
-    const bg = scene.add.rectangle(0, 0, totalW, s(65), NUM.midnightViolet, 0.85);
-    bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.6);
-    this.add(bg);
+    const barH = s(75);
+    const tabW = s(8);
+    const tabH = s(20);
+
+    const bgGfx = scene.add.graphics();
+    // Main bar
+    bgGfx.fillStyle(NUM.slab, 0.85);
+    bgGfx.fillRoundedRect(-totalW / 2, -barH / 2, totalW, barH, s(10));
+    bgGfx.lineStyle(s(1), NUM.graphite, 0.6);
+    bgGfx.strokeRoundedRect(-totalW / 2, -barH / 2, totalW, barH, s(10));
+    // Left tab indent
+    bgGfx.fillStyle(NUM.slab, 0.85);
+    bgGfx.fillRoundedRect(-totalW / 2 - tabW, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
+    bgGfx.lineStyle(s(1), NUM.graphite, 0.4);
+    bgGfx.strokeRoundedRect(-totalW / 2 - tabW, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
+    // Right tab indent
+    bgGfx.fillStyle(NUM.slab, 0.85);
+    bgGfx.fillRoundedRect(totalW / 2, -tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
+    bgGfx.lineStyle(s(1), NUM.graphite, 0.4);
+    bgGfx.strokeRoundedRect(totalW / 2, -tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
+    this.add(bgGfx);
 
     // Center the columns within the bar
     const startX = -((RESOURCE_META.length - 1) * ResourceBar.COLUMN_WIDTH) / 2;
@@ -103,10 +122,12 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       const res = RESOURCE_META[i];
       const colX = startX + i * ResourceBar.COLUMN_WIDTH;
 
-      // Label above
-      const label = scene.add.text(colX, s(-28), res.label, {
-        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace", fontStyle: "bold",
-      }).setOrigin(0.5);
+      // Label above (Barok font)
+      const labelW = measureBarokText(res.label, s(10));
+      const labelContainer = renderBarokText(scene, res.label, NUM.chartreuse, s(10), colX - labelW / 2, s(-32) - s(5));
+      this.add(labelContainer);
+      // Keep dummy text for interface compatibility
+      const label = scene.add.text(0, 0, "").setVisible(false);
       this.labels[res.key] = label;
       this.add(label);
 
@@ -117,17 +138,14 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       this.shapes[res.key] = shapeGfx;
       this.add(shapeGfx);
 
-      // Value text centered in shape
-      const value = scene.add.text(colX, s(-3), "0", {
-        fontSize: fs(14), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
-        stroke: "#000000", strokeThickness: s(2.5),
-      }).setOrigin(0.5);
+      // Value text centered in shape (Barok font)
+      const value = new BarokLabel(scene, colX - s(7), s(-10), "0", NUM.bone, s(14));
       this.values[res.key] = value;
       this.add(value);
 
       // Threshold indicator below
-      const threshold = scene.add.text(colX, s(26), "T:0", {
-        fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
+      const threshold = scene.add.text(colX, s(30), "T:0", {
+        fontSize: fs(10), color: HEX.abyss, fontFamily: "Space Mono",
       }).setOrigin(0.5);
       this.thresholdTexts[res.key] = threshold;
       this.add(threshold);
@@ -235,7 +253,6 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       this.values[res.key].setText(String(val));
       this.thresholdTexts[res.key].setText("");
 
-      this.values[res.key].setColor("#ffffff");
       this.shapes[res.key].clear();
       drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
     }

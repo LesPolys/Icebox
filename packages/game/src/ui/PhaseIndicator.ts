@@ -1,36 +1,60 @@
 import Phaser from "phaser";
 import type { GamePhase } from "@icebox/shared";
-import { HEX } from "@icebox/shared";
+import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "./layout";
+import { renderBarokText, measureBarokText } from "./BarokFont";
 
 export class PhaseIndicator extends Phaser.GameObjects.Container {
-  private phaseText: Phaser.GameObjects.Text;
+  private phaseContainers: Map<string, Phaser.GameObjects.Container> = new Map();
   private turnText: Phaser.GameObjects.Text;
   private sleepText: Phaser.GameObjects.Text;
+  private bgGfx: Phaser.GameObjects.Graphics;
+  public readonly boxW: number;
+  public readonly boxH: number;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, boxWidth?: number) {
     super(scene, x, y);
 
-    this.phaseText = scene.add.text(0, 0, "ACTIVE WATCH", {
-      fontSize: fs(12),
-      color: HEX.chartreuse,
-      fontFamily: "'Orbitron', monospace",
-      fontStyle: "bold",
-    }).setOrigin(0, 0.5);
-    this.add(this.phaseText);
+    const pad = s(10);
+    this.boxW = boxWidth ?? s(240);
+    this.boxH = s(58);
 
-    this.turnText = scene.add.text(0, s(18), "Turn 1", {
+    // Background box
+    this.bgGfx = scene.add.graphics();
+    this.bgGfx.fillStyle(NUM.slab, 0.7);
+    this.bgGfx.fillRoundedRect(0, 0, this.boxW, this.boxH, s(6));
+    this.bgGfx.lineStyle(s(1), NUM.graphite, 0.5);
+    this.bgGfx.strokeRoundedRect(0, 0, this.boxW, this.boxH, s(6));
+    this.add(this.bgGfx);
+
+    // Pre-render all phase labels as Barok text
+    const phaseLabels: Record<GamePhase, string> = {
+      "active-watch": "ACTIVE WATCH",
+      succession: "SUCCESSION",
+      cryosleep: "CRYOSLEEP",
+      "game-over": "GAME OVER",
+    };
+    for (const [, label] of Object.entries(phaseLabels)) {
+      const container = renderBarokText(scene, label, NUM.chartreuse, s(12), pad, pad);
+      container.setVisible(false);
+      this.add(container);
+      this.phaseContainers.set(label, container);
+    }
+    // Show default
+    this.phaseContainers.get("ACTIVE WATCH")?.setVisible(true);
+
+    this.turnText = scene.add.text(pad, s(30), "Turn 1", {
       fontSize: fs(10),
-      color: HEX.teal,
+      color: HEX.abyss,
       fontFamily: "'Space Mono', monospace",
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0, 0);
     this.add(this.turnText);
 
-    this.sleepText = scene.add.text(0, s(32), "Sleeps: 0", {
+    this.sleepText = scene.add.text(pad + s(80), s(30), "Sleeps: 0", {
       fontSize: fs(10),
-      color: HEX.teal,
+      color: HEX.abyss,
       fontFamily: "'Space Mono', monospace",
-    }).setOrigin(0, 0.5);
+    }).setOrigin(0, 0);
     this.add(this.sleepText);
 
     scene.add.existing(this);
@@ -43,7 +67,11 @@ export class PhaseIndicator extends Phaser.GameObjects.Container {
       cryosleep: "CRYOSLEEP",
       "game-over": "GAME OVER",
     };
-    this.phaseText.setText(phaseLabels[phase]);
+    const label = phaseLabels[phase];
+    // Hide all, show active
+    for (const [key, container] of this.phaseContainers) {
+      container.setVisible(key === label);
+    }
     this.turnText.setText(`Turn ${turnNumber}`);
     this.sleepText.setText(`Sleeps: ${totalSleeps}`);
   }

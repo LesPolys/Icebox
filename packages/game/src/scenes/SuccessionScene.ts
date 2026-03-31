@@ -45,7 +45,7 @@ export class SuccessionScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.text(width / 2, s(65), "Choose cards to archive and sleep duration", {
-      fontSize: fs(12), color: HEX.teal, fontFamily: "'Space Grotesk', sans-serif",
+      fontSize: fs(12), color: HEX.abyss, fontFamily: "'Space Grotesk', sans-serif",
     }).setOrigin(0.5);
 
     // Sleep duration selector
@@ -69,7 +69,7 @@ export class SuccessionScene extends Phaser.Scene {
 
     // Archive info
     this.archiveCountText = this.add.text(width / 2, s(130), "", {
-      fontSize: fs(12), color: HEX.teal, fontFamily: "'Space Mono', monospace",
+      fontSize: fs(12), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
 
     this.instructionText = this.add.text(width / 2, s(155), "", {
@@ -83,7 +83,7 @@ export class SuccessionScene extends Phaser.Scene {
     ].filter((c) => c.card.type !== "junk");
 
     this.add.text(width / 2, s(190), "Eligible Cards (click to select for archive)", {
-      fontSize: fs(10), color: HEX.teal, fontFamily: "'Space Grotesk', sans-serif",
+      fontSize: fs(10), color: HEX.abyss, fontFamily: "'Space Grotesk', sans-serif",
     }).setOrigin(0.5);
 
     const startX = width / 2 - ((Math.min(eligible.length, 8) - 1) * (CARD_WIDTH + s(10))) / 2;

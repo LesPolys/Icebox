@@ -87,13 +87,13 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     this.handBorder.setFillStyle(0x000000, 0);
     this.add(this.handBorder);
 
-    // "HAND" label
-    this.handLabel = scene.add.text(0, -(CARD_HEIGHT / 2 + HAND_PADDING + s(2)), "HAND", {
+    // "HAND" label — inside the hand area, near the top
+    this.handLabel = scene.add.text(0, -(CARD_HEIGHT / 2 + HAND_PADDING) + s(6), "HAND", {
       fontSize: fs(9),
       color: HEX.chartreuse,
       fontFamily: "'Orbitron', monospace",
     });
-    this.handLabel.setOrigin(0.5, 1);
+    this.handLabel.setOrigin(0.5, 0);
     this.add(this.handLabel);
 
     // ── Scene-level pointer handlers for tuck/untuck + drag ──

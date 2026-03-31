@@ -3,6 +3,7 @@ import type { SectorState, CardInstance } from "@icebox/shared";
 import { SECTOR_NAMES, FACTIONS, NUM, HEX } from "@icebox/shared";
 import { CardSprite, CARD_WIDTH } from "./CardSprite";
 import { s, fontSize as fs } from "../ui/layout";
+import { renderBarokText, measureBarokText } from "../ui/BarokFont";
 
 /**
  * Visual display for one ship sector (compact version).
@@ -13,11 +14,11 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
   public sectorIndex: number;
   private bg: Phaser.GameObjects.Image;
   private titleContainer: Phaser.GameObjects.Container;
-  private nameText: Phaser.GameObjects.Text;
+  private nameContainer: Phaser.GameObjects.Container;
   private dominantText: Phaser.GameObjects.Text;
   private slotsContainer: Phaser.GameObjects.Container;
   private cardSprites: CardSprite[] = [];
-  private slotIndicators: Phaser.GameObjects.Rectangle[] = [];
+  private slotIndicators: Phaser.GameObjects.Graphics[] = [];
 
   private dropHighlightGfx: Phaser.GameObjects.Graphics;
 
@@ -41,22 +42,18 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.add(this.bg);
 
     // Title row: "Engineering  >> Void-Forged" on one line
-    this.titleContainer = scene.add.container(0, s(-78));
+    this.titleContainer = scene.add.container(0, s(-88));
     this.add(this.titleContainer);
 
-    this.nameText = scene.add.text(0, 0, SECTOR_NAMES[sectorIndex], {
-      fontSize: fs(12),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
-      fontStyle: "bold",
-    });
-    this.nameText.setOrigin(1, 0.5); // right-aligned, will position dynamically
-    this.titleContainer.add(this.nameText);
+    // Barok font for sector name
+    const sectorName = SECTOR_NAMES[sectorIndex];
+    this.nameContainer = renderBarokText(scene, sectorName, NUM.bone, s(12), 0, 0);
+    this.titleContainer.add(this.nameContainer);
 
     this.dominantText = scene.add.text(s(4), 0, "", {
       fontSize: fs(9),
-      color: HEX.darkCyan,
-      fontFamily: "monospace",
+      color: HEX.abyss,
+      fontFamily: "Space Mono",
     });
     this.dominantText.setOrigin(0, 0.5); // left-aligned, sits after name
     this.titleContainer.add(this.dominantText);
@@ -65,14 +62,25 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
     this.slotsContainer = scene.add.container(0, s(10));
     this.add(this.slotsContainer);
 
-    // Create 3 empty slot indicators — 0.88 scale cards
+    // Create 3 empty slot indicators — 0.88 scale cards with insert tab
     const slotScale = 0.88;
     for (let i = 0; i < 3; i++) {
       const slotX = (i - 1) * (CARD_WIDTH * slotScale + s(6));
-      const slot = scene.add.rectangle(slotX, 0, CARD_WIDTH * slotScale + s(2), s(120), NUM.midnightViolet, 0.3);
-      slot.setStrokeStyle(s(1), NUM.charcoalBlue, 0.3);
-      this.slotsContainer.add(slot);
-      this.slotIndicators.push(slot);
+      const slotW = CARD_WIDTH * slotScale + s(2);
+      const slotH = s(120);
+      const slotGfx = scene.add.graphics();
+      // Main rounded rect
+      slotGfx.fillStyle(NUM.slab, 0.3);
+      slotGfx.fillRoundedRect(slotX - slotW / 2, -slotH / 2, slotW, slotH, s(4));
+      slotGfx.lineStyle(s(1), NUM.graphite, 0.3);
+      slotGfx.strokeRoundedRect(slotX - slotW / 2, -slotH / 2, slotW, slotH, s(4));
+      // Top-center tab (matching card notch)
+      const tabW = s(30);
+      const tabH = s(6);
+      slotGfx.fillStyle(NUM.paper, 0.5);
+      slotGfx.fillRoundedRect(slotX - tabW / 2, -slotH / 2, tabW, tabH, { tl: 0, tr: 0, bl: s(3), br: s(3) });
+      this.slotsContainer.add(slotGfx);
+      this.slotIndicators.push(slotGfx);
     }
 
     // Drop highlight overlay (hidden by default)
@@ -89,11 +97,11 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
 
   private repositionTitle(): void {
     // Center the combined "Name  >> Faction" as a unit
-    const nameW = this.nameText.width;
+    const nameW = measureBarokText(SECTOR_NAMES[this.sectorIndex], s(12));
     const domW = this.dominantText.width;
     const gap = s(4);
     const totalW = nameW + gap + domW;
-    this.nameText.setX(-totalW / 2 + nameW);
+    this.nameContainer.setX(-totalW / 2);
     this.dominantText.setX(-totalW / 2 + nameW + gap);
   }
 
@@ -109,7 +117,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
       this.bg.setAlpha(0.2);
     } else {
       this.dominantText.setText("");
-      this.dominantText.setColor(HEX.darkCyan);
+      this.dominantText.setColor(HEX.abyss);
       this.bg.clearTint();
       this.bg.setAlpha(1);
     }
@@ -206,7 +214,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
           // Skill initial
           const initial = (crew.card.crew?.skillTag ?? "?")[0];
           const pipText = this.scene.add.text(pipX, pipY, initial, {
-            fontSize: fs(6), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+            fontSize: fs(6), color: "#ffffff", fontFamily: "Space Mono", fontStyle: "bold",
           }).setOrigin(0.5);
           this.slotsContainer.add(pipText);
           this.crewPipObjects.push(pipText);
@@ -227,7 +235,7 @@ export class SectorDisplay extends Phaser.GameObjects.Container {
       this.dropHighlightGfx.setVisible(false);
       return;
     }
-    const color = valid ? 0x44cc44 : 0xcc4444;
+    const color = valid ? NUM.chartreuse : NUM.signalRed;
     const w = s(345);
     const h = s(215);
     this.dropHighlightGfx.fillStyle(color, 0.1);

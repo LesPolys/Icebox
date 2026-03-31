@@ -27,8 +27,8 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     // Message text — create first to measure height
     const text = scene.add.text(0, 0, message, {
       fontSize: fs(10),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "Space Grotesk",
       wordWrap: { width: panelW - s(24) },
       align: "center",
     }).setOrigin(0.5, 0);
@@ -43,20 +43,20 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
     text.setY(-panelH / 2 + topPad);
 
     // Background
-    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.midnightViolet, 0.95);
-    bg.setStrokeStyle(s(1.5), NUM.charcoalBlue, 0.8);
+    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.slab, 0.95);
+    bg.setStrokeStyle(s(1.5), NUM.graphite, 0.8);
     this.addAt(bg, 0); // behind text
 
     // Buttons centered below text
     const btnW = s(60);
     const btnCenterY = panelH / 2 - bottomPad - btnH / 2;
 
-    this.createBtn(scene, -s(38), btnCenterY, btnW, btnH, "Yes", 0x44cc44, () => {
+    this.createBtn(scene, -s(38), btnCenterY, btnW, btnH, "Yes", NUM.chartreuse, () => {
       onConfirm();
       this.destroy();
     });
 
-    this.createBtn(scene, s(38), btnCenterY, btnW, btnH, "No", 0xcc4444, () => {
+    this.createBtn(scene, s(38), btnCenterY, btnW, btnH, "No", NUM.steel, () => {
       if (onCancel) onCancel();
       this.destroy();
     });
@@ -102,8 +102,8 @@ export class ConfirmPopup extends Phaser.GameObjects.Container {
 
     const text = scene.add.text(x, y, label, {
       fontSize: fs(9),
-      color: "#ffffff",
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "Space Mono",
       fontStyle: "bold",
     }).setOrigin(0.5);
     this.add(text);

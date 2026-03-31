@@ -157,7 +157,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     gfx.strokeRoundedRect(0, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
 
     const arrow = scene.add.text(tabW / 2, 0, "◀", {
-      fontSize: fs(8), color: HEX.teal, fontFamily: "'Space Mono', monospace",
+      fontSize: fs(8), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
 
     const hitArea = scene.add.rectangle(tabW / 2, 0, tabW, tabH, 0x000000, 0);
@@ -177,7 +177,7 @@ export class MessagePanel extends Phaser.GameObjects.Container {
     gfx.fillStyle(NUM.graphite, 0.7);
     gfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, s(3));
     const label = scene.add.text(0, 0, "▼", {
-      fontSize: fs(7), color: HEX.teal, fontFamily: "'Space Mono', monospace",
+      fontSize: fs(7), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
     const hit = scene.add.rectangle(0, 0, btnW, btnH, 0x000000, 0);
     hit.setInteractive({ useHandCursor: true });

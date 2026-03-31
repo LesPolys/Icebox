@@ -27,8 +27,8 @@ export class InfoPanel extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0);
 
-    this.bg = scene.add.rectangle(0, 0, PANEL_W, s(100), NUM.midnightViolet, 0.95);
-    this.bg.setStrokeStyle(s(1), NUM.charcoalBlue);
+    this.bg = scene.add.rectangle(0, 0, PANEL_W, s(100), NUM.slab, 0.95);
+    this.bg.setStrokeStyle(s(1), NUM.graphite);
     this.bg.setOrigin(0, 0);
     this.add(this.bg);
 
@@ -72,7 +72,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
 
   private addDivider(y: number): number {
     const gfx = this.scene.add.graphics();
-    gfx.lineStyle(s(1), NUM.charcoalBlue, 0.5);
+    gfx.lineStyle(s(1), NUM.graphite, 0.5);
     gfx.lineBetween(PAD, y, PANEL_W - PAD, y);
     this.add(gfx);
     this.dynamicObjects.push(gfx);
@@ -87,7 +87,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
 
     // ── Name ──
     const nameT = this.addText(cx, y, card.name, {
-      fontSize: fs(13), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(13), color: HEX.bone, fontFamily: "Orbitron", fontStyle: "bold",
       wordWrap: { width: PANEL_W - s(20) }, align: "center",
     });
     nameT.setOrigin(0.5, 0);
@@ -97,22 +97,22 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     const typeLabel = card.type === "crisis"
       ? `CRISIS — Tier ${card.tier}`
       : `${card.type.toUpperCase()} — Tier ${card.tier}`;
-    const typeColor = card.type === "crisis" ? "#cc3333" : HEX.darkCyan;
+    const typeColor = card.type === "crisis" ? HEX.signalRed : HEX.teal;
     const typeT = this.addText(cx, y, typeLabel, {
-      fontSize: fs(10), color: typeColor, fontFamily: "monospace", fontStyle: card.type === "crisis" ? "bold" : "normal",
+      fontSize: fs(10), color: typeColor, fontFamily: "Space Mono", fontStyle: card.type === "crisis" ? "bold" : "normal",
     });
     typeT.setOrigin(0.5, 0);
     y += typeT.height + s(4);
 
     // ── Faction ──
     let factionLabel = "Neutral";
-    let factionColor: string = HEX.darkCyan;
+    let factionColor: string = HEX.teal;
     if (card.faction !== "neutral" && FACTIONS[card.faction]) {
       factionLabel = FACTIONS[card.faction].name;
       factionColor = FACTIONS[card.faction].color;
     }
     const facT = this.addText(cx, y, factionLabel, {
-      fontSize: fs(9), color: factionColor, fontFamily: "monospace",
+      fontSize: fs(9), color: factionColor, fontFamily: "Space Mono",
     });
     facT.setOrigin(0.5, 0);
     y += facT.height + s(4);
@@ -120,7 +120,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     // ── Cost ──
     const costStr = formatCost(card.cost);
     const costT = this.addText(cx, y, costStr, {
-      fontSize: fs(10), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.chartreuse, fontFamily: "Space Mono",
     });
     costT.setOrigin(0.5, 0);
     y += costT.height + s(4);
@@ -129,7 +129,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     if (card.resourceGain) {
       const gainStr = "Gain: " + formatCost(card.resourceGain);
       const gainT = this.addText(cx, y, gainStr, {
-        fontSize: fs(9), color: "#55cc55", fontFamily: "monospace",
+        fontSize: fs(9), color: "#55cc55", fontFamily: "Space Mono",
       });
       gainT.setOrigin(0.5, 0);
       y += gainT.height + s(4);
@@ -143,21 +143,21 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       for (const [timing, effects] of grouped) {
         const label = this.timingLabel(timing);
         const labelT = this.addText(PAD, y, label, {
-          fontSize: fs(8), color: "#aa8844", fontFamily: "monospace", fontStyle: "bold",
+          fontSize: fs(8), color: "#aa8844", fontFamily: "Space Mono", fontStyle: "bold",
         });
         y += labelT.height + s(2);
 
         for (const eff of effects) {
           let desc = `  ${eff.description}`;
           const descT = this.addText(PAD, y, desc, {
-            fontSize: fs(8), color: HEX.pearlAqua, fontFamily: "monospace",
+            fontSize: fs(8), color: HEX.glow, fontFamily: "Space Grotesk",
             wordWrap: { width: PANEL_W - s(24) },
           });
           y += descT.height + s(1);
 
           if (eff.condition) {
             const condT = this.addText(PAD + s(8), y, `IF: ${eff.condition.type.replace(/-/g, " ")}`, {
-              fontSize: fs(7), color: HEX.dustyMauve, fontFamily: "monospace", fontStyle: "italic",
+              fontSize: fs(7), color: HEX.signalRed, fontFamily: "Space Grotesk", fontStyle: "italic",
             });
             y += condT.height + s(1);
           }
@@ -166,7 +166,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       }
     } else {
       const noFx = this.addText(cx, y, "No effects.", {
-        fontSize: fs(9), color: HEX.darkCyan, fontFamily: "monospace",
+        fontSize: fs(9), color: HEX.abyss, fontFamily: "Space Mono",
       });
       noFx.setOrigin(0.5, 0);
       y += noFx.height + s(4);
@@ -177,7 +177,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       y = this.addDivider(y);
       if (card.crisis.proactiveCost) {
         const proT = this.addText(PAD, y, `Resolve cost: ${formatCost(card.crisis.proactiveCost)}`, {
-          fontSize: fs(9), color: "#cc3333", fontFamily: "monospace",
+          fontSize: fs(9), color: HEX.signalRed, fontFamily: "Space Mono",
         });
         y += proT.height + s(2);
       }
@@ -187,7 +187,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     if (card.type === "crew" && card.crew) {
       y = this.addDivider(y);
       const skillT = this.addText(PAD, y, `Skill: ${card.crew.skillTag}`, {
-        fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
+        fontSize: fs(9), color: HEX.abyss, fontFamily: "Space Mono",
       });
       y += skillT.height + s(2);
 
@@ -195,19 +195,19 @@ export class InfoPanel extends Phaser.GameObjects.Container {
         ? `Stress: ${cardInst.currentStress}/${card.crew.maxStress}`
         : `Max Stress: ${card.crew.maxStress}`;
       const stressT = this.addText(PAD, y, stressStr, {
-        fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
+        fontSize: fs(9), color: HEX.abyss, fontFamily: "Space Mono",
       });
       y += stressT.height + s(2);
 
       const expertT = this.addText(PAD, y, `Expert: ${card.crew.expertAbilityDescription}`, {
-        fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace",
+        fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Mono",
         wordWrap: { width: PANEL_W - s(24) },
       });
       y += expertT.height + s(2);
 
       if (card.crew.reassignCost) {
         const reassT = this.addText(PAD, y, `Reassign: ${formatCost(card.crew.reassignCost)}`, {
-          fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace",
+          fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Mono",
         });
         y += reassT.height + s(2);
       }
@@ -222,7 +222,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
           ? `${cardInst.constructionProgress ?? 0}/${con.completionTime}`
           : `${con.completionTime}`;
         const buildT = this.addText(PAD, y, `Build time: ${progress} turns`, {
-          fontSize: fs(9), color: "#aa8844", fontFamily: "monospace",
+          fontSize: fs(9), color: "#aa8844", fontFamily: "Space Mono",
         });
         y += buildT.height + s(2);
       }
@@ -230,7 +230,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
         let ftStr = "Fast-trackable";
         if (con.fastTrackCost) ftStr += ` (${formatCost(con.fastTrackCost)}/turn)`;
         const ftT = this.addText(PAD, y, ftStr, {
-          fontSize: fs(8), color: "#aa8844", fontFamily: "monospace",
+          fontSize: fs(8), color: "#aa8844", fontFamily: "Space Mono",
           wordWrap: { width: PANEL_W - s(24) },
         });
         y += ftT.height + s(2);
@@ -244,7 +244,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
         ? "Buy to suppress (returns to vault)"
         : "Buy to destroy";
       const hazT = this.addText(PAD, y, hazLabel, {
-        fontSize: fs(9), color: HEX.dustyMauve, fontFamily: "monospace",
+        fontSize: fs(9), color: HEX.signalRed, fontFamily: "Space Mono",
       });
       y += hazT.height + s(2);
     }
@@ -253,11 +253,11 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     if (card.type === "junk" && card.junk) {
       y = this.addDivider(y);
       const remT = this.addText(PAD, y, `Remove cost: ${formatCost(card.junk.removalCost)}`, {
-        fontSize: fs(9), color: HEX.dustyMauve, fontFamily: "monospace",
+        fontSize: fs(9), color: HEX.signalRed, fontFamily: "Space Mono",
       });
       y += remT.height + s(2);
       const srcT = this.addText(PAD, y, `Source: ${card.junk.source}`, {
-        fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace",
+        fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Mono",
       });
       y += srcT.height + s(2);
     }
@@ -268,7 +268,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       ? `Lifespan: ${cardInst.remainingLifespan} cycles`
       : "Immortal";
     const lifeT = this.addText(cx, y, lifespanStr, {
-      fontSize: fs(9), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(9), color: HEX.concrete, fontFamily: "Space Mono",
     });
     lifeT.setOrigin(0.5, 0);
     y += lifeT.height + s(4);
@@ -279,7 +279,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
       if (card.primaryTag) tagParts.push(card.primaryTag);
       if (card.attributeTags) tagParts.push(...card.attributeTags);
       const tagT = this.addText(cx, y, tagParts.join(" | "), {
-        fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace",
+        fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Mono",
       });
       tagT.setOrigin(0.5, 0);
       y += tagT.height + s(4);
@@ -288,7 +288,7 @@ export class InfoPanel extends Phaser.GameObjects.Container {
     // ── Flavor Text ──
     if (card.flavorText) {
       const flvT = this.addText(cx, y, card.flavorText, {
-        fontSize: fs(8), color: HEX.darkCyan, fontFamily: "monospace", fontStyle: "italic",
+        fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Grotesk", fontStyle: "italic",
         wordWrap: { width: PANEL_W - s(20) }, align: "center",
       });
       flvT.setOrigin(0.5, 0);

@@ -20,6 +20,7 @@ import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
 import { CardSprite, CARD_WIDTH } from "../game-objects/CardSprite";
 import { EraDisplay } from "../ui/EraDisplay";
+import { renderBarokText, measureBarokText, BarokLabel } from "../ui/BarokFont";
 import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
 import { SuccessionScene } from "./SuccessionScene";
@@ -52,12 +53,12 @@ export class ActiveWatchScene extends Phaser.Scene {
   private playMat!: PlayMat;
   private actionLog!: ActionLog;
   private messagePanel!: MessagePanel;
-  private deckCountText!: Phaser.GameObjects.Text;
+
   private eraDisplay!: EraDisplay;
   private eraTheme!: EraTheme;
-  private worldDeckCountText!: Phaser.GameObjects.Text;
-  private playerDeckCountText!: Phaser.GameObjects.Text;
-  private playerDiscardCountText!: Phaser.GameObjects.Text;
+  private worldDeckCountText!: BarokLabel;
+  private playerDeckCountText!: BarokLabel;
+  private playerDiscardCountText!: BarokLabel;
 
   // ── Purchase mode state ──
   private purchaseMode: {
@@ -119,8 +120,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.animatedEndTurn();
     };
 
-    // ─── Left gutter: Phase indicator + Action log ───
-    this.phaseIndicator = new PhaseIndicator(this, LAYOUT.phaseX, LAYOUT.phaseY);
+    // ─── Action log (left gutter) ───
     this.actionLog = new ActionLog(this);
 
     // ─── Era environmental theme ───
@@ -129,7 +129,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     // ─── Right gutter: Deck count + Info panel ───
     // Deck/discard counts shown on the pile visuals instead
-    this.deckCountText = this.add.text(0, 0, "").setVisible(false);
+
     this.infoPanel = new InfoPanel(this);
 
     // ─── Main area ───
@@ -139,6 +139,14 @@ export class ActiveWatchScene extends Phaser.Scene {
     const marketTopY = LAYOUT.marketRow1Y - s(30);
     this.eraDisplay = new EraDisplay(this, 0, 0);
     this.eraDisplay.setPosition(this.marketBoxLeft - this.eraDisplay.boxW - s(12), marketTopY);
+
+    // ─── Phase indicator — bounded box above era display ───
+    this.phaseIndicator = new PhaseIndicator(
+      this,
+      this.eraDisplay.x,
+      this.eraDisplay.y - s(64),
+      this.eraDisplay.boxW
+    );
 
     this.createSectors();
 
@@ -210,14 +218,14 @@ export class ActiveWatchScene extends Phaser.Scene {
       const colX = cx + (col - 2.5) * cs;
       this.marketColPositions.push(colX);
       const badge = this.add.graphics();
-      badge.fillStyle(NUM.midnightViolet, 0.8);
+      badge.fillStyle(NUM.concrete, 0.7);
       badge.fillCircle(colX, badgeY, badgeR);
-      badge.lineStyle(s(1.5), NUM.charcoalBlue, 0.7);
+      badge.lineStyle(s(1.5), NUM.graphite, 0.8);
       badge.strokeCircle(colX, badgeY, badgeR);
       badge.setDepth(9);
-      this.add.text(colX, badgeY, `${col}`, {
-        fontSize: fontSize(11), color: HEX.eggshell, fontFamily: "monospace", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(10);
+      const colNumW = measureBarokText(`${col}`, s(11));
+      const colNumContainer = renderBarokText(this, `${col}`, NUM.bone, s(11), colX - colNumW / 2, badgeY - s(6));
+      colNumContainer.setDepth(10);
     }
 
     // Box background — starts below the badge row
@@ -229,14 +237,14 @@ export class ActiveWatchScene extends Phaser.Scene {
     const boxH = (LAYOUT.marketRow2Y - LAYOUT.marketRow1Y) * 2;
 
     const gfx = this.add.graphics();
-    gfx.fillStyle(NUM.midnightViolet, 0.3);
+    gfx.fillStyle(NUM.slab, 0.3);
     gfx.fillRoundedRect(boxLeft, boxTop, boxW, boxH, s(6));
-    gfx.lineStyle(s(1.5), NUM.charcoalBlue, 0.5);
+    gfx.lineStyle(s(1.5), NUM.graphite, 0.5);
     gfx.strokeRoundedRect(boxLeft, boxTop, boxW, boxH, s(6));
 
     // Row divider — horizontal line between upper and lower rows
     const rowDivY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
-    gfx.lineStyle(s(1), NUM.charcoalBlue, 0.3);
+    gfx.lineStyle(s(1), NUM.graphite, 0.3);
     gfx.lineBetween(boxLeft + s(8), rowDivY, boxLeft + boxW - s(8), rowDivY);
 
     // Column dividers — vertical lines between each column
@@ -264,21 +272,20 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     // World deck pile — to the right of the market box
-    const deckX = cx + 2.5 * cs + boxPadX + s(50);
+    const deckX = cx + 2.5 * cs + boxPadX + s(70);
     const deckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
     this.deckPileX = deckX;
     this.deckPileY = deckY;
 
-    // Stacked card-back images to suggest a pile
-    for (let i = 2; i >= 0; i--) {
-      const offset = i * s(2);
-      const back = this.add.image(deckX + offset, deckY + offset, "card-back");
-      back.setScale(0.65);
-      back.setAlpha(0.6 + i * 0.15);
-    }
-    this.worldDeckCountText = this.add.text(deckX, deckY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(0.5);
+    // Stacked card-backs for deck (offset card behind for depth)
+    const worldDeckScale = 0.85;
+    const worldBackShadow = this.add.image(deckX + s(3), deckY + s(2), "card-back");
+    worldBackShadow.setDisplaySize(CARD_WIDTH * worldDeckScale, s(170) * worldDeckScale);
+    worldBackShadow.setAlpha(0.5);
+    const worldBack = this.add.image(deckX, deckY, "card-back");
+    worldBack.setDisplaySize(CARD_WIDTH * worldDeckScale, s(170) * worldDeckScale);
+    // Count text below the card (Barok font)
+    this.worldDeckCountText = new BarokLabel(this, deckX - s(10), deckY + s(78), "", NUM.abyss, s(9));
 
     // Click on world deck pile → scry action (data)
     const deckHitArea = this.add.rectangle(deckX, deckY, s(80), s(110), 0x000000, 0);
@@ -812,39 +819,33 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.playerDeckPileX = deckX;
     this.playerDeckPileY = pileY;
 
-    // Stacked card-backs for draw pile
-    for (let i = 2; i >= 0; i--) {
-      const offset = i * s(2);
-      const back = this.add.image(deckX + offset, pileY + offset, "card-back");
-      back.setScale(0.45);
-      back.setAlpha(0.6 + i * 0.15);
-    }
-    this.add.text(deckX, pileY - s(55), "DECK", {
-      fontSize: fontSize(8), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(0.5);
-    this.playerDeckCountText = this.add.text(deckX, pileY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(0.5).setDepth(10);
+    // Stacked card-backs for draw pile (offset card behind for depth)
+    const playerPileScale = 0.65;
+    const playerBackShadow = this.add.image(deckX + s(2), pileY + s(1.5), "card-back");
+    playerBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    playerBackShadow.setAlpha(0.5);
+    const playerBack = this.add.image(deckX, pileY, "card-back");
+    playerBack.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    const deckLabelW = measureBarokText("DECK", s(8));
+    renderBarokText(this, "DECK", NUM.abyss, s(8), deckX - deckLabelW / 2, pileY - s(72));
+    this.playerDeckCountText = new BarokLabel(this, deckX - s(8), pileY + s(60), "", NUM.abyss, s(9));
+    this.playerDeckCountText.setDepth(10);
 
     // Player discard pile — left of play mat
     const discardX = matCx - matW / 2 - s(55);
     this.playerDiscardPileX = discardX;
     this.playerDiscardPileY = pileY;
 
-    // Stacked card-backs for discard (slightly scattered)
-    for (let i = 2; i >= 0; i--) {
-      const offset = i * s(2);
-      const back = this.add.image(discardX - offset, pileY + offset, "card-back");
-      back.setScale(0.45);
-      back.setAlpha(0.4 + i * 0.1);
-      back.setAngle(-3 + i * 3); // slight scatter
-    }
-    this.add.text(discardX, pileY - s(55), "DISCARD", {
-      fontSize: fontSize(8), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(0.5);
-    this.playerDiscardCountText = this.add.text(discardX, pileY + s(55), "", {
-      fontSize: fontSize(9), color: HEX.pearlAqua, fontFamily: "monospace",
-    }).setOrigin(0.5).setDepth(10);
+    // Stacked card-backs for discard pile (offset card behind for depth)
+    const discardBackShadow = this.add.image(discardX + s(2), pileY + s(1.5), "card-back");
+    discardBackShadow.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    discardBackShadow.setAlpha(0.5);
+    const discardBack = this.add.image(discardX, pileY, "card-back");
+    discardBack.setDisplaySize(CARD_WIDTH * playerPileScale, s(170) * playerPileScale);
+    const discardLabelW = measureBarokText("DISCARD", s(8));
+    renderBarokText(this, "DISCARD", NUM.abyss, s(8), discardX - discardLabelW / 2, pileY - s(72));
+    this.playerDiscardCountText = new BarokLabel(this, discardX - s(8), pileY + s(60), "", NUM.abyss, s(9));
+    this.playerDiscardCountText.setDepth(10);
   }
 
   // ─── Hand Callbacks ────────────────────────────────────────────────
@@ -1088,7 +1089,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       if (extraSlides > 0) {
         this.actionLog.addEntry(
           `Market slides ${totalSlides}× (${extraSlides} extra from hazards).`,
-          HEX.eggshell
+          HEX.bone
         );
       }
 
@@ -1109,7 +1110,7 @@ export class ActiveWatchScene extends Phaser.Scene {
           this.actionLog.setTurn(this.gameState.turnNumber);
           if (turnResult.reshuffled) {
             this.showMessage("Discard reshuffled into deck.");
-            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.darkCyan);
+            this.actionLog.addEntry("Discard reshuffled into deck.", HEX.teal);
           }
           this.refreshAll();
 
@@ -1160,7 +1161,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
       this.wireMarketSlotInteractions(this.marketSlots[i], slotIndex, row);
     }
-    this.worldDeckCountText.setText(`${this.gameState.worldDeck.drawPile.length} cards`);
+    this.worldDeckCountText.setText(`${this.gameState.worldDeck.drawPile.length}`);
   }
 
   /**
@@ -1306,7 +1307,7 @@ export class ActiveWatchScene extends Phaser.Scene {
         this.gameState = fr.state;
         for (const msg of fr.messages) {
           this.showMessage(msg);
-          this.actionLog.addEntry(msg, HEX.eggshell);
+          this.actionLog.addEntry(msg, HEX.bone);
         }
         if (fr.triggersReactiveSleep) reactiveSleep = true;
         falloutInvestments.push({
@@ -1330,7 +1331,7 @@ export class ActiveWatchScene extends Phaser.Scene {
           }
         }
         if (actions.length > 0) {
-          this.actionLog.addEntry(`  Actions from ${card.card.name}: ${actions.map(a => `${a.count}× ${a.type}`).join(", ")}`, HEX.eggshell);
+          this.actionLog.addEntry(`  Actions from ${card.card.name}: ${actions.map(a => `${a.count}× ${a.type}`).join(", ")}`, HEX.bone);
         }
       }
     }
@@ -1347,7 +1348,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     for (const claim of slideResult.claimedInvestments) {
       const msg = `${claim.faction} claimed invested resources.`;
       this.showMessage(msg);
-      this.actionLog.addEntry(msg, HEX.eggshell);
+      this.actionLog.addEntry(msg, HEX.bone);
       if (this.gameState.globalFactionPresence[claim.faction] !== undefined) {
         const totalRes = (claim.resources.matter ?? 0) + (claim.resources.energy ?? 0) +
                          (claim.resources.data ?? 0) + (claim.resources.influence ?? 0);
@@ -1522,7 +1523,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.actionLog.addEntry(result.message);
       if (result.effectsTriggered?.length) {
         for (const eff of result.effectsTriggered) {
-          this.actionLog.addEntry(`  ${eff}`, HEX.eggshell);
+          this.actionLog.addEntry(`  ${eff}`, HEX.bone);
         }
       }
     } else {
@@ -1637,15 +1638,13 @@ export class ActiveWatchScene extends Phaser.Scene {
 
     const draw = this.gameState.mandateDeck.drawPile.length;
     const disc = this.gameState.mandateDeck.discardPile.length;
-    this.deckCountText.setText(`Deck: ${draw} | Discard: ${disc}`);
-
     // Player pile counts
     this.playerDeckCountText.setText(`${draw}`);
     this.playerDiscardCountText.setText(`${disc}`);
 
     // Update world deck count
     const worldDeckCount = this.gameState.worldDeck.drawPile.length;
-    this.worldDeckCountText.setText(`${worldDeckCount} cards`);
+    this.worldDeckCountText.setText(`${worldDeckCount}`);
 
     // Era display
     this.eraDisplay.update(this.gameState.era, this.gameState.eraModifiers);

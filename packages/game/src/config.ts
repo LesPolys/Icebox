@@ -4,7 +4,6 @@ import { MainMenuScene } from "./scenes/MainMenuScene";
 import { ActiveWatchScene } from "./scenes/ActiveWatchScene";
 import { SuccessionScene } from "./scenes/SuccessionScene";
 import { CryosleepScene } from "./scenes/CryosleepScene";
-
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-container",

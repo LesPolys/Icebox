@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type { CardInstance } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
+import { encodeCode128B } from "../ui/barcode";
 
 export let CARD_WIDTH = s(120);
 export let CARD_HEIGHT = s(170);
@@ -23,7 +24,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
   private bg: Phaser.GameObjects.Image;
   private nameText: Phaser.GameObjects.Text;
   private costText: Phaser.GameObjects.Text;
-  private factionText: Phaser.GameObjects.Text;
+  private barcodeGfx: Phaser.GameObjects.Graphics;
   private typeText: Phaser.GameObjects.Text;
   private lifespanText: Phaser.GameObjects.Text;
   private highlight: Phaser.GameObjects.Rectangle;
@@ -46,9 +47,10 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.originalY = y;
     const card = cardInstance.card;
 
-    // Background texture
+    // Background texture (generated at 2x, display at logical size)
     const textureKey = this.getTextureKey();
     this.bg = scene.add.image(0, 0, textureKey);
+    this.bg.setDisplaySize(CARD_WIDTH, CARD_HEIGHT);
     this.add(this.bg);
 
     // Selection highlight (hidden by default)
@@ -71,10 +73,10 @@ export class CardSprite extends Phaser.GameObjects.Container {
     this.nameText.setOrigin(0.5, 0);
     this.add(this.nameText);
 
-    // Card type — Space Mono, teal
+    // Card type — Space Mono, abyss
     this.typeText = scene.add.text(0, s(-40), `[${card.type.toUpperCase()}]`, {
       fontSize: fs(8),
-      color: HEX.teal,
+      color: HEX.abyss,
       fontFamily: "'Space Mono', monospace",
     });
     this.typeText.setOrigin(0.5, 0);
@@ -95,16 +97,6 @@ export class CardSprite extends Phaser.GameObjects.Container {
     });
     this.costText.setOrigin(0.5, 0);
     this.add(this.costText);
-
-    // Faction — graphite on the shell footer area
-    const factionLabel = card.faction === "neutral" ? "Neutral" : card.faction.toUpperCase();
-    this.factionText = scene.add.text(0, CARD_HEIGHT / 2 - s(12), factionLabel, {
-      fontSize: fs(7),
-      color: HEX.graphite,
-      fontFamily: "'Space Mono', monospace",
-    });
-    this.factionText.setOrigin(0.5, 0);
-    this.add(this.factionText);
 
     // Effect description — Space Grotesk, glow
     if (card.effects.length > 0) {
@@ -131,6 +123,26 @@ export class CardSprite extends Phaser.GameObjects.Container {
     });
     this.lifespanText.setOrigin(1, 0.5);
     this.add(this.lifespanText);
+
+    // Code 128 barcode encoding the card definition ID (in footer area)
+    const barcodeWidths = encodeCode128B(card.id);
+    this.barcodeGfx = scene.add.graphics();
+    // Calculate total barcode width to center it
+    let totalBarcodeW = 0;
+    for (const bw of barcodeWidths) totalBarcodeW += bw * s(0.8);
+    const barcodeH = s(8);
+    const barcodeStartX = -totalBarcodeW / 2;
+    const barcodeY = CARD_HEIGHT / 2 - s(14);
+    let bx = barcodeStartX;
+    for (let bi = 0; bi < barcodeWidths.length; bi++) {
+      const w = barcodeWidths[bi] * s(0.8);
+      if (bi % 2 === 0) {
+        this.barcodeGfx.fillStyle(NUM.graphite, 0.5);
+        this.barcodeGfx.fillRect(bx, barcodeY, w, barcodeH);
+      }
+      bx += w;
+    }
+    this.add(this.barcodeGfx);
 
     // Powered indicator
     if (!cardInstance.powered) {
@@ -209,6 +221,27 @@ export class CardSprite extends Phaser.GameObjects.Container {
   /** Store the base scale for hover calculations */
   setBaseScale(s: number): void {
     this.baseScale = s;
+  }
+
+  /** Flash the card name text between bone and red for crisis indication. Returns the tween. */
+  flashNameText(scene: Phaser.Scene): Phaser.Tweens.Tween {
+    const nameRef = this.nameText;
+    return scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+      onUpdate: (tween) => {
+        const val = tween.getValue() ?? 0;
+        // Interpolate bone (#F5F0E0) → red (#CC3333)
+        const cr = Math.round(0xF5 + (0xCC - 0xF5) * (val as number));
+        const cg = Math.round(0xF0 + (0x33 - 0xF0) * (val as number));
+        const cb = Math.round(0xE0 + (0x33 - 0xE0) * (val as number));
+        nameRef.setColor(`#${cr.toString(16).padStart(2, "0")}${cg.toString(16).padStart(2, "0")}${cb.toString(16).padStart(2, "0")}`);
+      },
+    });
   }
 
   /** Update display after card instance changes */
@@ -356,7 +389,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
     const label = this.scene.add.text(0, -hh + s(6), "DAMAGED", {
       fontSize: fs(7),
       color: "#cc4444",
-      fontFamily: "monospace",
+      fontFamily: "Space Mono",
       fontStyle: "bold",
     }).setOrigin(0.5, 0);
     this.add(label);
@@ -410,7 +443,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
     const label = this.scene.add.text(0, -hh + s(6), "BUILDING", {
       fontSize: fs(7),
       color: "#aa8844",
-      fontFamily: "monospace",
+      fontFamily: "Space Mono",
       fontStyle: "bold",
     }).setOrigin(0.5, 0);
     this.add(label);
