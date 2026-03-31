@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import type { CardInstance, ResourceCost } from "@icebox/shared";
 import { NUM } from "@icebox/shared";
-import { CardSprite } from "./CardSprite";
+import { CardSprite, CARD_WIDTH, CARD_HEIGHT } from "./CardSprite";
 import { drawResourceShape, RESOURCE_META } from "./ResourceBar";
 import { s, fontSize as fs } from "../ui/layout";
 import { OutlinePostFX } from "../ui/OutlineShader";
@@ -41,9 +41,10 @@ export class MarketSlot extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.slotIndex = slotIndex;
 
-    // Empty slot visual — also scaled if market uses smaller cards
+    // Empty slot visual — sized to match CardSprite at market scale
     this.emptySlot = scene.add.image(0, 0, "card-empty");
-    if (scaled) this.emptySlot.setScale(MARKET_CARD_SCALE);
+    const emptyScale = scaled ? MARKET_CARD_SCALE : 1;
+    this.emptySlot.setDisplaySize(CARD_WIDTH * emptyScale, CARD_HEIGHT * emptyScale);
     this.add(this.emptySlot);
 
     // Highlight rectangle (hidden by default)
@@ -55,12 +56,19 @@ export class MarketSlot extends Phaser.GameObjects.Container {
   }
 
   setCard(cardInstance: CardInstance | null): void {
+    // Clean up all overlays BEFORE destroying the sprite
+    this.setCrisisIndicator(false);
+    this.setFreshInvestment(false);
+    this.setLocked(false);
+    this.setPurchaseHighlight(null);
+    this.setInvestment(null);
+    this.showInvestmentGhost(false);
+
     if (this.cardSprite) {
+      this.cardSprite.resetPostPipeline();
       this.cardSprite.destroy();
       this.cardSprite = null;
     }
-
-    this.setCrisisIndicator(false);
 
     if (cardInstance) {
       this.emptySlot.setVisible(false);

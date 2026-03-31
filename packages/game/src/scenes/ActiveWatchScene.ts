@@ -18,7 +18,7 @@ import { PlayMat } from "../ui/PlayMat";
 import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
-import { CardSprite, CARD_WIDTH } from "../game-objects/CardSprite";
+import { CardSprite, CARD_WIDTH, CARD_HEIGHT } from "../game-objects/CardSprite";
 import { EraDisplay } from "../ui/EraDisplay";
 import { renderBarokText, measureBarokText, BarokLabel } from "../ui/BarokFont";
 import { EraTheme } from "../ui/EraTheme";
@@ -1014,20 +1014,22 @@ export class ActiveWatchScene extends Phaser.Scene {
   /** Animate a card-back ghost from a world position to the discard pile. */
   private animateCardToDiscard(fromX: number, fromY: number): void {
     const ghost = this.add.image(fromX, fromY, "card-back");
-    ghost.setScale(0.7);
+    ghost.setDisplaySize(CARD_WIDTH * 0.7, CARD_HEIGHT * 0.7);
     ghost.setDepth(500);
+    const halfScale = ghost.scaleX * (0.35 / 0.7);
 
     this.tweens.add({
       targets: ghost,
       x: this.playerDiscardPileX,
       y: this.playerDiscardPileY,
-      scaleX: 0.35,
-      scaleY: 0.35,
+      scaleX: halfScale,
+      scaleY: halfScale,
       alpha: 0.6,
       duration: 350,
       ease: "Power2",
-      onComplete: () => ghost.destroy(),
+      onComplete: () => { if (ghost.scene) ghost.destroy(); },
     });
+    this.time.delayedCall(550, () => { if (ghost.scene) ghost.destroy(); });
   }
 
   private animateBuyToDiscard(row: MarketRowId, slotIndex: number): void {
@@ -1035,24 +1037,34 @@ export class ActiveWatchScene extends Phaser.Scene {
     const slot = this.marketSlots[fi];
     if (!slot) return;
 
-    // Get world position of the market slot
+    // Hide the slot's card sprite immediately so no ghost remains
+    if (slot.cardSprite) slot.cardSprite.setVisible(false);
+
     const fromX = slot.x;
     const fromY = slot.y;
 
     const ghost = this.add.image(fromX, fromY, "card-back");
-    ghost.setScale(0.45);
+    ghost.setDisplaySize(CARD_WIDTH * 0.45, CARD_HEIGHT * 0.45);
     ghost.setDepth(500);
+    const targetScale = ghost.scaleX * (0.35 / 0.45);
 
     this.tweens.add({
       targets: ghost,
       x: this.playerDiscardPileX,
       y: this.playerDiscardPileY,
-      scaleX: 0.35,
-      scaleY: 0.35,
-      alpha: 0.6,
+      scaleX: targetScale,
+      scaleY: targetScale,
+      alpha: 0,
       duration: 400,
       ease: "Power2",
-      onComplete: () => ghost.destroy(),
+      onComplete: () => {
+        if (!ghost.scene) return;
+        ghost.destroy();
+      },
+    });
+    // Failsafe: destroy ghost after timeout in case tween doesn't complete
+    this.time.delayedCall(600, () => {
+      if (ghost.scene) ghost.destroy();
     });
   }
 
@@ -1197,7 +1209,8 @@ export class ActiveWatchScene extends Phaser.Scene {
         ghost = cardGhost;
       } else {
         const img = this.add.image(fromSlot.x, fromSlot.y, "card-back");
-        img.setScale(0.55).setDepth(500);
+        img.setDisplaySize(CARD_WIDTH * 0.55, CARD_HEIGHT * 0.55);
+        img.setDepth(500);
         ghost = img;
       }
 
@@ -1217,8 +1230,8 @@ export class ActiveWatchScene extends Phaser.Scene {
         duration,
         ease: "Power2",
         onComplete: () => {
-          ghost.destroy();
-          if (investGhost) investGhost.destroy();
+          if (ghost.scene) ghost.destroy();
+          if (investGhost?.scene) investGhost.destroy();
           if (--remaining <= 0) {
             for (const fi of hiddenFis) {
               if (this.marketSlots[fi]?.cardSprite) this.marketSlots[fi].cardSprite!.setVisible(true);
@@ -1227,6 +1240,11 @@ export class ActiveWatchScene extends Phaser.Scene {
             onComplete();
           }
         },
+      });
+      // Failsafe: destroy ghost after timeout in case tween doesn't complete
+      this.time.delayedCall(duration + 200, () => {
+        if (ghost.scene) ghost.destroy();
+        if (investGhost?.scene) investGhost.destroy();
       });
     }
   }
@@ -1384,7 +1402,8 @@ export class ActiveWatchScene extends Phaser.Scene {
         ghost = cardGhost;
       } else {
         const img = this.add.image(slot.x, slot.y, "card-back");
-        img.setScale(0.55).setDepth(500);
+        img.setDisplaySize(CARD_WIDTH * 0.55, CARD_HEIGHT * 0.55);
+        img.setDepth(500);
         ghost = img;
       }
 
@@ -1407,9 +1426,14 @@ export class ActiveWatchScene extends Phaser.Scene {
         duration: 700,
         ease: "Power2",
         onComplete: () => {
-          ghost.destroy();
-          if (investGhost) investGhost.destroy();
+          if (ghost.scene) ghost.destroy();
+          if (investGhost?.scene) investGhost.destroy();
         },
+      });
+      // Failsafe: destroy ghost after timeout in case tween doesn't complete
+      this.time.delayedCall(1000, () => {
+        if (ghost.scene) ghost.destroy();
+        if (investGhost?.scene) investGhost.destroy();
       });
     }
 
@@ -1472,23 +1496,30 @@ export class ActiveWatchScene extends Phaser.Scene {
     for (let idx = 0; idx < newFis.length; idx++) {
       const fi = newFis[idx];
       const ghost = this.add.image(this.deckPileX, this.deckPileY, "card-back");
-      ghost.setScale(0.3).setAlpha(0).setDepth(500);
+      ghost.setDisplaySize(CARD_WIDTH * 0.3, CARD_HEIGHT * 0.3);
+      ghost.setAlpha(0).setDepth(500);
+      const refillTarget = ghost.scaleX * (0.5 / 0.3);
 
       this.tweens.add({
         targets: ghost,
         x: this.marketSlots[fi].x,
         y: this.marketSlots[fi].y,
-        scaleX: 0.5,
-        scaleY: 0.5,
+        scaleX: refillTarget,
+        scaleY: refillTarget,
         alpha: 1,
         duration: 400,
         delay: idx * 120,
         ease: "Back.easeOut",
         onComplete: () => {
-          ghost.destroy();
+          if (ghost.scene) ghost.destroy();
           if (this.marketSlots[fi]?.cardSprite) this.marketSlots[fi].cardSprite!.setVisible(true);
           if (++filled >= newFis.length) onComplete();
         },
+      });
+      // Failsafe: destroy ghost after timeout in case tween doesn't complete
+      this.time.delayedCall(400 + idx * 120 + 200, () => {
+        if (ghost.scene) ghost.destroy();
+        if (this.marketSlots[fi]?.cardSprite) this.marketSlots[fi].cardSprite!.setVisible(true);
       });
     }
   }
@@ -1669,23 +1700,28 @@ export class ActiveWatchScene extends Phaser.Scene {
       if (!target) continue;
 
       const ghost = this.add.image(this.playerDeckPileX, this.playerDeckPileY, "card-back");
-      ghost.setScale(0.45);
+      ghost.setDisplaySize(CARD_WIDTH * 0.45, CARD_HEIGHT * 0.45);
       ghost.setDepth(200);
+      const handScale = ghost.scaleX * (1 / 0.45);
 
       const delay = idx * 80;
       this.tweens.add({
         targets: ghost,
         x: target.x,
         y: target.y,
-        scaleX: 1,
-        scaleY: 1,
+        scaleX: handScale,
+        scaleY: handScale,
         duration: 350,
         delay,
         ease: "Power2",
         onComplete: () => {
-          ghost.destroy();
+          if (ghost.scene) ghost.destroy();
           this.handDisplay.setCardsVisible(new Set([id]), true);
         },
+      });
+      this.time.delayedCall(delay + 550, () => {
+        if (ghost.scene) ghost.destroy();
+        this.handDisplay.setCardsVisible(new Set([id]), true);
       });
       idx++;
     }
