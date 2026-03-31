@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import { HEX, NUM } from "@icebox/shared";
-import { hasSave, loadGame } from "../systems/SaveManager";
 import { ActiveWatchScene } from "./ActiveWatchScene";
 import { s, fontSize as fs } from "../ui/layout";
 import { renderBarokText, measureBarokText } from "../ui/BarokFont";
@@ -86,16 +85,27 @@ export class MainMenuScene extends Phaser.Scene {
 
     // ── Title: "ICEBOX" repeated 4 times, stacked ──
     const titleSize = s(42);
-    const titleKern = 0.82;
-    const titleW = measureBarokText("ICEBOX", titleSize, titleKern);
-    const titleX = width / 2 - titleW / 2;
+    const titleKernMin = 0.82;
+    const titleKernMax = 1.0;
     const titleStartY = sparkleY + sparkleV + s(8);
     const titleSpacing = s(50);
+    let titleContainers: Phaser.GameObjects.Container[] = [];
 
-    for (let i = 0; i < 4; i++) {
-      const t = renderBarokText(this, "ICEBOX", NUM.bone, titleSize, titleX, titleStartY + i * titleSpacing, 1, titleKern);
-      card.add(t);
-    }
+    const drawTitles = (randomize = false) => {
+      for (const t of titleContainers) t.destroy();
+      titleContainers = [];
+      const k = randomize
+        ? titleKernMin + Math.random() * (titleKernMax - titleKernMin)
+        : titleKernMin;
+      const tw = measureBarokText("ICEBOX", titleSize, k);
+      const tx = width / 2 - tw / 2;
+      for (let i = 0; i < 4; i++) {
+        const t = renderBarokText(this, "ICEBOX", NUM.bone, titleSize, tx, titleStartY + i * titleSpacing, 1, k);
+        card.add(t);
+        titleContainers.push(t);
+      }
+    };
+    drawTitles();
 
     // ── Dot matrix pattern (vertically centered between last title and panel bottom) ──
     const matrixCx = cardX + cardW / 2;
@@ -172,31 +182,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
     card.add(newGameHit);
 
-    // Continue button (if save exists)
-    if (hasSave()) {
-      const contY = btnAreaY + btnH + s(10);
-      const contBtnW = s(160);
-      const contBtnX = cardX + cardW / 2 - contBtnW / 2;
-      gfx.fillStyle(NUM.slab, 0.7);
-      gfx.fillRoundedRect(contBtnX, contY, contBtnW, s(28), s(4));
-      gfx.lineStyle(s(1), NUM.graphite, 0.5);
-      gfx.strokeRoundedRect(contBtnX, contY, contBtnW, s(28), s(4));
-
-      const contSize = s(9);
-      const contW = measureBarokText("CONTINUE", contSize);
-      const cText = renderBarokText(this, "CONTINUE", NUM.bone, contSize, cardX + cardW / 2 - contW / 2, contY + s(14) - contSize * 0.55);
-      card.add(cText);
-
-      const contHit = this.add.rectangle(cardX + cardW / 2, contY + s(14), contBtnW, s(28), 0x000000, 0);
-      contHit.setInteractive({ useHandCursor: true });
-      contHit.on("pointerdown", () => {
-        const state = loadGame();
-        if (state) {
-          this.scene.start(ActiveWatchScene.KEY, { newGame: false, savedState: state });
-        }
-      });
-      card.add(contHit);
-    }
+    // Continue button (hidden — not yet ready for testing)
 
     // ── Holographic strip + barcode sandwich (between button and card bottom) ──
     const stripLeft = cardX + inset + s(8);
@@ -246,7 +232,10 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(1, 1);
 
     // ── Glitch effect on the card container only ──
-    this.setupGlitch(card, drawDotMatrix);
+    this.setupGlitch(card, () => {
+      drawDotMatrix();
+      drawTitles(true);
+    });
   }
 
   private setupGlitch(card: Phaser.GameObjects.Container, onGlitch: () => void): void {

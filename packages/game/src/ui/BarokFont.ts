@@ -7,6 +7,44 @@ const KERN_OVERRIDES: Record<string, number> = {
 };
 
 /**
+ * Body bounds [top, bottom] in the 100-unit glyph grid.
+ * Many Barok glyphs have thin decorative flourish spikes that extend beyond the
+ * main letterform, inflating the bounding box used during extraction. This data
+ * defines where the actual visual mass sits so the renderer can normalize sizes.
+ */
+const BODY_BOUNDS: Record<string, [number, number]> = {
+  // Flourished — narrow decorative spike at top, body starts at wide horizontal bar
+  "A": [13.5, 97.8], "B": [13.5, 97.8], "C": [13.5, 97.8],
+  "E": [13.5, 97.8], "F": [13.5, 97.8], "G": [13.5, 97.8],
+  "J": [14.4, 97.8], "P": [14.4, 97.8], "R": [14.4, 97.8],
+  "T": [13.5, 97.8],
+  // Full-body — no flourish, visual mass fills the grid
+  "D": [2.5, 97.5], "H": [2.5, 97.5], "I": [2.5, 97.5],
+  "K": [2.5, 97.5], "L": [2.5, 97.5], "M": [2.5, 97.5],
+  "N": [2.5, 97.5], "O": [2.5, 97.5], "Q": [2.2, 97.8],
+  "U": [2.5, 97.5], "V": [2.5, 97.5], "W": [2.5, 97.5],
+  "X": [2.5, 97.5], "Y": [2.5, 97.5],
+  // Double flourish — decorative strokes at both top and bottom
+  "S": [12.1, 88], "Z": [12, 87],
+};
+
+/** Reference body range — flourished letters define the target alignment. */
+const REF_BODY_TOP = 13.5;
+const REF_BODY_BOTTOM = 97.8;
+const REF_BODY_HEIGHT = REF_BODY_BOTTOM - REF_BODY_TOP;
+
+/** Compute per-glyph scale and Y offset to align body bounds to the reference. */
+function getGlyphAdj(char: string): { scale: number; yOffset: number } {
+  const bounds = BODY_BOUNDS[char];
+  if (!bounds) return { scale: 1, yOffset: 0 };
+  const [bt, bb] = bounds;
+  const bodyH = bb - bt;
+  const s = REF_BODY_HEIGHT / bodyH;
+  const yOff = REF_BODY_TOP - bt * s;
+  return { scale: s, yOffset: yOff };
+}
+
+/**
  * Render text using the extracted Barok Display Typeface SVG glyphs.
  * Uses native Canvas2D Path2D with evenodd fill for proper glyph cutouts.
  *
@@ -24,7 +62,7 @@ export function renderBarokText(
 ): Phaser.GameObjects.Container {
   const upper = text.toUpperCase();
   const totalW = measureBarokText(text, sizePx, kern);
-  const totalH = sizePx * 1.1; // glyphs fit within ~110% of size
+  const totalH = sizePx * 1.15; // glyphs fit within ~115% of size (extra room for body-normalized scaling)
   const container = scene.add.container(x, y);
 
   if (totalW <= 0) return container;
@@ -56,13 +94,17 @@ export function renderBarokText(
     const [advanceWidth, pathData] = glyph;
 
     if (pathData.length > 0) {
-      const transformed = transformSvgPath(pathData, cursorX, 0, scale);
+      const adj = getGlyphAdj(char);
+      const effScale = scale * adj.scale;
+      const yOff = adj.yOffset * scale;
+      const transformed = transformSvgPath(pathData, cursorX, yOff, effScale);
       const path = new Path2D(transformed);
       ctx.fill(path, "evenodd");
     }
 
     const charKern = KERN_OVERRIDES[char] ?? 1.0;
-    cursorX += advanceWidth * scale * kern * charKern;
+    const adjScale = (getGlyphAdj(char)).scale;
+    cursorX += advanceWidth * scale * adjScale * kern * charKern;
   }
 
   // Create a Phaser texture from the canvas
@@ -86,7 +128,8 @@ export function measureBarokText(text: string, sizePx: number, kern = 1.0): numb
     const glyph = BAROK_GLYPHS[char];
     if (!glyph) continue;
     const charKern = KERN_OVERRIDES[char] ?? 1.0;
-    width += glyph[0] * scale * kern * charKern;
+    const adjScale = (getGlyphAdj(char)).scale;
+    width += glyph[0] * scale * adjScale * kern * charKern;
   }
 
   return width;
@@ -135,7 +178,7 @@ export class BarokLabel extends Phaser.GameObjects.Container {
     }
 
     const totalW = measureBarokText(text, this.sizePx);
-    const totalH = this.sizePx * 1.1;
+    const totalH = this.sizePx * 1.15;
     if (totalW <= 0) return;
 
     const upper = text.toUpperCase();
@@ -163,12 +206,16 @@ export class BarokLabel extends Phaser.GameObjects.Container {
       if (!glyph) continue;
       const [advanceWidth, pathData] = glyph;
       if (pathData.length > 0) {
-        const transformed = transformSvgPath(pathData, cursorX, 0, scale);
+        const adj = getGlyphAdj(char);
+        const effScale = scale * adj.scale;
+        const yOff = adj.yOffset * scale;
+        const transformed = transformSvgPath(pathData, cursorX, yOff, effScale);
         const path = new Path2D(transformed);
         ctx.fill(path, "evenodd");
       }
       const charKern = KERN_OVERRIDES[char] ?? 1.0;
-      cursorX += advanceWidth * scale * kern * charKern;
+      const adjScale = (getGlyphAdj(char)).scale;
+      cursorX += advanceWidth * scale * adjScale * kern * charKern;
     }
 
     this.texKey = `barok_l_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
