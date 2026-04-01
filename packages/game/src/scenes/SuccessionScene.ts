@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { GameState, Card, CardInstance } from "@icebox/shared";
-import { calculateArchiveSlots } from "@icebox/shared";
+import { calculateArchiveSlots, HEX, NUM } from "@icebox/shared";
 import { CardSprite, CARD_WIDTH } from "../game-objects/CardSprite";
 import { CryosleepScene } from "./CryosleepScene";
 import { s, fontSize as fs } from "../ui/layout";
@@ -41,20 +41,20 @@ export class SuccessionScene extends Phaser.Scene {
 
     // Title
     this.add.text(width / 2, s(30), "THE SUCCESSION", {
-      fontSize: fs(28), color: "#6688cc", fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(28), color: HEX.chartreuse, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5);
 
     this.add.text(width / 2, s(65), "Choose cards to archive and sleep duration", {
-      fontSize: fs(12), color: "#556677", fontFamily: "monospace",
+      fontSize: fs(12), color: HEX.abyss, fontFamily: "'Space Grotesk', sans-serif",
     }).setOrigin(0.5);
 
     // Sleep duration selector
     this.add.text(width / 2 - s(200), s(100), "Sleep Duration:", {
-      fontSize: fs(14), color: "#8899aa", fontFamily: "monospace",
+      fontSize: fs(14), color: HEX.concrete, fontFamily: "'Space Grotesk', sans-serif",
     });
 
     this.sleepDurationText = this.add.text(width / 2, s(100), `${this.sleepDuration} cycle(s)`, {
-      fontSize: fs(14), color: "#ffcc44", fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(14), color: HEX.chartreuse, fontFamily: "'Space Mono', monospace", fontStyle: "bold",
     });
 
     // Duration buttons
@@ -69,11 +69,11 @@ export class SuccessionScene extends Phaser.Scene {
 
     // Archive info
     this.archiveCountText = this.add.text(width / 2, s(130), "", {
-      fontSize: fs(12), color: "#88aa77", fontFamily: "monospace",
+      fontSize: fs(12), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
 
     this.instructionText = this.add.text(width / 2, s(155), "", {
-      fontSize: fs(10), color: "#667788", fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.concrete, fontFamily: "'Space Grotesk', sans-serif",
     }).setOrigin(0.5);
 
     // Display eligible cards (hand + discard)
@@ -83,7 +83,7 @@ export class SuccessionScene extends Phaser.Scene {
     ].filter((c) => c.card.type !== "junk");
 
     this.add.text(width / 2, s(190), "Eligible Cards (click to select for archive)", {
-      fontSize: fs(10), color: "#556677", fontFamily: "monospace",
+      fontSize: fs(10), color: HEX.abyss, fontFamily: "'Space Grotesk', sans-serif",
     }).setOrigin(0.5);
 
     const startX = width / 2 - ((Math.min(eligible.length, 8) - 1) * (CARD_WIDTH + s(10))) / 2;
@@ -131,7 +131,7 @@ export class SuccessionScene extends Phaser.Scene {
     if (this.sleepDuration >= 3) warnings.push("⚠ HIGH ENTROPY RISK");
     if (this.sleepDuration >= 4) warnings.push("⚠ SEVERE WORLD EVOLUTION");
     this.instructionText.setText(warnings.join(" | "));
-    this.instructionText.setColor(this.sleepDuration >= 4 ? "#ff6644" : "#ffaa44");
+    this.instructionText.setColor(this.sleepDuration >= 4 ? HEX.signalRed : HEX.chartreuse);
 
     // Deselect excess cards if archive shrunk
     if (this.selectedCards.size > this.maxArchive) {
@@ -161,26 +161,26 @@ export class SuccessionScene extends Phaser.Scene {
   }
 
   private createBtn(x: number, y: number, label: string, onClick: () => void): void {
-    const bg = this.add.rectangle(x, y, s(30), s(24), 0x223344);
-    bg.setStrokeStyle(s(1), 0x445566);
+    const bg = this.add.rectangle(x, y, s(30), s(24), NUM.steel);
+    bg.setStrokeStyle(s(1), NUM.graphite);
     bg.setInteractive({ useHandCursor: true });
     const text = this.add.text(x, y, label, {
-      fontSize: fs(16), color: "#aabbcc", fontFamily: "monospace",
+      fontSize: fs(16), color: HEX.bone, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
     bg.on("pointerdown", onClick);
-    bg.on("pointerover", () => bg.setFillStyle(0x334455));
-    bg.on("pointerout", () => bg.setFillStyle(0x223344));
+    bg.on("pointerover", () => bg.setFillStyle(NUM.graphite));
+    bg.on("pointerout", () => bg.setFillStyle(NUM.steel));
   }
 
   private createActionBtn(x: number, y: number, label: string, onClick: () => void): void {
-    const bg = this.add.rectangle(x, y, s(240), s(44), 0x2244aa);
-    bg.setStrokeStyle(s(2), 0x4466cc);
+    const bg = this.add.rectangle(x, y, s(240), s(44), NUM.steel);
+    bg.setStrokeStyle(s(2), NUM.chartreuse);
     bg.setInteractive({ useHandCursor: true });
     const text = this.add.text(x, y, label, {
-      fontSize: fs(16), color: "#ffffff", fontFamily: "monospace", fontStyle: "bold",
+      fontSize: fs(16), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5);
     bg.on("pointerdown", onClick);
-    bg.on("pointerover", () => bg.setFillStyle(0x3366cc));
-    bg.on("pointerout", () => bg.setFillStyle(0x2244aa));
+    bg.on("pointerover", () => bg.setFillStyle(NUM.chartreuse));
+    bg.on("pointerout", () => bg.setFillStyle(NUM.steel));
   }
 }

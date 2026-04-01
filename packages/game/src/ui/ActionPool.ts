@@ -48,17 +48,14 @@ export class ActionPool extends Phaser.GameObjects.Container {
     this.panelH = titleH + pad + RESOURCE_META.length * rowH + pad;
 
     // Background
-    this.bg = scene.add.rectangle(0, 0, this.panelW, this.panelH, NUM.midnightViolet, 0.7);
-    this.bg.setStrokeStyle(s(1), NUM.charcoalBlue, 0.5);
+    this.bg = scene.add.rectangle(0, 0, this.panelW, this.panelH, NUM.slab, 0.7);
+    this.bg.setStrokeStyle(s(1), NUM.graphite, 0.5);
     this.bg.setOrigin(0, 0);
     this.add(this.bg);
 
     // Title
     this.titleText = scene.add.text(this.panelW / 2, pad, "ACTION POOL", {
-      fontSize: fs(8),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
-      fontStyle: "bold",
+      fontSize: fs(8), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5, 0);
     this.add(this.titleText);
 
@@ -68,7 +65,7 @@ export class ActionPool extends Phaser.GameObjects.Container {
       const label = scene.add.text(pad + s(4), rowY + rowH / 2, `${ACTION_LABELS[meta.key]}`, {
         fontSize: fs(7),
         color: meta.color,
-        fontFamily: "monospace",
+        fontFamily: "Space Mono",
         fontStyle: "bold",
       }).setOrigin(0, 0.5);
       this.add(label);

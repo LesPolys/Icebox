@@ -78,15 +78,15 @@ export class EraDisplay extends Phaser.GameObjects.Container {
 
     // Background panel
     this.bg = scene.add.graphics();
-    this.bg.fillStyle(NUM.midnightViolet, 0.7);
+    this.bg.fillStyle(NUM.slab, 0.7);
     this.bg.fillRoundedRect(0, 0, this.boxW, this.boxH, s(6));
-    this.bg.lineStyle(s(1.5), NUM.charcoalBlue, 0.5);
+    this.bg.lineStyle(s(1.5), NUM.graphite, 0.5);
     this.bg.strokeRoundedRect(0, 0, this.boxW, this.boxH, s(6));
     this.add(this.bg);
 
     // Title
-    this.add(scene.add.text(this.boxW / 2, s(3), "ERA", {
-      fontSize: fs(7), color: HEX.darkCyan, fontFamily: "monospace",
+    this.add(scene.add.text(this.boxW / 2, s(5), "ERA", {
+      fontSize: fs(7), color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5, 0));
 
     // 2x2 grid: [Zenith, Unraveling] / [Struggle, Ascension]
@@ -103,12 +103,12 @@ export class EraDisplay extends Phaser.GameObjects.Container {
       this.add(cellBg);
 
       const iconText = scene.add.text(cx + s(6), cy + cellH / 2, vis.icon, {
-        fontSize: fs(16), color: vis.desatColor, fontFamily: "monospace",
+        fontSize: fs(16), color: vis.desatColor, fontFamily: "Space Mono",
       }).setOrigin(0, 0.5);
       this.add(iconText);
 
       const nameText = scene.add.text(cx + s(28), cy + cellH / 2, era.toUpperCase(), {
-        fontSize: fs(12), color: vis.desatColor, fontFamily: "monospace", fontStyle: "bold",
+        fontSize: fs(12), color: vis.desatColor, fontFamily: "Space Mono", fontStyle: "bold",
       }).setOrigin(0, 0.5);
       this.add(nameText);
 
@@ -125,20 +125,20 @@ export class EraDisplay extends Phaser.GameObjects.Container {
 
     // Pawn indicator
     this.pawn = scene.add.text(0, 0, "\u265F", {
-      fontSize: fs(14), color: HEX.eggshell, fontFamily: "serif", fontStyle: "bold",
+      fontSize: fs(14), color: HEX.bone, fontFamily: "serif", fontStyle: "bold",
     }).setOrigin(0.5);
     this.add(this.pawn);
 
     // Modifier summary
     this.modifierText = scene.add.text(this.boxW / 2, this.boxH - s(5), "", {
-      fontSize: fs(8), color: HEX.pearlAqua, fontFamily: "monospace",
+      fontSize: fs(8), color: HEX.abyss, fontFamily: "Space Mono",
     }).setOrigin(0.5, 1);
     this.add(this.modifierText);
 
     // ── Tooltip container (hidden by default) ──
     this.tooltipContainer = scene.add.container(0, 0);
     this.tooltipContainer.setVisible(false);
-    this.tooltipContainer.setDepth(100);
+    this.tooltipContainer.setDepth(500);
 
     this.tooltipBg = scene.add.graphics();
     this.tooltipContainer.add(this.tooltipBg);
@@ -146,7 +146,7 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     // Pre-create text objects for tooltip (title + trigger + up to 3 effect lines)
     for (let i = 0; i < 5; i++) {
       const t = scene.add.text(0, 0, "", {
-        fontSize: fs(8), color: HEX.eggshell, fontFamily: "monospace",
+        fontSize: fs(8), color: HEX.bone, fontFamily: "Space Mono",
         wordWrap: { width: s(200) },
       });
       this.tooltipContainer.add(t);
@@ -177,19 +177,19 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     // Title line
     this.tooltipTexts[lineIdx].setText(`${vis.icon} ${era.toUpperCase()}`);
     this.tooltipTexts[lineIdx].setColor(vis.color);
-    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fs(9), fontFamily: "monospace", color: vis.color });
+    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fs(9), fontFamily: "Space Mono", color: vis.color });
     this.tooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH);
     lineIdx++;
 
     // Trigger line
     this.tooltipTexts[lineIdx].setText(`Trigger: ${tip.trigger}`);
-    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fs(7), fontFamily: "monospace", color: HEX.pearlAqua });
+    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fs(7), fontFamily: "Space Mono", color: HEX.abyss });
     this.tooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH);
     lineIdx++;
 
     // Spacer line
     this.tooltipTexts[lineIdx].setText("Effects:");
-    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fs(7), fontFamily: "monospace", color: HEX.eggshell });
+    this.tooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fs(7), fontFamily: "Space Mono", color: HEX.bone });
     this.tooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH + s(2));
     lineIdx++;
 
@@ -197,7 +197,7 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     for (const eff of tip.effects) {
       if (lineIdx >= this.tooltipTexts.length) break;
       this.tooltipTexts[lineIdx].setText(`  ${eff}`);
-      this.tooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fs(7), fontFamily: "monospace", color: HEX.eggshell });
+      this.tooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fs(7), fontFamily: "Space Mono", color: HEX.bone });
       this.tooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH + s(2));
       lineIdx++;
     }
@@ -211,7 +211,7 @@ export class EraDisplay extends Phaser.GameObjects.Container {
     const tipW = s(220);
     const tipH = tipPad * 2 + lineIdx * lineH + s(4);
     this.tooltipBg.clear();
-    this.tooltipBg.fillStyle(NUM.midnightViolet, 0.95);
+    this.tooltipBg.fillStyle(NUM.slab, 0.95);
     this.tooltipBg.fillRoundedRect(0, 0, tipW, tipH, s(4));
     this.tooltipBg.lineStyle(s(1), vis.numColor, 0.5);
     this.tooltipBg.strokeRoundedRect(0, 0, tipW, tipH, s(4));
@@ -251,9 +251,9 @@ export class EraDisplay extends Phaser.GameObjects.Container {
       gfx.lineStyle(s(1.5), vis.numColor, 0.6);
       gfx.strokeRoundedRect(cx, cy, w, h, s(4));
     } else {
-      gfx.fillStyle(NUM.midnightViolet, 0.4);
+      gfx.fillStyle(NUM.slab, 0.4);
       gfx.fillRoundedRect(cx, cy, w, h, s(4));
-      gfx.lineStyle(s(1), NUM.charcoalBlue, 0.25);
+      gfx.lineStyle(s(1), NUM.graphite, 0.25);
       gfx.strokeRoundedRect(cx, cy, w, h, s(4));
     }
   }

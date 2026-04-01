@@ -1,22 +1,22 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --bg-primary: #0a0a1a;
-  --bg-secondary: #111122;
-  --bg-tertiary: #1a1a2e;
-  --border: #334466;
-  --text-primary: #ccddeeff;
-  --text-secondary: #8899aa;
-  --text-muted: #556677;
-  --accent: #4466cc;
-  --accent-hover: #5577dd;
-  --danger: #ff4444;
-  --success: #44aa44;
-  --warning: #ffaa44;
+  --bg-primary: #0A0A0A;
+  --bg-secondary: #161618;
+  --bg-tertiary: #2A2826;
+  --border: #3A3836;
+  --text-primary: #E8E6E0;
+  --text-secondary: #C8C0B8;
+  --text-muted: #6B6860;
+  --accent: #D4FF00;
+  --accent-hover: #00CCAA;
+  --danger: #CC3333;
+  --success: #22AA44;
+  --warning: #CCAA00;
 }
 
 body {
-  font-family: 'Courier New', monospace;
+  font-family: 'Space Grotesk', 'Courier New', sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
@@ -96,7 +96,7 @@ body {
   gap: 8px;
   padding: 8px;
   cursor: pointer;
-  border-bottom: 1px solid #1a1a2e;
+  border-bottom: 1px solid #2A2826;
   font-size: 11px;
 }
 
@@ -255,7 +255,7 @@ body {
 }
 
 .preview-card .pc-lifespan {
-  color: #88aa77;
+  color: #00CCAA;
 }
 
 .preview-card .pc-flavor {

@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { CardInstance, SectorState } from "@icebox/shared";
-import { NUM } from "@icebox/shared";
+import { NUM, HEX } from "@icebox/shared";
 import { s, LAYOUT, MAIN_CX } from "./layout";
 
 /**
@@ -23,14 +23,14 @@ export class DropZoneIndicator extends Phaser.GameObjects.Container {
     const barH = LAYOUT.playZoneH;
     this.playBar = scene.add.container(MAIN_CX, LAYOUT.playZoneY);
 
-    const barBg = scene.add.rectangle(0, 0, barW, barH, NUM.darkCyan, 0.2);
-    barBg.setStrokeStyle(s(2), NUM.darkCyan, 0.6);
+    const barBg = scene.add.rectangle(0, 0, barW, barH, NUM.chartreuse, 0.2);
+    barBg.setStrokeStyle(s(2), NUM.chartreuse, 0.6);
     this.playBar.add(barBg);
 
     const barText = scene.add.text(0, 0, "DROP TO PLAY", {
       fontSize: `${s(12)}px`,
-      color: "#55cccc",
-      fontFamily: "monospace",
+      color: HEX.chartreuse,
+      fontFamily: "'Orbitron', monospace",
       fontStyle: "bold",
     }).setOrigin(0.5).setAlpha(0.8);
     this.playBar.add(barText);
@@ -81,7 +81,7 @@ export class DropZoneIndicator extends Phaser.GameObjects.Container {
 
   private drawSectorHighlight(index: number, valid: boolean): void {
     const gfx = this.sectorHighlights[index];
-    const color = valid ? 0x44cc44 : 0xcc4444;
+    const color = valid ? NUM.chartreuse : NUM.signalRed;
     const w = s(270);
     const h = s(140);
     gfx.clear();

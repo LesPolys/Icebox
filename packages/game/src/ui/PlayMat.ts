@@ -15,7 +15,7 @@ export class PlayMat extends Phaser.GameObjects.Container {
   private matW: number;
   private matH: number;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, endBtnX: number, endBtnY: number) {
     const cx = MAIN_CX;
     const top = LAYOUT.playMatTop;
     const bottom = LAYOUT.playMatBottom;
@@ -32,19 +32,16 @@ export class PlayMat extends Phaser.GameObjects.Container {
     this.drawBg(false);
     this.add(this.bgGfx);
 
-    // Action button — positioned above player deck (right) pile
-    // Created as direct scene object at high depth so hand cards can't cover it
+    // END button — positioned by caller (right of market deck)
     const r = LAYOUT.playMatBtnRadius;
-    const pileOffsetX = w / 2 + s(55); // matches createPlayerPiles offset
-    const btnY = top + r + s(8);       // above the play mat area
 
     this.createCircleBtn(
       scene,
-      cx + pileOffsetX,
-      btnY,
+      endBtnX,
+      endBtnY,
       r,
       "END",
-      NUM.midnightViolet,
+      NUM.slab,
       () => { if (this.onEndTurn) this.onEndTurn(); },
       undefined,
       "End Turn — resolve market and draw cards"
@@ -70,24 +67,27 @@ export class PlayMat extends Phaser.GameObjects.Container {
       gfx.clear();
       gfx.fillStyle(fillColor, 0.85);
       gfx.fillCircle(0, 0, radius);
-      gfx.lineStyle(s(2), NUM.charcoalBlue, 0.7);
+      gfx.lineStyle(s(2), NUM.graphite, 0.7);
       gfx.strokeCircle(0, 0, radius);
     };
     const drawHover = () => {
       gfx.clear();
       gfx.fillStyle(fillColor, 1);
       gfx.fillCircle(0, 0, radius);
-      gfx.lineStyle(s(2), NUM.eggshell, 0.9);
+      gfx.lineStyle(s(2), NUM.bone, 0.9);
       gfx.strokeCircle(0, 0, radius);
     };
     drawNormal();
 
-    const text = scene.add.text(0, 0, label, {
-      fontSize: labelSize ? `${labelSize}px` : fs(12),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
-      fontStyle: "bold",
+    // Label (two versions: normal bone + hover white)
+    const btnFontSize = labelSize ?? s(12);
+    const normalLabel = scene.add.text(0, 0, label, {
+      fontSize: `${btnFontSize}px`, color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
     }).setOrigin(0.5);
+    const hoverLabel = scene.add.text(0, 0, label, {
+      fontSize: `${btnFontSize}px`, color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
+    hoverLabel.setVisible(false);
 
     // Tooltip text (hidden by default, shown on hover)
     let tooltipText: Phaser.GameObjects.Text | null = null;
@@ -96,9 +96,9 @@ export class PlayMat extends Phaser.GameObjects.Container {
       tooltipBg = scene.add.graphics();
       tooltipText = scene.add.text(0, -radius - s(20), tooltip, {
         fontSize: fs(8),
-        color: HEX.eggshell,
-        fontFamily: "monospace",
-        backgroundColor: "#1a1a2e",
+        color: HEX.bone,
+        fontFamily: "Space Mono",
+        backgroundColor: HEX.slab,
         padding: { x: 6, y: 3 },
       }).setOrigin(0.5).setVisible(false);
     }
@@ -108,18 +108,20 @@ export class PlayMat extends Phaser.GameObjects.Container {
     hitArea.setInteractive({ useHandCursor: true });
     hitArea.on("pointerover", () => {
       drawHover();
-      text.setColor("#ffffff");
+      normalLabel.setVisible(false);
+      hoverLabel.setVisible(true);
       if (tooltipText) tooltipText.setVisible(true);
     });
     hitArea.on("pointerout", () => {
       drawNormal();
-      text.setColor(HEX.eggshell);
+      normalLabel.setVisible(true);
+      hoverLabel.setVisible(false);
       if (tooltipText) tooltipText.setVisible(false);
     });
     hitArea.on("pointerdown", onClick);
 
     // Add to scene directly (not to PlayMat container) at high depth
-    const children: Phaser.GameObjects.GameObject[] = [gfx, text, hitArea];
+    const children: Phaser.GameObjects.GameObject[] = [gfx, normalLabel, hoverLabel, hitArea];
     if (tooltipText) children.push(tooltipText);
     const container = scene.add.container(x, y, children);
     container.setDepth(50);
@@ -130,14 +132,14 @@ export class PlayMat extends Phaser.GameObjects.Container {
     const h = this.matH;
     this.bgGfx.clear();
     if (highlighted) {
-      this.bgGfx.fillStyle(NUM.darkCyan, 0.15);
+      this.bgGfx.fillStyle(NUM.chartreuse, 0.15);
       this.bgGfx.fillRoundedRect(-w / 2, -h / 2, w, h, s(12));
-      this.bgGfx.lineStyle(s(2.5), NUM.darkCyan, 0.6);
+      this.bgGfx.lineStyle(s(2.5), NUM.chartreuse, 0.6);
       this.bgGfx.strokeRoundedRect(-w / 2, -h / 2, w, h, s(12));
     } else {
-      this.bgGfx.fillStyle(NUM.midnightViolet, 0.12);
+      this.bgGfx.fillStyle(NUM.slab, 0.12);
       this.bgGfx.fillRoundedRect(-w / 2, -h / 2, w, h, s(12));
-      this.bgGfx.lineStyle(s(1.5), NUM.charcoalBlue, 0.35);
+      this.bgGfx.lineStyle(s(1.5), NUM.graphite, 0.35);
       this.bgGfx.strokeRoundedRect(-w / 2, -h / 2, w, h, s(12));
     }
   }

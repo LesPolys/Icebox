@@ -29,15 +29,15 @@ export class ScryDialog extends Phaser.GameObjects.Container {
     const panelH = s(280);
 
     // Background
-    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.midnightViolet, 0.95);
-    bg.setStrokeStyle(s(2), 0x4488cc, 0.8);
+    const bg = scene.add.rectangle(0, 0, panelW, panelH, NUM.slab, 0.95);
+    bg.setStrokeStyle(s(2), NUM.graphite, 0.8);
     this.add(bg);
 
     // Title
     const title = scene.add.text(0, -panelH / 2 + s(14), "SCRY: REORDER MARKET DECK", {
       fontSize: fs(12),
-      color: HEX.pearlAqua,
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "Orbitron",
       fontStyle: "bold",
     }).setOrigin(0.5, 0);
     this.add(title);
@@ -45,8 +45,8 @@ export class ScryDialog extends Phaser.GameObjects.Container {
     // Instructions
     this.instructionText = scene.add.text(0, -panelH / 2 + s(32), "Click cards in the order you want (top of deck first)", {
       fontSize: fs(8),
-      color: HEX.eggshell,
-      fontFamily: "monospace",
+      color: HEX.bone,
+      fontFamily: "Space Grotesk",
     }).setOrigin(0.5, 0);
     this.add(this.instructionText);
 
@@ -67,10 +67,10 @@ export class ScryDialog extends Phaser.GameObjects.Container {
       // Order label (hidden initially)
       const orderLabel = scene.add.text(cx, cy - s(80), "", {
         fontSize: fs(16),
-        color: "#ffffff",
-        fontFamily: "monospace",
+        color: HEX.bone,
+        fontFamily: "Space Mono",
         fontStyle: "bold",
-        backgroundColor: "#4488cc",
+        backgroundColor: HEX.steel,
         padding: { x: 6, y: 2 },
       }).setOrigin(0.5);
       orderLabel.setVisible(false);
@@ -80,16 +80,16 @@ export class ScryDialog extends Phaser.GameObjects.Container {
 
     // Confirm button (disabled initially)
     const btnY = panelH / 2 - s(30);
-    this.confirmBtn = scene.add.rectangle(0, btnY, s(120), s(28), 0x44cc44, 0.2);
-    this.confirmBtn.setStrokeStyle(s(1), 0x44cc44, 0.4);
+    this.confirmBtn = scene.add.rectangle(0, btnY, s(120), s(28), NUM.chartreuse, 0.2);
+    this.confirmBtn.setStrokeStyle(s(1), NUM.chartreuse, 0.4);
     this.confirmBtn.setInteractive({ useHandCursor: true });
     this.confirmBtn.on("pointerdown", () => this.confirm());
     this.add(this.confirmBtn);
 
     this.confirmLabel = scene.add.text(0, btnY, "Confirm", {
       fontSize: fs(10),
-      color: "#88cc88",
-      fontFamily: "monospace",
+      color: HEX.chartreuse,
+      fontFamily: "Space Mono",
       fontStyle: "bold",
     }).setOrigin(0.5);
     this.add(this.confirmLabel);
@@ -132,9 +132,9 @@ export class ScryDialog extends Phaser.GameObjects.Container {
 
   private updateConfirmState(): void {
     const ready = this.selectedOrder.length === this.cards.length;
-    this.confirmBtn.setFillStyle(ready ? 0x44cc44 : 0x444444, ready ? 0.4 : 0.2);
-    this.confirmBtn.setStrokeStyle(s(1), ready ? 0x44cc44 : 0x444444, ready ? 0.7 : 0.3);
-    this.confirmLabel.setColor(ready ? "#44cc44" : "#666666");
+    this.confirmBtn.setFillStyle(ready ? NUM.chartreuse : NUM.graphite, ready ? 0.4 : 0.2);
+    this.confirmBtn.setStrokeStyle(s(1), ready ? NUM.chartreuse : NUM.graphite, ready ? 0.7 : 0.3);
+    this.confirmLabel.setColor(ready ? HEX.chartreuse : HEX.concrete);
 
     if (ready) {
       this.instructionText.setText("Ready! Click Confirm to set this order.");
