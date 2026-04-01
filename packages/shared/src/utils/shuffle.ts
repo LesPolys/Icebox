@@ -25,7 +25,7 @@ export function seededShuffle<T>(array: readonly T[], seed: number): T[] {
 }
 
 /** Mulberry32 PRNG — fast, decent distribution, 32-bit seed */
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed | 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;
