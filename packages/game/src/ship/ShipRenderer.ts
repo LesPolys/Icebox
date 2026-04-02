@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { NUM } from "@icebox/shared";
 import type { ShipGeometry } from "./ShipTypes";
 import type { SectionId, Hardpoint } from "./ShipTypes";
+import { createExhaustPlume, updateExhaustPlume } from "./EngineGlowMaterial";
+import type { ExhaustPlume } from "./EngineGlowMaterial";
 
 export interface ShipOrientation {
   /** Base pitch set by debug slider (rotation around X axis in radians) */
@@ -70,6 +72,10 @@ export class ShipRenderer {
   hoveredHardpoint = -1;
   /** When true, hovered sections show a semi-solid convex hull */
   solidHover = false;
+  /** Engine exhaust plumes */
+  private enginePlumes: ExhaustPlume[] = [];
+  /** Engine thrust power — 0 = off, 1 = full burn */
+  enginePower = 0.7;
 
   constructor(container: HTMLElement) {
     // Create overlay canvas
@@ -131,6 +137,7 @@ export class ShipRenderer {
     this.sectionGroups = [];
     this.sections.length = 0;
     this.hardpoints.length = 0;
+    this.enginePlumes.length = 0;
 
     for (const section of shipGeometry.sections) {
       const group = new THREE.Group();
@@ -219,7 +226,7 @@ export class ShipRenderer {
         hoverMeshMat = new THREE.MeshBasicMaterial({
           color: hoverColor.clone(),
           transparent: true,
-          opacity: 0.15,
+          opacity: 0.45,
           side: THREE.DoubleSide,
           depthWrite: false,
         });
@@ -245,7 +252,7 @@ export class ShipRenderer {
         // Diamond marker — larger and double-layered for visibility
         const markerGeo = new THREE.OctahedronGeometry(1.6, 0);
         const markerMat = new THREE.MeshBasicMaterial({
-          color: NUM.lime,
+          color: NUM.indigo,
           wireframe: true,
           transparent: true,
           opacity: 1.0,
@@ -257,7 +264,7 @@ export class ShipRenderer {
         // Inner glow core — additive blended solid for brightness
         const coreGeo = new THREE.OctahedronGeometry(0.9, 0);
         const coreMat = new THREE.MeshBasicMaterial({
-          color: NUM.lime,
+          color: NUM.indigo,
           transparent: true,
           opacity: 0.6,
           blending: THREE.AdditiveBlending,
@@ -282,6 +289,21 @@ export class ShipRenderer {
           hitTarget,
           sectionId: section.id,
         });
+      }
+
+      // Engine exhaust plumes — animated concentric rings, only for engineering
+      if (section.engineBells) {
+        for (const bell of section.engineBells) {
+          const plume = createExhaustPlume(
+            bell.center,
+            bell.radius,
+            bell.length,
+            bell.thrustDir,
+            new THREE.Color(NUM.lime),
+          );
+          group.add(plume.group);
+          this.enginePlumes.push(plume);
+        }
       }
     }
   }
@@ -347,7 +369,7 @@ export class ShipRenderer {
     // Restore previous
     if (this.hoveredHardpoint >= 0 && this.hoveredHardpoint < this.hardpoints.length) {
       const prev = this.hardpoints[this.hoveredHardpoint];
-      (prev.marker.material as THREE.MeshBasicMaterial).color.setHex(NUM.lime);
+      (prev.marker.material as THREE.MeshBasicMaterial).color.setHex(NUM.indigo);
       prev.marker.scale.setScalar(1);
     }
 
@@ -410,6 +432,11 @@ export class ShipRenderer {
         0.7 + Math.sin(t * 3) * 0.3;
     }
 
+    // Animate engine exhaust plumes
+    for (const plume of this.enginePlumes) {
+      updateExhaustPlume(plume, t, this.enginePower);
+    }
+
     this.renderer.render(this.threeScene, this.camera);
   }
 
@@ -436,6 +463,7 @@ export class ShipRenderer {
     this.sectionGroups = [];
     this.sections.length = 0;
     this.hardpoints.length = 0;
+    this.enginePlumes.length = 0;
     this.renderer.dispose();
     this.canvas.remove();
   }

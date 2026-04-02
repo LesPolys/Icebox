@@ -11,6 +11,8 @@ export interface WireframeSegment {
 
 export type SectionId = "asteroid" | "engineering" | "habitat" | "command";
 
+export type AsteroidPlacement = "engineering" | "center" | "command";
+
 export interface Hardpoint {
   id: string;
   section: SectionId;
@@ -24,6 +26,15 @@ export interface MeshData {
   indices: Uint16Array;
 }
 
+export interface EngineBell {
+  center: Vec3;
+  radius: number;
+  length: number;
+  /** Unit vector: direction the exhaust fires (away from hull) */
+  thrustDir: Vec3;
+  rings: Vec3[][];
+}
+
 export interface ShipSection {
   id: SectionId;
   zMin: number;
@@ -31,8 +42,10 @@ export interface ShipSection {
   segments: WireframeSegment[];
   color: number;
   hardpoints: Hardpoint[];
-  /** Optional solid mesh data (used for asteroid) */
+  /** Optional solid mesh data (used for asteroid solid + section hover) */
   mesh?: MeshData;
+  /** Engine bell metadata — only present on engineering section */
+  engineBells?: EngineBell[];
 }
 
 export interface ShipGeometry {
@@ -40,6 +53,7 @@ export interface ShipGeometry {
   sections: ShipSection[];
   totalLength: number;
   boundingRadius: number;
+  asteroidPlacement: AsteroidPlacement;
 }
 
 export interface ShipParams {
@@ -47,4 +61,5 @@ export interface ShipParams {
   engineCount?: number;
   drumCount?: number;
   radiatorCount?: number;
+  asteroidPlacement?: AsteroidPlacement;
 }

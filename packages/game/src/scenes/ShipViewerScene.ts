@@ -42,6 +42,10 @@ export class ShipViewerScene extends Phaser.Scene {
   private readonly springStiffness = 8;
   private readonly springDamping = 0.55;
 
+  // Ship state
+  private currentSeed = 0;
+  private seedLabel: HTMLDivElement | null = null;
+
   constructor() {
     super(ShipViewerScene.KEY);
   }
@@ -65,9 +69,8 @@ export class ShipViewerScene extends Phaser.Scene {
     this.shipRenderer.solidHover = defaults.solidHover;
 
     // Generate ship with a random seed
-    const seed = Date.now();
-    const shipGeometry = generateShip({ seed });
-    this.shipRenderer.buildGeometry(shipGeometry);
+    this.currentSeed = Date.now();
+    this.rebuildShip(this.currentSeed);
 
     // Initialize camera controls with saved params
     this.shipControls = new ShipControls(this.shipRenderer.canvas, defaults.camera);
@@ -79,12 +82,26 @@ export class ShipViewerScene extends Phaser.Scene {
       this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     }
 
-    this.createHUD(container, seed);
+    this.createHUD(container, this.currentSeed);
     this.createDebugPanel(container);
     this.createPanelOverlay(container);
     this.bindMouseEvents(container);
 
     this.events.once("shutdown", this.cleanup, this);
+  }
+
+  private rebuildShip(seed: number): void {
+    if (!this.shipRenderer) return;
+    this.currentSeed = seed;
+    const shipGeometry = generateShip({ seed });
+    this.shipRenderer.buildGeometry(shipGeometry);
+    // Close any open hardpoint panel since geometry changed
+    this.lockedHardpointIdx = -1;
+    this.hideHardpointPanel();
+    // Update seed label
+    if (this.seedLabel) {
+      this.seedLabel.textContent = `SEED: ${seed}`;
+    }
   }
 
   private createHUD(container: HTMLElement, seed: number): void {
@@ -100,10 +117,10 @@ export class ShipViewerScene extends Phaser.Scene {
     backLabel.textContent = "[ESC] BACK";
     this.hudElement.appendChild(backLabel);
 
-    const seedLabel = document.createElement("div");
-    seedLabel.style.cssText = `position: absolute; bottom: 16px; left: 16px; color: ${HEX.concrete}; font-size: 11px;`;
-    seedLabel.textContent = `SEED: ${seed}`;
-    this.hudElement.appendChild(seedLabel);
+    this.seedLabel = document.createElement("div");
+    this.seedLabel.style.cssText = `position: absolute; bottom: 16px; left: 16px; color: ${HEX.concrete}; font-size: 11px;`;
+    this.seedLabel.textContent = `SEED: ${seed}`;
+    this.hudElement.appendChild(this.seedLabel);
 
     const legend = document.createElement("div");
     legend.style.cssText = `position: absolute; top: 16px; right: 16px; color: ${HEX.bone}; font-size: 11px; text-align: right; line-height: 1.8;`;
@@ -261,9 +278,53 @@ export class ShipViewerScene extends Phaser.Scene {
     toggleRow.appendChild(toggleLabel);
     body.appendChild(toggleRow);
 
+    // -- New Ship button --
+    const newShipRow = document.createElement("div");
+    newShipRow.style.cssText = "margin-top: 12px;";
+
+    const newShipBtn = document.createElement("button");
+    newShipBtn.textContent = "NEW SHIP";
+    newShipBtn.style.cssText = `
+      width: 100%; padding: 8px 0; border: 1px solid ${HEX.graphite}; background: ${HEX.steel};
+      color: ${HEX.teal}; font-family: 'Space Mono', monospace; font-size: 11px;
+      cursor: pointer; letter-spacing: 0.5px;
+    `;
+    newShipBtn.addEventListener("mouseenter", () => { newShipBtn.style.borderColor = HEX.teal; });
+    newShipBtn.addEventListener("mouseleave", () => { newShipBtn.style.borderColor = HEX.graphite; });
+    newShipBtn.addEventListener("click", () => {
+      this.rebuildShip(Date.now());
+    });
+    newShipRow.appendChild(newShipBtn);
+    body.appendChild(newShipRow);
+
+    // -- Engine Power slider --
+    const engineRow = document.createElement("div");
+    engineRow.style.cssText = "display: flex; align-items: center; gap: 8px; margin-top: 10px;";
+    const engineLabel = document.createElement("span");
+    engineLabel.textContent = "ENGINE";
+    engineLabel.style.cssText = `color: ${HEX.concrete}; font-size: 9px; letter-spacing: 0.5px; min-width: 48px;`;
+    const engineSlider = document.createElement("input");
+    engineSlider.type = "range";
+    engineSlider.min = "0";
+    engineSlider.max = "100";
+    engineSlider.value = "70";
+    engineSlider.style.cssText = "flex: 1; accent-color: " + HEX.signalRed + ";";
+    const engineVal = document.createElement("span");
+    engineVal.textContent = "0.70";
+    engineVal.style.cssText = `color: ${HEX.signalRed}; font-size: 10px; min-width: 32px; text-align: right;`;
+    engineSlider.addEventListener("input", () => {
+      const v = parseInt(engineSlider.value, 10) / 100;
+      if (this.shipRenderer) this.shipRenderer.enginePower = v;
+      engineVal.textContent = v.toFixed(2);
+    });
+    engineRow.appendChild(engineLabel);
+    engineRow.appendChild(engineSlider);
+    engineRow.appendChild(engineVal);
+    body.appendChild(engineRow);
+
     // -- Save button --
     const btnRow = document.createElement("div");
-    btnRow.style.cssText = "margin-top: 12px;";
+    btnRow.style.cssText = "margin-top: 6px;";
 
     const saveBtn = document.createElement("button");
     saveBtn.textContent = "SAVE AS DEFAULT";
@@ -541,5 +602,6 @@ export class ShipViewerScene extends Phaser.Scene {
     this.escKey = null;
     this.activeHardpointIdx = -1;
     this.lockedHardpointIdx = -1;
+    this.seedLabel = null;
   }
 }

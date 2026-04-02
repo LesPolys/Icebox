@@ -55,7 +55,7 @@ export class ShipControls {
   private dolly = 0;
 
   private isDragging = false;
-  private lastMouseX = 0;
+  private lastMouseY = 0;
 
   private readonly minZ = -55;
   private readonly maxZ = 55;
@@ -112,16 +112,16 @@ export class ShipControls {
   private onMouseDown(e: MouseEvent): void {
     if (e.button === 0) {
       this.isDragging = true;
-      this.lastMouseX = e.clientX;
+      this.lastMouseY = e.clientY;
       this.canvas.style.cursor = "grabbing";
     }
   }
 
   private onMouseMove(e: MouseEvent): void {
     if (!this.isDragging) return;
-    const dx = e.clientX - this.lastMouseX;
-    this.dragRollTarget += dx * this.dragSensitivity;
-    this.lastMouseX = e.clientX;
+    const dy = e.clientY - this.lastMouseY;
+    this.dragRollTarget += dy * this.dragSensitivity;
+    this.lastMouseY = e.clientY;
   }
 
   private onMouseUp(e: MouseEvent): void {
