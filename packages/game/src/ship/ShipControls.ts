@@ -29,6 +29,7 @@ export interface SavedDefaults {
   camera: CameraParams;
   orientation: ShipOrientation;
   solidHover: boolean;
+  starDriftSpeed: number;
 }
 
 export function loadDefaults(): SavedDefaults {
@@ -40,14 +41,15 @@ export function loadDefaults(): SavedDefaults {
         camera: { ...DEFAULT_CAMERA, ...parsed.camera },
         orientation: { ...DEFAULT_ORIENTATION, ...parsed.orientation },
         solidHover: parsed.solidHover ?? false,
+        starDriftSpeed: parsed.starDriftSpeed ?? 3.0,
       };
     }
   } catch { /* use defaults */ }
-  return { camera: { ...DEFAULT_CAMERA }, orientation: { ...DEFAULT_ORIENTATION }, solidHover: false };
+  return { camera: { ...DEFAULT_CAMERA }, orientation: { ...DEFAULT_ORIENTATION }, solidHover: false, starDriftSpeed: 3.0 };
 }
 
-export function saveDefaults(camera: CameraParams, orientation: ShipOrientation, solidHover: boolean): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ camera, orientation, solidHover }));
+export function saveDefaults(camera: CameraParams, orientation: ShipOrientation, solidHover: boolean, starDriftSpeed?: number): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ camera, orientation, solidHover, starDriftSpeed: starDriftSpeed ?? 3.0 }));
 }
 
 export class ShipControls {

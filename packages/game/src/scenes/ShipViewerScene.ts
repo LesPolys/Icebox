@@ -67,6 +67,7 @@ export class ShipViewerScene extends Phaser.Scene {
     this.shipRenderer.orientation.rotY = defaults.orientation.rotY;
     this.shipRenderer.orientation.rotZ = defaults.orientation.rotZ;
     this.shipRenderer.solidHover = defaults.solidHover;
+    this.shipRenderer.starDriftSpeed = defaults.starDriftSpeed;
 
     // Generate ship with a random seed
     this.currentSeed = Date.now();
@@ -322,6 +323,31 @@ export class ShipViewerScene extends Phaser.Scene {
     engineRow.appendChild(engineVal);
     body.appendChild(engineRow);
 
+    // -- Star drift speed slider --
+    const starRow = document.createElement("div");
+    starRow.style.cssText = "display: flex; align-items: center; gap: 8px; margin-top: 6px;";
+    const starLabel = document.createElement("span");
+    starLabel.textContent = "STARS";
+    starLabel.style.cssText = `color: ${HEX.concrete}; font-size: 9px; letter-spacing: 0.5px; min-width: 48px;`;
+    const starSlider = document.createElement("input");
+    starSlider.type = "range";
+    starSlider.min = "0";
+    starSlider.max = "200";
+    starSlider.value = String(Math.round((this.shipRenderer?.starDriftSpeed ?? 3) * 10));
+    starSlider.style.cssText = "flex: 1; accent-color: " + HEX.concrete + ";";
+    const starVal = document.createElement("span");
+    starVal.textContent = (this.shipRenderer?.starDriftSpeed ?? 3).toFixed(1);
+    starVal.style.cssText = `color: ${HEX.concrete}; font-size: 10px; min-width: 32px; text-align: right;`;
+    starSlider.addEventListener("input", () => {
+      const v = parseInt(starSlider.value, 10) / 10;
+      if (this.shipRenderer) this.shipRenderer.starDriftSpeed = v;
+      starVal.textContent = v.toFixed(1);
+    });
+    starRow.appendChild(starLabel);
+    starRow.appendChild(starSlider);
+    starRow.appendChild(starVal);
+    body.appendChild(starRow);
+
     // -- Save button --
     const btnRow = document.createElement("div");
     btnRow.style.cssText = "margin-top: 6px;";
@@ -336,7 +362,7 @@ export class ShipViewerScene extends Phaser.Scene {
     saveBtn.addEventListener("mouseenter", () => { saveBtn.style.borderColor = HEX.chartreuse; });
     saveBtn.addEventListener("mouseleave", () => { saveBtn.style.borderColor = HEX.graphite; });
     saveBtn.addEventListener("click", () => {
-      saveDefaults(this.shipControls!.params, this.shipRenderer!.orientation, this.shipRenderer!.solidHover);
+      saveDefaults(this.shipControls!.params, this.shipRenderer!.orientation, this.shipRenderer!.solidHover, this.shipRenderer!.starDriftSpeed);
       saveBtn.textContent = "SAVED";
       saveBtn.style.color = HEX.teal;
       setTimeout(() => {

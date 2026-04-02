@@ -36,6 +36,151 @@ export interface HardpointMeta {
   sectionId: SectionId;
 }
 
+// ── Starfield ──────────────────────────────────────────────
+
+const STAR_COUNT = 180;
+const STAR_FIELD_RADIUS = 200;     // sphere radius for star placement
+const STAR_RECYCLE_Z = STAR_FIELD_RADIUS; // drifted past = recycle
+
+/** 0=cross, 1=dot, 2=6-pointed, 3=diamond, 4=dash */
+type StarShape = 0 | 1 | 2 | 3 | 4;
+
+interface Star {
+  /** Index into the positions buffer (stride = points-per-star * 3) */
+  baseIdx: number;
+  /** World-space position */
+  x: number; y: number; z: number;
+  /** Size multiplier */
+  size: number;
+  /** Current opacity 0-1 */
+  opacity: number;
+  /** Target opacity for fading */
+  targetOpacity: number;
+  /** Lifecycle state */
+  state: "visible" | "winking" | "fading_in" | "exploding";
+  /** Timer for lifecycle events */
+  timer: number;
+  /** Spin speed for idle twinkle (radians/s) */
+  spin: number;
+  /** Visual shape variant */
+  shape: StarShape;
+}
+
+/** All shapes produce exactly SEGMENTS_PER_STAR line segments = POINTS_PER_STAR endpoints. */
+const SEGMENTS_PER_STAR = 8;
+const POINTS_PER_STAR = SEGMENTS_PER_STAR * 2; // 16 points
+const VERTS_PER_STAR = POINTS_PER_STAR * 3;    // 48 floats
+
+function randomStarShape(): StarShape {
+  const r = Math.random();
+  if (r < 0.30) return 0; // cross — classic sparkle
+  if (r < 0.50) return 1; // dot — tiny compact cluster
+  if (r < 0.70) return 2; // 6-pointed — larger prominent stars
+  if (r < 0.88) return 3; // diamond — simple clean shape
+  return 4;               // dash — subtle streak
+}
+
+/** Generate star shape verts — exactly 8 line segments (16 endpoint vec2s → 48 floats with z=0).
+ *  All geometry centred at origin, caller offsets to world position. */
+function starShapeVerts(shape: StarShape, size: number, angle: number): number[] {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const rx = (px: number, py: number) => px * c - py * s;
+  const ry = (px: number, py: number) => px * s + py * c;
+  const push2 = (out: number[], ax: number, ay: number, bx: number, by: number) => {
+    out.push(rx(ax, ay), ry(ax, ay), 0, rx(bx, by), ry(bx, by), 0);
+  };
+  const out: number[] = [];
+
+  switch (shape) {
+    case 0: {
+      // Cross / sparkle — 4-point with elongated horizontal arms
+      const armV = size;
+      const armH = size * 1.6;
+      const tV = size * 0.14;
+      const tH = armH * 0.09;
+      // Vertical diamond (4 edges)
+      const vP = [[0, -armV], [tV, 0], [0, armV], [-tV, 0]];
+      for (let i = 0; i < 4; i++) {
+        const a = vP[i], b = vP[(i + 1) % 4];
+        push2(out, a[0], a[1], b[0], b[1]);
+      }
+      // Horizontal diamond (4 edges)
+      const hP = [[-armH, 0], [0, tH], [armH, 0], [0, -tH]];
+      for (let i = 0; i < 4; i++) {
+        const a = hP[i], b = hP[(i + 1) % 4];
+        push2(out, a[0], a[1], b[0], b[1]);
+      }
+      break;
+    }
+    case 1: {
+      // Dot — small octagon with inner cross, looks like a compact point of light
+      const r = size * 0.5;
+      // Outer octagon (8 edges = 8 segments, perfect fit)
+      for (let i = 0; i < 8; i++) {
+        const a0 = (i / 8) * Math.PI * 2;
+        const a1 = ((i + 1) / 8) * Math.PI * 2;
+        push2(out, Math.cos(a0) * r, Math.sin(a0) * r, Math.cos(a1) * r, Math.sin(a1) * r);
+      }
+      break;
+    }
+    case 2: {
+      // 6-pointed star — 6 spokes radiating from center + inner ring connecting midpoints
+      const outer = size * 1.2;
+      const inner = size * 0.35;
+      // 6 spokes (6 segments)
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        push2(out, 0, 0, Math.cos(a) * outer, Math.sin(a) * outer);
+      }
+      // Inner hexagon ring (use 2 segments connecting alternating midpoints for the remaining 2)
+      const m0 = (0 / 6) * Math.PI * 2;
+      const m2 = (2 / 6) * Math.PI * 2;
+      const m4 = (4 / 6) * Math.PI * 2;
+      push2(out, Math.cos(m0) * inner, Math.sin(m0) * inner, Math.cos(m2) * inner, Math.sin(m2) * inner);
+      push2(out, Math.cos(m2) * inner, Math.sin(m2) * inner, Math.cos(m4) * inner, Math.sin(m4) * inner);
+      break;
+    }
+    case 3: {
+      // Diamond — simple 4-sided rhombus with slight asymmetry, plus faint inner cross
+      const h = size * 1.1;
+      const w = size * 0.6;
+      // Outer diamond (4 edges)
+      const dP = [[0, -h], [w, 0], [0, h], [-w, 0]];
+      for (let i = 0; i < 4; i++) {
+        const a = dP[i], b = dP[(i + 1) % 4];
+        push2(out, a[0], a[1], b[0], b[1]);
+      }
+      // Inner cross lines (4 segments — short stubs)
+      const stub = size * 0.3;
+      push2(out, 0, -stub, 0, stub);
+      push2(out, -stub, 0, stub, 0);
+      push2(out, -stub * 0.5, -stub * 0.5, stub * 0.5, stub * 0.5);
+      push2(out, -stub * 0.5, stub * 0.5, stub * 0.5, -stub * 0.5);
+      break;
+    }
+    case 4: {
+      // Dash — elongated streak with a small perpendicular tick, like a distant star in motion
+      const len = size * 2.0;
+      const tick = size * 0.3;
+      // Main streak (1 segment)
+      push2(out, -len, 0, len, 0);
+      // Center tick (1 segment)
+      push2(out, 0, -tick, 0, tick);
+      // Tapered ends — thin chevrons (3 segments each side = 6 segments)
+      const notch = size * 0.15;
+      push2(out, -len * 0.7, notch, -len, 0);
+      push2(out, -len * 0.7, -notch, -len, 0);
+      push2(out, len * 0.7, notch, len, 0);
+      push2(out, len * 0.7, -notch, len, 0);
+      push2(out, -len * 0.4, notch * 0.5, -len * 0.4, -notch * 0.5);
+      push2(out, len * 0.4, notch * 0.5, len * 0.4, -notch * 0.5);
+      break;
+    }
+  }
+  return out;
+}
+
 const SECTION_HOVER_COLORS: Record<SectionId, number> = {
   asteroid: NUM.concrete,
   engineering: NUM.signalRed,
@@ -77,6 +222,14 @@ export class ShipRenderer {
   /** Engine thrust power — 0 = off, 1 = full burn */
   enginePower = 0.7;
 
+  /** Starfield background */
+  private stars: Star[] = [];
+  private starGeometry: THREE.BufferGeometry | null = null;
+  private starPositions: Float32Array | null = null;
+  private starGroup: THREE.Group = new THREE.Group();
+  /** Star drift speed — how fast stars scroll past (units/s along -Z) */
+  starDriftSpeed = 3.0;
+
   constructor(container: HTMLElement) {
     // Create overlay canvas
     this.canvas = document.createElement("canvas");
@@ -117,6 +270,87 @@ export class ShipRenderer {
 
     // Raycaster threshold for lines
     this.raycaster.params.Line = { threshold: 1.5 };
+
+    // ── Starfield ──
+    this.initStarfield();
+  }
+
+  private initStarfield(): void {
+    const positions = new Float32Array(STAR_COUNT * VERTS_PER_STAR);
+    this.starPositions = positions;
+
+    for (let i = 0; i < STAR_COUNT; i++) {
+      // Distribute on a sphere surface, then randomise depth
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = STAR_FIELD_RADIUS * (0.5 + Math.random() * 0.5);
+      const x = r * Math.sin(phi) * Math.cos(theta);
+      const y = r * Math.sin(phi) * Math.sin(theta);
+      const z = r * Math.cos(phi);
+      const size = 0.3 + Math.random() * 1.2;
+      const angle = Math.random() * Math.PI;
+
+      const star: Star = {
+        baseIdx: i * VERTS_PER_STAR,
+        x, y, z, size,
+        opacity: 0.6 + Math.random() * 0.4,
+        targetOpacity: 1.0,
+        state: "visible",
+        timer: 0,
+        spin: (Math.random() - 0.5) * 0.3,
+        shape: randomStarShape(),
+      };
+      this.stars.push(star);
+      this.writeStarVerts(star, positions, angle);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    this.starGeometry = geo;
+
+    const mat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(NUM.void),
+      transparent: true,
+      opacity: 0.7,
+    });
+    const lines = new THREE.LineSegments(geo, mat);
+    this.starGroup.add(lines);
+    // Add starfield to scene root (not shipPivot — stars don't rotate with ship)
+    this.threeScene.add(this.starGroup);
+  }
+
+  /** Write a single star's shape geometry into the shared positions buffer */
+  private writeStarVerts(star: Star, buf: Float32Array, angle: number): void {
+    const verts = starShapeVerts(star.shape, star.size * star.opacity, angle);
+    for (let j = 0; j < verts.length; j += 3) {
+      buf[star.baseIdx + j] = star.x + verts[j];
+      buf[star.baseIdx + j + 1] = star.y + verts[j + 1];
+      buf[star.baseIdx + j + 2] = star.z + verts[j + 2];
+    }
+  }
+
+  /** Respawn a star behind the ship's travel direction */
+  private respawnStar(star: Star): void {
+    // Get the ship's backward direction (opposite of forward travel)
+    const back = this._starDriftDir.clone().negate();
+    // Random offset perpendicular to drift
+    const theta = Math.random() * Math.PI * 2;
+    const spread = 20 + Math.random() * (STAR_FIELD_RADIUS * 0.6);
+    // Build a rough perpendicular basis
+    const up = Math.abs(back.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const perp1 = new THREE.Vector3().crossVectors(back, up).normalize();
+    const perp2 = new THREE.Vector3().crossVectors(back, perp1).normalize();
+    const spawnDist = STAR_FIELD_RADIUS * (0.7 + Math.random() * 0.3);
+    star.x = back.x * spawnDist + perp1.x * Math.cos(theta) * spread + perp2.x * Math.sin(theta) * spread;
+    star.y = back.y * spawnDist + perp1.y * Math.cos(theta) * spread + perp2.y * Math.sin(theta) * spread;
+    star.z = back.z * spawnDist + perp1.z * Math.cos(theta) * spread + perp2.z * Math.sin(theta) * spread;
+    star.size = 0.3 + Math.random() * 1.2;
+    star.opacity = 0;
+    star.targetOpacity = 0.6 + Math.random() * 0.4;
+    star.state = "fading_in";
+    star.timer = 0;
+    star.spin = (Math.random() - 0.5) * 0.3;
+    star.shape = randomStarShape();
   }
 
   buildGeometry(shipGeometry: ShipGeometry): void {
@@ -406,6 +640,7 @@ export class ShipRenderer {
   private _localZ = new THREE.Vector3();
 
   update(): void {
+    const dt = this.clock.getDelta();
     const t = this.clock.getElapsedTime();
 
     // Build orientation: first apply pitch/yaw (base pose), then roll around local Z
@@ -437,7 +672,82 @@ export class ShipRenderer {
       updateExhaustPlume(plume, t, this.enginePower);
     }
 
+    // ── Starfield update ──
+    this.updateStarfield(dt);
+
     this.renderer.render(this.threeScene, this.camera);
+  }
+
+  // Reusable vector for starfield drift direction
+  private _starDriftDir = new THREE.Vector3();
+
+  private updateStarfield(dt: number): void {
+    if (!this.starPositions || !this.starGeometry) return;
+    const buf = this.starPositions;
+    const speed = this.starDriftSpeed * dt;
+
+    // Drift along the ship's local -Z axis (engines fire -Z, so stars stream from +Z toward -Z)
+    this._starDriftDir.set(0, 0, -1).applyQuaternion(this.shipPivot.quaternion);
+    const dx = this._starDriftDir.x * speed;
+    const dy = this._starDriftDir.y * speed;
+    const dz = this._starDriftDir.z * speed;
+
+    for (const star of this.stars) {
+      // Move star along the ship's forward axis
+      star.x += dx;
+      star.y += dy;
+      star.z += dz;
+
+      // Lifecycle
+      star.timer += dt;
+      switch (star.state) {
+        case "visible":
+          // Random chance to wink out or explode
+          if (star.timer > 3 && Math.random() < 0.0005) {
+            star.state = Math.random() < 0.3 ? "exploding" : "winking";
+            star.timer = 0;
+          }
+          break;
+        case "winking":
+          // Quick fade out over 0.4s
+          star.opacity = Math.max(0, star.targetOpacity * (1 - star.timer / 0.4));
+          if (star.timer >= 0.4) {
+            this.respawnStar(star);
+          }
+          break;
+        case "exploding": {
+          // Rapid expand + fade over 0.6s
+          const p = star.timer / 0.6;
+          star.size = (0.3 + Math.random() * 1.2) * (1 + p * 3);
+          star.opacity = star.targetOpacity * Math.max(0, 1 - p);
+          if (p >= 1) {
+            this.respawnStar(star);
+          }
+          break;
+        }
+        case "fading_in":
+          // Gentle fade in over 1.5s
+          star.opacity = star.targetOpacity * Math.min(1, star.timer / 1.5);
+          if (star.timer >= 1.5) {
+            star.opacity = star.targetOpacity;
+            star.state = "visible";
+            star.timer = 0;
+          }
+          break;
+      }
+
+      // Recycle if drifted too far from origin
+      const dist2 = star.x * star.x + star.y * star.y + star.z * star.z;
+      if (dist2 > STAR_FIELD_RADIUS * STAR_FIELD_RADIUS) {
+        this.respawnStar(star);
+      }
+
+      // Rewrite verts with current position + size + spin
+      const angle = star.spin * (star.timer + star.z * 0.01);
+      this.writeStarVerts(star, buf, angle);
+    }
+
+    (this.starGeometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
   }
 
   resize(width: number, height: number): void {
@@ -464,6 +774,17 @@ export class ShipRenderer {
     this.sections.length = 0;
     this.hardpoints.length = 0;
     this.enginePlumes.length = 0;
+    // Starfield cleanup
+    this.starGroup.traverse((obj) => {
+      if (obj instanceof THREE.LineSegments) {
+        obj.geometry.dispose();
+        (obj.material as THREE.Material).dispose();
+      }
+    });
+    this.threeScene.remove(this.starGroup);
+    this.stars.length = 0;
+    this.starGeometry = null;
+    this.starPositions = null;
     this.renderer.dispose();
     this.canvas.remove();
   }
