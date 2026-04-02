@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { ShipOrientation } from "./ShipRenderer";
+import savedDefaults from "./shipViewerDefaults.json";
 
 export interface CameraParams {
   distance: number;
@@ -9,8 +10,6 @@ export interface CameraParams {
   /** Azimuth offset in radians — base angle before drag rotation */
   azimuth: number;
 }
-
-const STORAGE_KEY = "icebox_shipviewer_defaults";
 
 export const DEFAULT_CAMERA: CameraParams = {
   distance: 80,
@@ -25,31 +24,41 @@ export const DEFAULT_ORIENTATION: ShipOrientation = {
   rotZ: 0,
 };
 
+export type HoverMode = "wireframe" | "solid-hover" | "solid-highlight";
+
 export interface SavedDefaults {
   camera: CameraParams;
   orientation: ShipOrientation;
-  solidHover: boolean;
+  hoverMode: HoverMode;
+  enginePower: number;
   starDriftSpeed: number;
 }
 
 export function loadDefaults(): SavedDefaults {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        camera: { ...DEFAULT_CAMERA, ...parsed.camera },
-        orientation: { ...DEFAULT_ORIENTATION, ...parsed.orientation },
-        solidHover: parsed.solidHover ?? false,
-        starDriftSpeed: parsed.starDriftSpeed ?? 3.0,
-      };
-    }
-  } catch { /* use defaults */ }
-  return { camera: { ...DEFAULT_CAMERA }, orientation: { ...DEFAULT_ORIENTATION }, solidHover: false, starDriftSpeed: 3.0 };
+  // Migrate old solidHover boolean to hoverMode
+  const raw = savedDefaults as Record<string, unknown>;
+  let hoverMode: HoverMode = (raw.hoverMode as HoverMode) ?? "wireframe";
+  if (!raw.hoverMode && raw.solidHover) hoverMode = "solid-hover";
+  return {
+    camera: { ...DEFAULT_CAMERA, ...savedDefaults.camera },
+    orientation: { ...DEFAULT_ORIENTATION, ...savedDefaults.orientation },
+    hoverMode,
+    enginePower: savedDefaults.enginePower ?? 0.7,
+    starDriftSpeed: savedDefaults.starDriftSpeed ?? 3.0,
+  };
 }
 
-export function saveDefaults(camera: CameraParams, orientation: ShipOrientation, solidHover: boolean, starDriftSpeed?: number): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ camera, orientation, solidHover, starDriftSpeed: starDriftSpeed ?? 3.0 }));
+export async function saveDefaults(defaults: SavedDefaults): Promise<boolean> {
+  try {
+    const res = await fetch("/__save-defaults", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(defaults),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 export class ShipControls {

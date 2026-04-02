@@ -702,6 +702,11 @@ function generateBridgeModule(
       const ox = Math.cos(offAngle) * hullR * 0.3;
       const oy = Math.sin(offAngle) * hullR * 0.3;
 
+      // Tower rises in a direction with both Y and Z components
+      const tiltAngle = rng() * Math.PI * 0.4 - Math.PI * 0.2;
+      const tUpY = Math.cos(tiltAngle);
+      const tUpZ = Math.sin(tiltAngle);
+
       const towerRings: Vec3[][] = [];
       for (let l = 0; l < towerLayers; l++) {
         const lt = l / (towerLayers - 1);
@@ -711,8 +716,8 @@ function generateBridgeModule(
         for (const v of ring) {
           const rx = v.x; const ry = v.y;
           v.x = ox + rx;
-          v.y = oy + elevation;
-          v.z = bridgeZ + ry * 0.3; // slight Z spread
+          v.y = oy + elevation * tUpY + ry * 0.3;
+          v.z = bridgeZ + elevation * tUpZ + rx * 0.15;
         }
         towerRings.push(ring);
         segs.push(...ringEdges(ring));
@@ -727,22 +732,28 @@ function generateBridgeModule(
     }
 
     case 1: {
-      // ── Bubble — multi-layer dome with window bands ──
+      // ── Bubble — hemispherical dome rising above hull ──
       const bSides = 8 + Math.floor(rng() * 4);
       const bubbleR = (2 + rng() * 2.5) * scale;
       const offX = (rng() - 0.5) * 3;
       const baseY = hullR * 0.6;
       const layers = 3 + Math.floor(rng() * 2);
 
+      // Pick a random "up" direction in the YZ plane so the dome isn't always flat
+      const domeAngle = rng() * Math.PI * 0.5 - Math.PI * 0.25; // tilt forward/backward
+      const domeUpY = Math.cos(domeAngle);
+      const domeUpZ = Math.sin(domeAngle);
+
       let prevRing: Vec3[] | null = null;
       for (let l = 0; l < layers; l++) {
         const lt = (l + 1) / layers;
-        const elev = Math.sin(lt * Math.PI * 0.5);
+        const elev = Math.sin(lt * Math.PI * 0.5) * bubbleR;
         const r = bubbleR * Math.cos(lt * Math.PI * 0.45);
         const ring = makeRing(bridgeZ, bSides, () => r, rng, 0.08);
         for (const v of ring) {
           v.x += offX;
-          v.y += baseY + elev * bubbleR;
+          v.y += baseY + elev * domeUpY;
+          v.z += elev * domeUpZ;
         }
         segs.push(...ringEdges(ring));
         if (prevRing) {
@@ -820,19 +831,20 @@ function generateBridgeModule(
     }
 
     case 3: {
-      // ── Armored — recessed viewport collar ──
+      // ── Armored — recessed viewport collar with Z depth ──
       const collarSides = 8 + Math.floor(rng() * 4);
       const collarR = hullR * (0.7 + rng() * 0.2);
       const collarDepth = (1.5 + rng() * 1.5) * scale;
       const slitHeight = (0.5 + rng() * 0.5) * scale;
+      const collarZSpread = collarDepth * 0.8; // depth along Z axis
 
       // Outer collar ring
-      const outerRing = makeRing(bridgeZ, collarSides, () => collarR * scale, rng, 0.1);
+      const outerRing = makeRing(bridgeZ - collarZSpread * 0.5, collarSides, () => collarR * scale, rng, 0.1);
       segs.push(...ringEdges(outerRing));
 
-      // Inner collar ring — smaller, recessed inward
+      // Inner collar ring — smaller, recessed inward and forward
       const innerR = collarR * (0.5 + rng() * 0.15) * scale;
-      const innerRing = makeRing(bridgeZ, collarSides, () => innerR, rng, 0.08);
+      const innerRing = makeRing(bridgeZ + collarZSpread * 0.5, collarSides, () => innerR, rng, 0.08);
       for (const v of innerRing) v.y += collarDepth;
       segs.push(...ringEdges(innerRing));
 
@@ -840,9 +852,10 @@ function generateBridgeModule(
       segs.push(...connectRings(outerRing, innerRing));
 
       // Viewport slit — horizontal band between two rings
-      const slitLower = makeRing(bridgeZ, collarSides,
+      const slitZ = bridgeZ + collarZSpread * 0.1;
+      const slitLower = makeRing(slitZ, collarSides,
         () => (collarR * 0.75) * scale, rng, 0.05);
-      const slitUpper = makeRing(bridgeZ, collarSides,
+      const slitUpper = makeRing(slitZ + slitHeight * 0.3, collarSides,
         () => (collarR * 0.75) * scale, rng, 0.05);
       for (const v of slitLower) v.y += collarDepth * 0.4;
       for (const v of slitUpper) v.y += collarDepth * 0.4 + slitHeight;
@@ -1520,8 +1533,8 @@ function generateHabitat(rng: () => number, commandZEnd: number): ShipSection {
     }
   }
 
-  // Combine drum ring meshes
-  const meshParts = allDrumRingSets.map(meshFromRings).filter((m): m is NonNullable<typeof m> => m != null);
+  // Combine drum ring meshes + spine
+  const meshParts = [...allDrumRingSets, spineRings].map(meshFromRings).filter((m): m is NonNullable<typeof m> => m != null);
   let combinedMesh: { vertices: Float32Array; indices: Uint16Array } | undefined;
   if (meshParts.length > 0) {
     let totalVerts = 0;
@@ -1755,8 +1768,8 @@ function placeHardpoints(
     const len = Math.sqrt(v.x * v.x + v.y * v.y) || 1;
     const normal = vec3(v.x / len, v.y / len, 0);
     const position = vec3(
-      v.x + normal.x * 0.5,
-      v.y + normal.y * 0.5,
+      v.x + normal.x * 2.5,
+      v.y + normal.y * 2.5,
       v.z,
     );
 
@@ -1768,8 +1781,17 @@ function placeHardpoints(
       slotIndex: i,
     });
 
-    // Remove nearby candidates to ensure spacing
-    candidates.splice(bestIdx, 1);
+    // Remove all candidates within minimum distance to ensure spacing
+    const MIN_HP_DIST = 12;
+    for (let k = candidates.length - 1; k >= 0; k--) {
+      const c = candidates[k];
+      const dx = c.x - v.x;
+      const dy = c.y - v.y;
+      const dz = c.z - v.z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) < MIN_HP_DIST) {
+        candidates.splice(k, 1);
+      }
+    }
   }
 
   section.hardpoints = hardpoints;

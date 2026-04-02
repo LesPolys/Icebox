@@ -39,8 +39,7 @@ export interface HardpointMeta {
 // ── Starfield ──────────────────────────────────────────────
 
 const STAR_COUNT = 180;
-const STAR_FIELD_RADIUS = 200;     // sphere radius for star placement
-const STAR_RECYCLE_Z = STAR_FIELD_RADIUS; // drifted past = recycle
+const STAR_FIELD_RADIUS = 200;     // half-extent of star cube volume
 
 /** 0=cross, 1=dot, 2=6-pointed, 3=diamond, 4=dash */
 type StarShape = 0 | 1 | 2 | 3 | 4;
@@ -211,12 +210,14 @@ export class ShipRenderer {
   private sectionGroups: THREE.Group[] = [];
   private clock = new THREE.Clock();
 
+  /** Maps asteroid section index to its parent sector index (-1 = no redirect) */
+  private asteroidRedirectIdx = -1;
   /** Currently hovered section index (-1 = none) */
   hoveredSection = -1;
   /** Currently hovered hardpoint index (-1 = none) */
   hoveredHardpoint = -1;
-  /** When true, hovered sections show a semi-solid convex hull */
-  solidHover = false;
+  /** Display mode: wireframe-only, solid on hover, or always-solid with highlight */
+  hoverMode: "wireframe" | "solid-hover" | "solid-highlight" = "wireframe";
   /** Engine exhaust plumes */
   private enginePlumes: ExhaustPlume[] = [];
   /** Engine thrust power — 0 = off, 1 = full burn */
@@ -280,13 +281,11 @@ export class ShipRenderer {
     this.starPositions = positions;
 
     for (let i = 0; i < STAR_COUNT; i++) {
-      // Distribute on a sphere surface, then randomise depth
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = STAR_FIELD_RADIUS * (0.5 + Math.random() * 0.5);
-      const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = r * Math.sin(phi) * Math.sin(theta);
-      const z = r * Math.cos(phi);
+      // Uniform distribution in a cube volume
+      const R = STAR_FIELD_RADIUS;
+      const x = (Math.random() * 2 - 1) * R;
+      const y = (Math.random() * 2 - 1) * R;
+      const z = (Math.random() * 2 - 1) * R;
       const size = 0.3 + Math.random() * 1.2;
       const angle = Math.random() * Math.PI;
 
@@ -329,21 +328,12 @@ export class ShipRenderer {
     }
   }
 
-  /** Respawn a star behind the ship's travel direction */
+  /** Respawn a star at a random position in the field (used after wink/explode) */
   private respawnStar(star: Star): void {
-    // Get the ship's backward direction (opposite of forward travel)
-    const back = this._starDriftDir.clone().negate();
-    // Random offset perpendicular to drift
-    const theta = Math.random() * Math.PI * 2;
-    const spread = 20 + Math.random() * (STAR_FIELD_RADIUS * 0.6);
-    // Build a rough perpendicular basis
-    const up = Math.abs(back.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    const perp1 = new THREE.Vector3().crossVectors(back, up).normalize();
-    const perp2 = new THREE.Vector3().crossVectors(back, perp1).normalize();
-    const spawnDist = STAR_FIELD_RADIUS * (0.7 + Math.random() * 0.3);
-    star.x = back.x * spawnDist + perp1.x * Math.cos(theta) * spread + perp2.x * Math.sin(theta) * spread;
-    star.y = back.y * spawnDist + perp1.y * Math.cos(theta) * spread + perp2.y * Math.sin(theta) * spread;
-    star.z = back.z * spawnDist + perp1.z * Math.cos(theta) * spread + perp2.z * Math.sin(theta) * spread;
+    const R = STAR_FIELD_RADIUS;
+    star.x = (Math.random() * 2 - 1) * R;
+    star.y = (Math.random() * 2 - 1) * R;
+    star.z = (Math.random() * 2 - 1) * R;
     star.size = 0.3 + Math.random() * 1.2;
     star.opacity = 0;
     star.targetOpacity = 0.6 + Math.random() * 0.4;
@@ -372,6 +362,10 @@ export class ShipRenderer {
     this.sections.length = 0;
     this.hardpoints.length = 0;
     this.enginePlumes.length = 0;
+    this.asteroidRedirectIdx = -1;
+
+    // Map asteroid placement to its parent section name
+    const asteroidParent = shipGeometry.asteroidPlacement ?? "habitat";
 
     for (const section of shipGeometry.sections) {
       const group = new THREE.Group();
@@ -483,8 +477,8 @@ export class ShipRenderer {
 
       // Hardpoint markers + hit targets
       for (const hp of section.hardpoints) {
-        // Diamond marker — larger and double-layered for visibility
-        const markerGeo = new THREE.OctahedronGeometry(1.6, 0);
+        // Diamond marker — large and double-layered for visibility
+        const markerGeo = new THREE.OctahedronGeometry(2.8, 0);
         const markerMat = new THREE.MeshBasicMaterial({
           color: NUM.indigo,
           wireframe: true,
@@ -496,7 +490,7 @@ export class ShipRenderer {
         group.add(marker);
 
         // Inner glow core — additive blended solid for brightness
-        const coreGeo = new THREE.OctahedronGeometry(0.9, 0);
+        const coreGeo = new THREE.OctahedronGeometry(1.6, 0);
         const coreMat = new THREE.MeshBasicMaterial({
           color: NUM.indigo,
           transparent: true,
@@ -509,7 +503,7 @@ export class ShipRenderer {
         group.add(core);
 
         // Invisible larger sphere for easier raycasting
-        const hitGeo = new THREE.SphereGeometry(3, 8, 6);
+        const hitGeo = new THREE.SphereGeometry(4.5, 8, 6);
         const hitMat = new THREE.MeshBasicMaterial({
           visible: false,
         });
@@ -540,6 +534,13 @@ export class ShipRenderer {
         }
       }
     }
+
+    // Set up asteroid → parent section redirect
+    const asteroidIdx = this.sections.findIndex((s) => s.id === "asteroid");
+    const parentIdx = this.sections.findIndex((s) => s.id === asteroidParent);
+    if (asteroidIdx >= 0 && parentIdx >= 0) {
+      this.asteroidRedirectIdx = parentIdx;
+    }
   }
 
   /** Raycast from normalized device coordinates (-1 to 1) */
@@ -554,21 +555,59 @@ export class ShipRenderer {
       hardpointIdx = hitTargets.indexOf(hpHits[0].object as THREE.Mesh);
     }
 
-    // Check section line segments
+    // Check section line segments + hover meshes
     const lineObjects = this.sections.map((s) => s.lineSegments);
-    const sectionHits = this.raycaster.intersectObjects(lineObjects, false);
+    const hoverMeshes = this.sections.map((s) => s.hoverMesh).filter((m): m is THREE.Mesh => m != null);
+    const sectionHits = this.raycaster.intersectObjects([...lineObjects, ...hoverMeshes], false);
     let sectionIdx = -1;
     if (sectionHits.length > 0) {
       const hitObj = sectionHits[0].object;
-      sectionIdx = lineObjects.indexOf(hitObj as THREE.LineSegments);
+      // Check line segments first
+      const lineIdx = lineObjects.indexOf(hitObj as THREE.LineSegments);
+      if (lineIdx >= 0) {
+        sectionIdx = lineIdx;
+      } else {
+        // Check hover meshes
+        const meshIdx = this.sections.findIndex((s) => s.hoverMesh === hitObj);
+        if (meshIdx >= 0) sectionIdx = meshIdx;
+      }
+    }
+
+    // Redirect asteroid hits to its parent sector
+    if (sectionIdx >= 0 && this.sections[sectionIdx].id === "asteroid" && this.asteroidRedirectIdx >= 0) {
+      sectionIdx = this.asteroidRedirectIdx;
     }
 
     return { sectionIdx, hardpointIdx };
   }
 
+  /** Apply hover mode to all sections (call after changing hoverMode) */
+  applyHoverMode(): void {
+    const isSolidHighlight = this.hoverMode === "solid-highlight";
+    for (const sec of this.sections) {
+      if (!sec.hoverMesh || !sec.hoverMeshMat) continue;
+      if (isSolidHighlight) {
+        // Always visible with base color
+        sec.hoverMeshMat.color.copy(sec.baseColor);
+        sec.hoverMeshMat.opacity = 0.45;
+        sec.hoverMesh.visible = true;
+      } else {
+        // Hidden unless hovered
+        sec.hoverMesh.visible = false;
+      }
+    }
+    // Re-apply current hover if any
+    if (this.hoveredSection >= 0) {
+      const saved = this.hoveredSection;
+      this.hoveredSection = -1;
+      this.highlightSection(saved);
+    }
+  }
+
   /** Set section highlight state */
   highlightSection(idx: number): void {
     if (idx === this.hoveredSection) return;
+    const mode = this.hoverMode;
 
     // Restore previous
     if (this.hoveredSection >= 0 && this.hoveredSection < this.sections.length) {
@@ -577,7 +616,15 @@ export class ShipRenderer {
       prev.glowMat.color.copy(prev.baseColor);
       prev.primaryMat.opacity = 0.85;
       prev.glowMat.opacity = 0.3;
-      if (prev.hoverMesh) prev.hoverMesh.visible = false;
+      if (prev.hoverMesh && prev.hoverMeshMat) {
+        if (mode === "solid-highlight") {
+          // Restore to base color
+          prev.hoverMeshMat.color.copy(prev.baseColor);
+          prev.hoverMeshMat.opacity = 0.45;
+        } else {
+          prev.hoverMesh.visible = false;
+        }
+      }
     }
 
     this.hoveredSection = idx;
@@ -589,9 +636,14 @@ export class ShipRenderer {
       sec.glowMat.color.copy(sec.hoverColor);
       sec.primaryMat.opacity = 1.0;
       sec.glowMat.opacity = 0.5;
-      if (this.solidHover && sec.hoverMesh && sec.hoverMeshMat) {
-        sec.hoverMeshMat.color.copy(sec.hoverColor);
-        sec.hoverMesh.visible = true;
+      if (sec.hoverMesh && sec.hoverMeshMat) {
+        if (mode === "solid-hover") {
+          sec.hoverMeshMat.color.copy(sec.hoverColor);
+          sec.hoverMesh.visible = true;
+        } else if (mode === "solid-highlight") {
+          sec.hoverMeshMat.color.copy(sec.hoverColor);
+          sec.hoverMeshMat.opacity = 0.55;
+        }
       }
     }
   }
@@ -736,11 +788,12 @@ export class ShipRenderer {
           break;
       }
 
-      // Recycle if drifted too far from origin
-      const dist2 = star.x * star.x + star.y * star.y + star.z * star.z;
-      if (dist2 > STAR_FIELD_RADIUS * STAR_FIELD_RADIUS) {
-        this.respawnStar(star);
-      }
+      // Wrap around — when a star drifts past the boundary, teleport it to the opposite side
+      // This keeps uniform density in all directions at all times
+      const R = STAR_FIELD_RADIUS;
+      if (star.x > R) star.x -= R * 2; else if (star.x < -R) star.x += R * 2;
+      if (star.y > R) star.y -= R * 2; else if (star.y < -R) star.y += R * 2;
+      if (star.z > R) star.z -= R * 2; else if (star.z < -R) star.z += R * 2;
 
       // Rewrite verts with current position + size + spin
       const angle = star.spin * (star.timer + star.z * 0.01);

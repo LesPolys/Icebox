@@ -66,7 +66,8 @@ export class ShipViewerScene extends Phaser.Scene {
     this.shipRenderer.orientation.rotX = defaults.orientation.rotX;
     this.shipRenderer.orientation.rotY = defaults.orientation.rotY;
     this.shipRenderer.orientation.rotZ = defaults.orientation.rotZ;
-    this.shipRenderer.solidHover = defaults.solidHover;
+    this.shipRenderer.hoverMode = defaults.hoverMode;
+    this.shipRenderer.enginePower = defaults.enginePower;
     this.shipRenderer.starDriftSpeed = defaults.starDriftSpeed;
 
     // Generate ship with a random seed
@@ -96,6 +97,7 @@ export class ShipViewerScene extends Phaser.Scene {
     this.currentSeed = seed;
     const shipGeometry = generateShip({ seed });
     this.shipRenderer.buildGeometry(shipGeometry);
+    this.shipRenderer.applyHoverMode();
     // Close any open hardpoint panel since geometry changed
     this.lockedHardpointIdx = -1;
     this.hideHardpointPanel();
@@ -253,31 +255,38 @@ export class ShipViewerScene extends Phaser.Scene {
     // -- Options section --
     addSection("OPTIONS", HEX.chartreuse);
 
-    const toggleRow = document.createElement("div");
-    toggleRow.style.cssText = "display: flex; align-items: center; margin-bottom: 8px; gap: 8px; cursor: pointer; user-select: none;";
+    const modeRow = document.createElement("div");
+    modeRow.style.cssText = "display: flex; align-items: center; margin-bottom: 8px; gap: 8px;";
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = this.shipRenderer.solidHover;
-    checkbox.style.cssText = `accent-color: ${HEX.teal}; cursor: pointer; width: 14px; height: 14px;`;
+    const modeLabel = document.createElement("span");
+    modeLabel.style.cssText = `color: ${HEX.concrete}; font-size: 10px; min-width: 70px;`;
+    modeLabel.textContent = "RENDER";
+    modeRow.appendChild(modeLabel);
 
-    const toggleLabel = document.createElement("span");
-    toggleLabel.style.cssText = `color: ${HEX.concrete}; font-size: 10px;`;
-    toggleLabel.textContent = "SOLID HOVER";
-
-    checkbox.addEventListener("change", () => {
-      this.shipRenderer!.solidHover = checkbox.checked;
+    const modeSelect = document.createElement("select");
+    modeSelect.style.cssText = `
+      flex: 1; background: ${HEX.steel}; color: ${HEX.teal}; border: 1px solid ${HEX.graphite};
+      font-family: 'Space Mono', monospace; font-size: 10px; padding: 4px 6px; cursor: pointer;
+    `;
+    const modes = [
+      { value: "wireframe", label: "WIREFRAME" },
+      { value: "solid-hover", label: "SOLID HOVER" },
+      { value: "solid-highlight", label: "SOLID HIGHLIGHT" },
+    ] as const;
+    for (const m of modes) {
+      const opt = document.createElement("option");
+      opt.value = m.value;
+      opt.textContent = m.label;
+      opt.style.cssText = `background: ${HEX.steel}; color: ${HEX.teal};`;
+      if (m.value === this.shipRenderer.hoverMode) opt.selected = true;
+      modeSelect.appendChild(opt);
+    }
+    modeSelect.addEventListener("change", () => {
+      this.shipRenderer!.hoverMode = modeSelect.value as "wireframe" | "solid-hover" | "solid-highlight";
+      this.shipRenderer!.applyHoverMode();
     });
-    toggleRow.addEventListener("click", (e) => {
-      if (e.target !== checkbox) {
-        checkbox.checked = !checkbox.checked;
-        this.shipRenderer!.solidHover = checkbox.checked;
-      }
-    });
-
-    toggleRow.appendChild(checkbox);
-    toggleRow.appendChild(toggleLabel);
-    body.appendChild(toggleRow);
+    modeRow.appendChild(modeSelect);
+    body.appendChild(modeRow);
 
     // -- New Ship button --
     const newShipRow = document.createElement("div");
@@ -308,10 +317,11 @@ export class ShipViewerScene extends Phaser.Scene {
     engineSlider.type = "range";
     engineSlider.min = "0";
     engineSlider.max = "100";
-    engineSlider.value = "70";
+    const currentPower = this.shipRenderer?.enginePower ?? 0.7;
+    engineSlider.value = String(Math.round(currentPower * 100));
     engineSlider.style.cssText = "flex: 1; accent-color: " + HEX.signalRed + ";";
     const engineVal = document.createElement("span");
-    engineVal.textContent = "0.70";
+    engineVal.textContent = currentPower.toFixed(2);
     engineVal.style.cssText = `color: ${HEX.signalRed}; font-size: 10px; min-width: 32px; text-align: right;`;
     engineSlider.addEventListener("input", () => {
       const v = parseInt(engineSlider.value, 10) / 100;
@@ -361,10 +371,16 @@ export class ShipViewerScene extends Phaser.Scene {
     `;
     saveBtn.addEventListener("mouseenter", () => { saveBtn.style.borderColor = HEX.chartreuse; });
     saveBtn.addEventListener("mouseleave", () => { saveBtn.style.borderColor = HEX.graphite; });
-    saveBtn.addEventListener("click", () => {
-      saveDefaults(this.shipControls!.params, this.shipRenderer!.orientation, this.shipRenderer!.solidHover, this.shipRenderer!.starDriftSpeed);
-      saveBtn.textContent = "SAVED";
-      saveBtn.style.color = HEX.teal;
+    saveBtn.addEventListener("click", async () => {
+      const ok = await saveDefaults({
+        camera: this.shipControls!.params,
+        orientation: this.shipRenderer!.orientation,
+        hoverMode: this.shipRenderer!.hoverMode,
+        enginePower: this.shipRenderer!.enginePower,
+        starDriftSpeed: this.shipRenderer!.starDriftSpeed,
+      });
+      saveBtn.textContent = ok ? "SAVED" : "SAVE FAILED";
+      saveBtn.style.color = ok ? HEX.teal : HEX.signalRed;
       setTimeout(() => {
         saveBtn.textContent = "SAVE AS DEFAULT";
         saveBtn.style.color = HEX.chartreuse;
@@ -471,13 +487,13 @@ export class ShipViewerScene extends Phaser.Scene {
     this.svgOverlay.appendChild(line);
     this.hardpointLine = line;
 
-    // Create panel div
+    // Create panel div — sized to hold a card slot (120×170 at 720p design scale)
     const panel = document.createElement("div");
     panel.style.cssText = `
       position: absolute; pointer-events: none;
       background: rgba(22, 22, 24, 0.95); border: 1px solid ${HEX.graphite};
-      padding: 10px 14px; font-family: 'Space Mono', monospace;
-      font-size: 11px; color: ${HEX.bone}; min-width: 140px;
+      padding: 12px 14px; font-family: 'Space Mono', monospace;
+      font-size: 11px; color: ${HEX.bone}; min-width: 160px;
       transform-origin: left center; transform: scale(0);
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     `;
@@ -489,9 +505,15 @@ export class ShipViewerScene extends Phaser.Scene {
       : HEX.concrete;
 
     panel.innerHTML = `
-      <div style="color: ${hoverColor}; font-size: 12px; margin-bottom: 6px; letter-spacing: 0.5px;">${sectionLabel}</div>
+      <div style="color: ${hoverColor}; font-size: 12px; margin-bottom: 8px; letter-spacing: 0.5px;">${sectionLabel}</div>
       <div style="color: ${HEX.concrete}; margin-bottom: 3px;">ID: <span style="color: ${HEX.bone}">${hp.data.id}</span></div>
-      <div style="color: ${HEX.concrete};">SLOT: <span style="color: ${HEX.bone}">${hp.data.slotIndex}</span></div>
+      <div style="color: ${HEX.concrete}; margin-bottom: 10px;">SLOT: <span style="color: ${HEX.bone}">${hp.data.slotIndex}</span></div>
+      <div style="
+        width: 120px; height: 170px;
+        border: 1px dashed ${HEX.graphite};
+        display: flex; align-items: center; justify-content: center;
+        color: ${HEX.concrete}; font-size: 9px; letter-spacing: 0.5px;
+      ">EMPTY</div>
     `;
 
     this.panelOverlay.appendChild(panel);
@@ -502,8 +524,8 @@ export class ShipViewerScene extends Phaser.Scene {
     const canvasH = this.shipRenderer.canvas.clientHeight;
     const initPos = this.shipRenderer.projectHardpoint(hpIdx, canvasW, canvasH);
     if (initPos) {
-      this.panelCurrentX = initPos.x + 100;
-      this.panelCurrentY = initPos.y - 20;
+      this.panelCurrentX = initPos.x + 120;
+      this.panelCurrentY = initPos.y - 40;
     }
     this.panelVelocityX = 0;
     this.panelVelocityY = 0;
