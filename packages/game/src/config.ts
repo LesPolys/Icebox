@@ -4,13 +4,14 @@ import { MainMenuScene } from "./scenes/MainMenuScene";
 import { ActiveWatchScene } from "./scenes/ActiveWatchScene";
 import { SuccessionScene } from "./scenes/SuccessionScene";
 import { CryosleepScene } from "./scenes/CryosleepScene";
+import { ShipViewerScene } from "./scenes/ShipViewerScene";
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "game-container",
   width: window.innerWidth,
   height: window.innerHeight,
   backgroundColor: "#D8D4CC",
-  scene: [BootScene, MainMenuScene, ActiveWatchScene, SuccessionScene, CryosleepScene],
+  scene: [BootScene, MainMenuScene, ActiveWatchScene, SuccessionScene, CryosleepScene, ShipViewerScene],
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,

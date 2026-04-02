@@ -1,0 +1,16 @@
+{
+  "camera": {
+    "distance": 98,
+    "fov": 40,
+    "elevation": 0.6,
+    "azimuth": -2.2
+  },
+  "orientation": {
+    "rotX": 1.59840734641021,
+    "rotY": 1.45840734641021,
+    "rotZ": 6.344999999999995
+  },
+  "hoverMode": "solid-highlight",
+  "enginePower": 0.7,
+  "starDriftSpeed": 3
+}

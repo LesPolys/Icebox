@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { HEX, NUM } from "@icebox/shared";
 import { ActiveWatchScene } from "./ActiveWatchScene";
+import { ShipViewerScene } from "./ShipViewerScene";
 import { s, fontSize as fs } from "../ui/layout";
 import { renderBarokText, measureBarokText } from "../ui/BarokFont";
 import { encodeCode128B } from "../ui/barcode";
@@ -82,6 +83,14 @@ export class MainMenuScene extends Phaser.Scene {
       { x: sparkleX + sparkleH, y: sparkleY },
       { x: sparkleX, y: sparkleY + sparkleH * 0.12 },
     ], true);
+
+    // ── Ship viewer hit area on sparkle star ──
+    const starHit = this.add.rectangle(sparkleX, sparkleY, s(80), s(50), 0x000000, 0);
+    starHit.setInteractive({ useHandCursor: true });
+    starHit.on("pointerdown", () => {
+      this.scene.start(ShipViewerScene.KEY);
+    });
+    card.add(starHit);
 
     // ── Title: "ICEBOX" repeated 4 times, stacked ──
     const titleSize = s(42);

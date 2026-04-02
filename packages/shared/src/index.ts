@@ -110,7 +110,7 @@ export { SECTOR_NAMES } from "./types/board.js";
 export { getAllMarketSlots, getAllMarketCards, getMarketRowById, createEmptyRow } from "./types/deck.js";
 
 // ─── Utilities ───────────────────────────────────────────────────────
-export { shuffle, seededShuffle, drawCards, generateInstanceId } from "./utils/shuffle.js";
+export { shuffle, seededShuffle, mulberry32, drawCards, generateInstanceId } from "./utils/shuffle.js";
 export { validateCard } from "./utils/validate-card.js";
 export type { ValidationError } from "./utils/validate-card.js";
 export { getMarketRow, resetMarketRowCounter } from "./utils/market-row.js";
