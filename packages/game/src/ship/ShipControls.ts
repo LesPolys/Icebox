@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import type { ShipOrientation } from "./ShipRenderer";
-import savedDefaults from "./shipViewerDefaults.json";
 
 export interface CameraParams {
   distance: number;
@@ -34,23 +33,38 @@ export interface SavedDefaults {
   starDriftSpeed: number;
 }
 
-export function loadDefaults(): SavedDefaults {
-  // Migrate old solidHover boolean to hoverMode
-  const raw = savedDefaults as Record<string, unknown>;
-  let hoverMode: HoverMode = (raw.hoverMode as HoverMode) ?? "wireframe";
-  if (!raw.hoverMode && raw.solidHover) hoverMode = "solid-hover";
-  return {
-    camera: { ...DEFAULT_CAMERA, ...savedDefaults.camera },
-    orientation: { ...DEFAULT_ORIENTATION, ...savedDefaults.orientation },
-    hoverMode,
-    enginePower: savedDefaults.enginePower ?? 0.7,
-    starDriftSpeed: savedDefaults.starDriftSpeed ?? 3.0,
-  };
+const FALLBACK_DEFAULTS: SavedDefaults = {
+  camera: { ...DEFAULT_CAMERA },
+  orientation: { ...DEFAULT_ORIENTATION },
+  hoverMode: "wireframe",
+  enginePower: 0.7,
+  starDriftSpeed: 3.0,
+};
+
+/** Fetch saved defaults from disk (reads fresh every time) */
+export async function loadDefaults(): Promise<SavedDefaults> {
+  try {
+    const res = await fetch("/__ship-defaults");
+    if (!res.ok) return { ...FALLBACK_DEFAULTS };
+    const raw = await res.json();
+    // Migrate old solidHover boolean
+    let hoverMode: HoverMode = raw.hoverMode ?? "wireframe";
+    if (!raw.hoverMode && raw.solidHover) hoverMode = "solid-hover";
+    return {
+      camera: { ...DEFAULT_CAMERA, ...raw.camera },
+      orientation: { ...DEFAULT_ORIENTATION, ...raw.orientation },
+      hoverMode,
+      enginePower: raw.enginePower ?? 0.7,
+      starDriftSpeed: raw.starDriftSpeed ?? 3.0,
+    };
+  } catch {
+    return { ...FALLBACK_DEFAULTS };
+  }
 }
 
 export async function saveDefaults(defaults: SavedDefaults): Promise<boolean> {
   try {
-    const res = await fetch("/__save-defaults", {
+    const res = await fetch("/__ship-defaults", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(defaults),

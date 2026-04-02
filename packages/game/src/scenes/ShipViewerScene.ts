@@ -56,40 +56,41 @@ export class ShipViewerScene extends Phaser.Scene {
     const container = this.game.canvas.parentElement;
     if (!container) return;
 
-    // Load saved defaults
-    const defaults = loadDefaults();
-
-    // Initialize Three.js renderer
+    // Initialize Three.js renderer immediately with fallback defaults
     this.shipRenderer = new ShipRenderer(container);
-
-    // Apply saved orientation + options
-    this.shipRenderer.orientation.rotX = defaults.orientation.rotX;
-    this.shipRenderer.orientation.rotY = defaults.orientation.rotY;
-    this.shipRenderer.orientation.rotZ = defaults.orientation.rotZ;
-    this.shipRenderer.hoverMode = defaults.hoverMode;
-    this.shipRenderer.enginePower = defaults.enginePower;
-    this.shipRenderer.starDriftSpeed = defaults.starDriftSpeed;
-
-    // Generate ship with a random seed
     this.currentSeed = Date.now();
     this.rebuildShip(this.currentSeed);
-
-    // Initialize camera controls with saved params
-    this.shipControls = new ShipControls(this.shipRenderer.canvas, defaults.camera);
-    this.shipControls.bindShipOrientation(this.shipRenderer.orientation);
-    this.shipControls.bindShipPivot(this.shipRenderer.shipPivot);
 
     // ESC to go back
     if (this.input.keyboard) {
       this.escKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     }
 
-    this.createHUD(container, this.currentSeed);
-    this.createDebugPanel(container);
-    this.createPanelOverlay(container);
-    this.bindMouseEvents(container);
-
     this.events.once("shutdown", this.cleanup, this);
+
+    // Load saved defaults async, then apply and build UI
+    loadDefaults().then((defaults) => {
+      if (!this.shipRenderer || !container) return;
+
+      // Apply saved orientation + options
+      this.shipRenderer.orientation.rotX = defaults.orientation.rotX;
+      this.shipRenderer.orientation.rotY = defaults.orientation.rotY;
+      this.shipRenderer.orientation.rotZ = defaults.orientation.rotZ;
+      this.shipRenderer.hoverMode = defaults.hoverMode;
+      this.shipRenderer.enginePower = defaults.enginePower;
+      this.shipRenderer.starDriftSpeed = defaults.starDriftSpeed;
+      this.shipRenderer.applyHoverMode();
+
+      // Initialize camera controls with saved params
+      this.shipControls = new ShipControls(this.shipRenderer.canvas, defaults.camera);
+      this.shipControls.bindShipOrientation(this.shipRenderer.orientation);
+      this.shipControls.bindShipPivot(this.shipRenderer.shipPivot);
+
+      this.createHUD(container, this.currentSeed);
+      this.createDebugPanel(container);
+      this.createPanelOverlay(container);
+      this.bindMouseEvents(container);
+    });
   }
 
   private rebuildShip(seed: number): void {

@@ -2,39 +2,50 @@ import { defineConfig } from "vite";
 import path from "path";
 import fs from "fs";
 
-/** Vite plugin: exposes POST /__save-defaults to write shipViewerDefaults.json during dev */
-function saveDefaultsPlugin() {
+/** Vite plugin: GET + POST /__ship-defaults to read/write shipViewerDefaults.json during dev */
+function shipDefaultsPlugin() {
   const filePath = path.resolve(__dirname, "src/ship/shipViewerDefaults.json");
   return {
-    name: "save-ship-defaults",
+    name: "ship-defaults",
     configureServer(server: { middlewares: { use: Function } }) {
-      server.middlewares.use("/__save-defaults", (req: any, res: any) => {
-        if (req.method !== "POST") {
-          res.statusCode = 405;
-          res.end("Method not allowed");
+      server.middlewares.use("/__ship-defaults", (req: any, res: any) => {
+        if (req.method === "GET") {
+          try {
+            const data = fs.readFileSync(filePath, "utf-8");
+            res.setHeader("Content-Type", "application/json");
+            res.statusCode = 200;
+            res.end(data);
+          } catch {
+            res.statusCode = 404;
+            res.end("{}");
+          }
           return;
         }
-        let body = "";
-        req.on("data", (chunk: string) => { body += chunk; });
-        req.on("end", () => {
-          try {
-            // Validate it's proper JSON before writing
-            const parsed = JSON.parse(body);
-            fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2) + "\n");
-            res.statusCode = 200;
-            res.end("ok");
-          } catch (e) {
-            res.statusCode = 400;
-            res.end("Invalid JSON");
-          }
-        });
+        if (req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk: string) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const parsed = JSON.parse(body);
+              fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2) + "\n");
+              res.statusCode = 200;
+              res.end("ok");
+            } catch {
+              res.statusCode = 400;
+              res.end("Invalid JSON");
+            }
+          });
+          return;
+        }
+        res.statusCode = 405;
+        res.end("Method not allowed");
       });
     },
   };
 }
 
 export default defineConfig({
-  plugins: [saveDefaultsPlugin()],
+  plugins: [shipDefaultsPlugin()],
   resolve: {
     alias: {
       "@icebox/shared": path.resolve(__dirname, "../shared/src"),
