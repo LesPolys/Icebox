@@ -82,6 +82,9 @@ export class ShipControls {
   private isDragging = false;
   private lastMouseY = 0;
 
+  /** When false, scroll/drag inputs are ignored (e.g. during card drag). */
+  enabled = true;
+
   private readonly minZ = -55;
   private readonly maxZ = 55;
   private readonly dollyLerp = 0.08;
@@ -98,6 +101,15 @@ export class ShipControls {
 
   /** The ship pivot group — needed to compute local Z axis in world space */
   private shipPivot: THREE.Group | null = null;
+
+  // Animated transition state
+  private animating = false;
+  private animStartTime = 0;
+  private animDuration = 600;
+  private animDollyStart = 0;
+  private animDollyEnd = 0;
+  private animRollStart = 0;
+  private animRollEnd = 0;
 
   private boundWheel: (e: WheelEvent) => void;
   private boundMouseDown: (e: MouseEvent) => void;
@@ -128,13 +140,29 @@ export class ShipControls {
     this.shipPivot = pivot;
   }
 
+  /** Current roll target (read-only for external callers) */
+  get currentRoll(): number { return this.dragRollTarget; }
+
+  /** Smoothly animate dolly and roll toward target values */
+  animateTo(dolly: number, roll: number, duration = 600): void {
+    this.animating = true;
+    this.animStartTime = performance.now();
+    this.animDuration = duration;
+    this.animDollyStart = this.dollyTarget;
+    this.animDollyEnd = Math.max(this.minZ, Math.min(this.maxZ, dolly));
+    this.animRollStart = this.dragRollTarget;
+    this.animRollEnd = roll;
+  }
+
   private onWheel(e: WheelEvent): void {
+    if (!this.enabled) return;
     e.preventDefault();
     this.dollyTarget += e.deltaY * this.scrollSensitivity;
     this.dollyTarget = Math.max(this.minZ, Math.min(this.maxZ, this.dollyTarget));
   }
 
   private onMouseDown(e: MouseEvent): void {
+    if (!this.enabled) return;
     if (e.button === 0) {
       this.isDragging = true;
       this.lastMouseY = e.clientY;
@@ -161,11 +189,22 @@ export class ShipControls {
   private _camOffset = new THREE.Vector3();
 
   update(camera: THREE.PerspectiveCamera): void {
-    // Lerp dolly
-    this.dolly += (this.dollyTarget - this.dolly) * this.dollyLerp;
-
-    // Lerp drag roll and apply to ship orientation
-    this.dragRoll += (this.dragRollTarget - this.dragRoll) * this.rollLerp;
+    // Handle animated transitions — set actual values directly (bypass lerp)
+    if (this.animating) {
+      const elapsed = performance.now() - this.animStartTime;
+      const t = Math.min(1, elapsed / this.animDuration);
+      // Smooth ease-in-out
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      this.dollyTarget = this.animDollyStart + (this.animDollyEnd - this.animDollyStart) * ease;
+      this.dolly = this.dollyTarget;
+      this.dragRollTarget = this.animRollStart + (this.animRollEnd - this.animRollStart) * ease;
+      this.dragRoll = this.dragRollTarget;
+      if (t >= 1) this.animating = false;
+    } else {
+      // Normal lerp when not animating
+      this.dolly += (this.dollyTarget - this.dolly) * this.dollyLerp;
+      this.dragRoll += (this.dragRollTarget - this.dragRoll) * this.rollLerp;
+    }
     if (this.shipOrientation) {
       this.shipOrientation.rotZ = this.dragRoll;
     }

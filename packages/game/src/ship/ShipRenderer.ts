@@ -32,8 +32,13 @@ export interface SectionMeta {
 export interface HardpointMeta {
   data: Hardpoint;
   marker: THREE.Mesh;
+  core: THREE.Mesh;
+  /** Black wireframe outline — visible only when occupied */
+  outline: THREE.Mesh;
   hitTarget: THREE.Mesh;
   sectionId: SectionId;
+  /** Whether this slot currently has a card installed */
+  occupied: boolean;
 }
 
 // ── Starfield ──────────────────────────────────────────────
@@ -231,7 +236,12 @@ export class ShipRenderer {
   /** Star drift speed — how fast stars scroll past (units/s along -Z) */
   starDriftSpeed = 3.0;
 
-  constructor(container: HTMLElement) {
+  /** When true the canvas sits behind the Phaser canvas with no pointer events */
+  readonly backgroundMode: boolean;
+
+  constructor(container: HTMLElement, opts?: { backgroundMode?: boolean }) {
+    this.backgroundMode = opts?.backgroundMode ?? false;
+
     // Create overlay canvas
     this.canvas = document.createElement("canvas");
     this.canvas.style.position = "absolute";
@@ -239,9 +249,19 @@ export class ShipRenderer {
     this.canvas.style.left = "0";
     this.canvas.style.width = "100%";
     this.canvas.style.height = "100%";
-    this.canvas.style.pointerEvents = "auto";
+    this.canvas.style.pointerEvents = this.backgroundMode ? "none" : "auto";
     container.style.position = "relative";
-    container.appendChild(this.canvas);
+    if (this.backgroundMode) {
+      // Create a stacking context on the container so z-index:-1 stays
+      // visible within it (won't fall behind body/html backgrounds).
+      container.style.isolation = "isolate";
+      // z-index:-2 places the ship canvas behind both the Phaser canvas
+      // (position:static, z-index:0) and the label overlay (z-index:-1).
+      this.canvas.style.zIndex = "-2";
+      container.insertBefore(this.canvas, container.firstChild);
+    } else {
+      container.appendChild(this.canvas);
+    }
 
     // Three.js renderer
     this.renderer = new THREE.WebGLRenderer({
@@ -502,6 +522,19 @@ export class ShipRenderer {
         core.position.copy(marker.position);
         group.add(core);
 
+        // Black wireframe outline — slightly larger, hidden until occupied
+        const outlineGeo = new THREE.OctahedronGeometry(3.4, 0);
+        const outlineMat = new THREE.MeshBasicMaterial({
+          color: 0x000000,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.9,
+        });
+        const outline = new THREE.Mesh(outlineGeo, outlineMat);
+        outline.position.copy(marker.position);
+        outline.visible = false;
+        group.add(outline);
+
         // Invisible larger sphere for easier raycasting
         const hitGeo = new THREE.SphereGeometry(4.5, 8, 6);
         const hitMat = new THREE.MeshBasicMaterial({
@@ -514,8 +547,11 @@ export class ShipRenderer {
         this.hardpoints.push({
           data: hp,
           marker,
+          core,
+          outline,
           hitTarget,
           sectionId: section.id,
+          occupied: false,
         });
       }
 
@@ -648,14 +684,38 @@ export class ShipRenderer {
     }
   }
 
+  /** Mark a hardpoint as occupied (has a card installed) and update its visual */
+  setHardpointOccupied(idx: number, occupied: boolean): void {
+    if (idx < 0 || idx >= this.hardpoints.length) return;
+    const hp = this.hardpoints[idx];
+    hp.occupied = occupied;
+    if (occupied) {
+      (hp.marker.material as THREE.MeshBasicMaterial).color.setHex(NUM.glow);
+      (hp.marker.material as THREE.MeshBasicMaterial).wireframe = false;
+      (hp.marker.material as THREE.MeshBasicMaterial).opacity = 0.85;
+      (hp.core.material as THREE.MeshBasicMaterial).color.setHex(NUM.glow);
+      (hp.core.material as THREE.MeshBasicMaterial).opacity = 0.9;
+      hp.outline.visible = true;
+      hp.outline.scale.setScalar(1.0);
+    } else {
+      (hp.marker.material as THREE.MeshBasicMaterial).color.setHex(NUM.indigo);
+      (hp.marker.material as THREE.MeshBasicMaterial).wireframe = true;
+      (hp.marker.material as THREE.MeshBasicMaterial).opacity = 1.0;
+      (hp.core.material as THREE.MeshBasicMaterial).color.setHex(NUM.indigo);
+      (hp.core.material as THREE.MeshBasicMaterial).opacity = 0.6;
+      hp.outline.visible = false;
+    }
+  }
+
   /** Set hardpoint highlight state */
   highlightHardpoint(idx: number): void {
     if (idx === this.hoveredHardpoint) return;
 
-    // Restore previous
+    // Restore previous to its base state (occupied or empty)
     if (this.hoveredHardpoint >= 0 && this.hoveredHardpoint < this.hardpoints.length) {
       const prev = this.hardpoints[this.hoveredHardpoint];
-      (prev.marker.material as THREE.MeshBasicMaterial).color.setHex(NUM.indigo);
+      const baseColor = prev.occupied ? NUM.glow : NUM.indigo;
+      (prev.marker.material as THREE.MeshBasicMaterial).color.setHex(baseColor);
       prev.marker.scale.setScalar(1);
     }
 
@@ -686,6 +746,122 @@ export class ShipRenderer {
     };
   }
 
+  /**
+   * Numerically find the roll and dolly values that project a hardpoint
+   * closest to a target screen position, using the actual camera projection.
+   *
+   * IMPORTANT: the lookAt point must match ShipControls.update() exactly —
+   * it uses the FULL quaternion (including roll) to derive the local Z,
+   * then multiplies by dolly to get the lookAt point.
+   *
+   * @param targetNdcX  target X in NDC space (-1..1), default 0 (center)
+   * @param targetNdcY  target Y in NDC space (-1..1), default 0 (center)
+   */
+  computeFocusRollAndDolly(
+    hpIdx: number,
+    cameraAzimuth: number,
+    cameraElevation: number,
+    cameraDistance?: number,
+    targetNdcX?: number,
+    targetNdcY?: number,
+  ): { roll: number; dolly: number } | null {
+    if (hpIdx < 0 || hpIdx >= this.hardpoints.length) return null;
+    const hp = this.hardpoints[hpIdx];
+    const pos = hp.data.position;
+    const dist = cameraDistance ?? 80;
+
+    // Build base quaternion (pitch/yaw, no roll)
+    const qBase = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(this.orientation.rotX, this.orientation.rotY, 0),
+    );
+
+    // Camera offset from spherical params (same as ShipControls)
+    const cosEl = Math.cos(cameraElevation);
+    const sinEl = Math.sin(cameraElevation);
+    const camOffset = new THREE.Vector3(
+      Math.cos(cameraAzimuth) * cosEl * dist,
+      Math.sin(cameraAzimuth) * cosEl * dist,
+      sinEl * dist,
+    );
+
+    const tgtX = targetNdcX ?? 0;
+    const tgtY = targetNdcY ?? 0;
+
+    // Helper: for a given (roll, dolly), compute the hardpoint's NDC position.
+    // Must replicate ShipControls.update() camera logic exactly:
+    //   localZ = (0,0,1).applyQuaternion(shipPivot.quaternion)  ← includes roll
+    //   lookAt = localZ * dolly
+    //   camPos = lookAt + camOffset
+    const ndcForRollDolly = (roll: number, dolly: number): { x: number; y: number } => {
+      // Build full quaternion (same as ShipRenderer.update)
+      const localZBase = new THREE.Vector3(0, 0, 1).applyQuaternion(qBase);
+      const qRoll = new THREE.Quaternion().setFromAxisAngle(localZBase, roll);
+      const qFull = qRoll.clone().multiply(qBase);
+
+      // Hardpoint world position
+      const wp = new THREE.Vector3(pos.x, pos.y, pos.z).applyQuaternion(qFull);
+
+      // ShipControls.update() gets localZ from shipPivot.quaternion (= qFull)
+      const localZFull = new THREE.Vector3(0, 0, 1).applyQuaternion(qFull);
+      const lookAt = localZFull.multiplyScalar(dolly);
+
+      const camPos = lookAt.clone().add(camOffset);
+
+      // Build a temporary camera with matching projection
+      const tmpCam = new THREE.PerspectiveCamera(
+        this.camera.fov,
+        this.camera.aspect,
+        this.camera.near,
+        this.camera.far,
+      );
+      tmpCam.position.copy(camPos);
+      tmpCam.lookAt(lookAt);
+      tmpCam.up.set(0, 0, 1);
+      tmpCam.updateMatrixWorld(true);
+
+      const ndc = wp.project(tmpCam);
+      return { x: ndc.x, y: ndc.y };
+    };
+
+    // For dolly: project hardpoint Z along the base local Z (without roll,
+    // since roll shouldn't dramatically shift the Z component)
+    const localZBase = new THREE.Vector3(0, 0, 1).applyQuaternion(qBase);
+    const hpBase = new THREE.Vector3(pos.x, pos.y, pos.z).applyQuaternion(qBase);
+    const dolly = Math.max(-30, Math.min(30, hpBase.dot(localZBase)));
+
+    // Coarse search: sample roll values
+    const MAX_ROLL = Math.PI * 0.75;
+    const STEPS = 36;
+    let bestRoll = 0;
+    let bestDist = Infinity;
+
+    for (let i = 0; i <= STEPS; i++) {
+      const r = -MAX_ROLL + (2 * MAX_ROLL * i) / STEPS;
+      const ndc = ndcForRollDolly(r, dolly);
+      const d = (ndc.x - tgtX) ** 2 + (ndc.y - tgtY) ** 2;
+      if (d < bestDist) {
+        bestDist = d;
+        bestRoll = r;
+      }
+    }
+
+    // Refine with ternary search
+    let lo = bestRoll - (2 * MAX_ROLL / STEPS);
+    let hi = bestRoll + (2 * MAX_ROLL / STEPS);
+    for (let iter = 0; iter < 12; iter++) {
+      const mid1 = lo + (hi - lo) / 3;
+      const mid2 = hi - (hi - lo) / 3;
+      const n1 = ndcForRollDolly(mid1, dolly);
+      const n2 = ndcForRollDolly(mid2, dolly);
+      const d1 = (n1.x - tgtX) ** 2 + (n1.y - tgtY) ** 2;
+      const d2 = (n2.x - tgtX) ** 2 + (n2.y - tgtY) ** 2;
+      if (d1 < d2) hi = mid2; else lo = mid1;
+    }
+    bestRoll = (lo + hi) / 2;
+
+    return { roll: bestRoll, dolly };
+  }
+
   // Reusable quaternions to avoid allocation
   private _qBase = new THREE.Quaternion();
   private _qRoll = new THREE.Quaternion();
@@ -712,11 +888,18 @@ export class ShipRenderer {
     // Pulse hardpoint markers (only non-hovered ones)
     for (let i = 0; i < this.hardpoints.length; i++) {
       if (i === this.hoveredHardpoint) continue;
-      const marker = this.hardpoints[i].marker;
-      const scale = 0.9 + Math.sin(t * 2.5) * 0.35;
-      marker.scale.setScalar(scale);
-      (marker.material as THREE.MeshBasicMaterial).opacity =
-        0.7 + Math.sin(t * 3) * 0.3;
+      const hp = this.hardpoints[i];
+      if (hp.occupied) {
+        // Occupied: completely steady — no animation
+        hp.marker.scale.setScalar(1.2);
+        (hp.marker.material as THREE.MeshBasicMaterial).opacity = 0.85;
+      } else {
+        // Empty: pulsing diamond
+        const scale = 0.9 + Math.sin(t * 2.5) * 0.35;
+        hp.marker.scale.setScalar(scale);
+        (hp.marker.material as THREE.MeshBasicMaterial).opacity =
+          0.7 + Math.sin(t * 3) * 0.3;
+      }
     }
 
     // Animate engine exhaust plumes

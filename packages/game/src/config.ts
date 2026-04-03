@@ -10,7 +10,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   parent: "game-container",
   width: window.innerWidth,
   height: window.innerHeight,
-  backgroundColor: "#D8D4CC",
+  transparent: true,
   scene: [BootScene, MainMenuScene, ActiveWatchScene, SuccessionScene, CryosleepScene, ShipViewerScene],
   scale: {
     mode: Phaser.Scale.RESIZE,

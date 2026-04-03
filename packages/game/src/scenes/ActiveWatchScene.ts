@@ -1,7 +1,11 @@
 import Phaser from "phaser";
 import type { GameState, Card, CardInstance, MarketRowId, ResourceCost } from "@icebox/shared";
-import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, getAllMarketSlots, getMarketRowById, canAfford, gainResources, spendResources } from "@icebox/shared";
+import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, FACTIONS, getAllMarketSlots, getMarketRowById, canAfford, gainResources, spendResources } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
+import { ShipRenderer } from "../ship/ShipRenderer";
+import type { SectionId } from "../ship/ShipTypes";
+import { ShipControls, loadDefaults, DEFAULT_CAMERA, DEFAULT_ORIENTATION } from "../ship/ShipControls";
+import { generateShip } from "../ship/ShipGenerator";
 
 import { startTurn, executeAction, type PlayerAction } from "../systems/TurnManager";
 import { getCostModifier, getExtraSlideCount, isSlotLocked } from "../systems/effects/PassiveScanner";
@@ -10,11 +14,9 @@ import { resolveFallout } from "../systems/FalloutHandler";
 import { updateShipPresence, calculateGlobalPresence } from "../systems/FactionTracker";
 import { ResourceBar, type ResourceKey, drawResourceShape, RESOURCE_META } from "../game-objects/ResourceBar";
 import { MarketSlot } from "../game-objects/MarketSlot";
-import { SectorDisplay } from "../game-objects/SectorDisplay";
 import { HandDisplay } from "../ui/HandDisplay";
 import { InfoPanel } from "../ui/InfoPanel";
 import { PhaseIndicator } from "../ui/PhaseIndicator";
-import { PlayMat } from "../ui/PlayMat";
 import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
@@ -45,13 +47,34 @@ export class ActiveWatchScene extends Phaser.Scene {
 
   private resourceBar!: ResourceBar;
   private marketSlots: MarketSlot[] = [];
-  private sectorDisplays: SectorDisplay[] = [];
   private handDisplay!: HandDisplay;
   private infoPanel!: InfoPanel;
   private phaseIndicator!: PhaseIndicator;
-  private playMat!: PlayMat;
   private actionLog!: ActionLog;
   private messagePanel!: MessagePanel;
+
+  // ── Ship visualizer (background) ──
+  private shipRenderer: ShipRenderer | null = null;
+  private shipControls: ShipControls | null = null;
+
+  // ── Hardpoint panel overlay ──
+  private panelOverlay: HTMLDivElement | null = null;
+  private svgOverlay: SVGSVGElement | null = null;
+  private activeHardpointIdx = -1;
+  private lockedHardpointIdx = -1;
+  private hardpointPanel: HTMLDivElement | null = null;
+  private hardpointLine: SVGLineElement | null = null;
+  private panelCurrentX = 0;
+  private panelCurrentY = 0;
+  private panelVelocityX = 0;
+  private panelVelocityY = 0;
+  private readonly springStiffness = 8;
+  private readonly springDamping = 0.55;
+  /** True while a card drag is in progress (used to raycast hardpoint drop targets) */
+  private isDraggingCard = false;
+  private draggingCardId: string | null = null;
+  /** Always-on hardpoint labels (card name when occupied) */
+  private hardpointLabels: HTMLDivElement[] = [];
 
   private eraDisplay!: EraDisplay;
   private eraTheme!: EraTheme;
@@ -103,26 +126,28 @@ export class ActiveWatchScene extends Phaser.Scene {
   create(): void {
     // Reset arrays and flags (Phaser reuses scene instances on restart)
     this.marketSlots = [];
-    this.sectorDisplays = [];
     this.marketColPositions = [];
     this.purchaseMode = null;
     this.endTurnAnimating = false;
     this.swapMode = null;
     this.pendingSwapActivation = false;
+    this.activeHardpointIdx = -1;
+    this.lockedHardpointIdx = -1;
+    this.isDraggingCard = false;
+    this.draggingCardId = null;
 
     // Disable browser right-click menu for right-click interactions
     this.input.mouse?.disableContextMenu();
 
-    // ─── Play mat (rendered below everything) ───
-    // END button positioned to the right of the market deck
+    // ─── Ship background (Three.js behind Phaser canvas) ───
+    this.initShipBackground();
+
+    // ─── END button (standalone, positioned right of market deck) ───
     const marketDeckX = MAIN_CX + 2.5 * LAYOUT.marketColSpacing + s(55) + s(70);
     const marketDeckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
     const endBtnX = marketDeckX + s(120);
     const endBtnY = marketDeckY;
-    this.playMat = new PlayMat(this, endBtnX, endBtnY);
-    this.playMat.onEndTurn = () => {
-      this.animatedEndTurn();
-    };
+    this.createEndButton(endBtnX, endBtnY);
 
     // ─── Action log (left gutter) ───
     this.actionLog = new ActionLog(this);
@@ -151,8 +176,6 @@ export class ActiveWatchScene extends Phaser.Scene {
       this.eraDisplay.y - s(64),
       this.eraDisplay.boxW
     );
-
-    this.createSectors();
 
     this.resourceBar = new ResourceBar(this, MAIN_CX, LAYOUT.resourceY);
     this.wireResourceBarDrag();
@@ -206,6 +229,15 @@ export class ActiveWatchScene extends Phaser.Scene {
     );
     this.animateDrawToHand(newCards);
     this.showMessage("Welcome aboard. The ship awaits your command.");
+  }
+
+  update(): void {
+    if (this.shipControls && this.shipRenderer) {
+      this.shipControls.update(this.shipRenderer.camera);
+      this.shipRenderer.update();
+      this.updateHardpointTracking();
+      this.updateHardpointLabels();
+    }
   }
 
   // ─── Market ───────────────────────────────────────────────────────
@@ -341,6 +373,12 @@ export class ActiveWatchScene extends Phaser.Scene {
       const slotKey = `${row}-${slotIndex}`;
       if (this.gameState.turnInvestments.includes(slotKey)) {
         this.showMessage("Cannot buy a card you invested in this turn.", "#cc4444");
+        return;
+      }
+
+      // Check if slot is locked by a passive effect
+      if (isSlotLocked(this.gameState, row, slotIndex)) {
+        this.showMessage("This slot is locked.", "#cc4444");
         return;
       }
 
@@ -645,6 +683,14 @@ export class ActiveWatchScene extends Phaser.Scene {
   // ─── Resource Bar Drag ─────────────────────────────────────────────
 
   private wireResourceBarDrag(): void {
+    // Disable ship camera controls while dragging resources
+    this.resourceBar.onDragStart = () => {
+      if (this.shipControls) this.shipControls.enabled = false;
+    };
+    this.resourceBar.onDragEnd = () => {
+      if (this.shipControls) this.shipControls.enabled = true;
+    };
+
     this.resourceBar.onResourceDropped = (resourceType: ResourceKey, worldX: number, worldY: number) => {
       // Hit-test: market slot?
       const slotHit = this.hitTestMarketSlot(worldX, worldY);
@@ -703,7 +749,7 @@ export class ActiveWatchScene extends Phaser.Scene {
         return;
       }
 
-      this.showMessage("Drop on a market slot, sector, or your deck");
+      this.showMessage("Drop on a market slot, hardpoint, or your deck");
     };
   }
 
@@ -728,89 +774,629 @@ export class ActiveWatchScene extends Phaser.Scene {
     return null;
   }
 
-  // ─── Sectors ──────────────────────────────────────────────────────
+  // ─── Ship Background & Hardpoint System ──────────────────────────
 
-  private createSectors(): void {
-    for (let i = 0; i < 3; i++) {
-      const sectorX = MAIN_CX + (i - 1) * LAYOUT.sectorSpacing;
-      const sector = new SectorDisplay(this, sectorX, LAYOUT.sectorY, i);
-      this.sectorDisplays.push(sector);
+  private static readonly SECTION_TO_SECTOR: Record<string, number> = {
+    engineering: 0, habitat: 1, command: 2,
+  };
+  private static readonly SECTOR_TO_SECTION: SectionId[] = [
+    "engineering", "habitat", "command",
+  ];
+  private static readonly SECTION_LABELS: Record<string, string> = {
+    asteroid: "ASTEROID CORE", engineering: "ENGINEERING",
+    habitat: "HABITAT", command: "COMMAND",
+  };
 
-      // Structure card unhover → hide InfoPanel
-      sector.onCardUnhovered = () => this.infoPanel.hide();
+  /** Map a hardpoint index → game sector + slot */
+  private getSlotForHardpoint(hpIdx: number): { sectorIndex: number; slotIndex: number } | null {
+    if (!this.shipRenderer) return null;
+    const hp = this.shipRenderer.hardpoints[hpIdx];
+    if (!hp) return null;
+    const sectorIndex = ActiveWatchScene.SECTION_TO_SECTOR[hp.sectionId];
+    if (sectorIndex === undefined) return null;
+    return { sectorIndex, slotIndex: hp.data.slotIndex };
+  }
 
-      // Click sector with selected card → slot structure (legacy path)
-      sector.on("pointerdown", () => {
-        const id = this.handDisplay.getSelectedInstanceId();
-        if (id) this.doAction({ type: "slot-structure", instanceId: id, sectorIndex: i });
-      });
+  /** Map a game sector + slot → hardpoint index */
+  private getHardpointForSlot(sectorIndex: number, slotIndex: number): number {
+    if (!this.shipRenderer) return -1;
+    const section = ActiveWatchScene.SECTOR_TO_SECTION[sectorIndex];
+    if (!section) return -1;
+    return this.shipRenderer.hardpoints.findIndex(
+      hp => hp.sectionId === section && hp.data.slotIndex === slotIndex
+    );
+  }
 
-      // Right-click installed card → scrap
-      sector.onCardRightClicked = (instanceId, sectorIndex) => {
-        const sectorWorldX = sectorX;
-        const sectorWorldY = LAYOUT.sectorY;
-        new ConfirmPopup(
-          this, sectorWorldX, sectorWorldY - s(80),
-          "Scrap this structure?",
-          () => this.doAction({ type: "scrap-structure", instanceId, sectorIndex })
-        );
-      };
+  private initShipBackground(): void {
+    const container = this.game.canvas.parentElement;
+    if (!container) return;
 
-      // Left-click under-construction card → progress with matter action or fast-track
-      sector.onConstructionClicked = (card, sectorIndex) => {
-        const sectorWorldX = sectorX;
-        const sectorWorldY = LAYOUT.sectorY;
+    // Ship canvas is inserted behind Phaser canvas via ShipRenderer backgroundMode
 
-        // Matter action: progress building
-        if (this.gameState.availableActions.matter > 0) {
-          new ConfirmPopup(
-            this, sectorWorldX, sectorWorldY - s(80),
-            `Use Build action to\nprogress ${card.card.name}?`,
-            () => this.useProgressBuilding(card.instanceId)
-          );
-          return;
-        }
+    // Create ship renderer behind Phaser canvas (z-index 0)
+    this.shipRenderer = new ShipRenderer(container, { backgroundMode: true });
+    // Ship is deterministic from gameState.seed — always produces the same ship for a given save
+    const seed = this.gameState.seed!;
+    const shipGeometry = generateShip({ seed });
+    this.shipRenderer.buildGeometry(shipGeometry);
 
-        // Fallback: fast-track option
-        const con = card.card.construction;
-        if (!con) return;
-        if (con.fastTrackable) {
-          const ftCost = con.fastTrackCost ?? {};
-          const costParts: string[] = [];
-          if (ftCost.matter) costParts.push(`M:${ftCost.matter}`);
-          if (ftCost.energy) costParts.push(`E:${ftCost.energy}`);
-          if (ftCost.data) costParts.push(`D:${ftCost.data}`);
-          if (ftCost.influence) costParts.push(`I:${ftCost.influence}`);
-          const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
-          new ConfirmPopup(
-            this, sectorWorldX, sectorWorldY - s(80),
-            `Fast-track 1 turn? (${costStr})`,
-            () => this.doAction({ type: "fast-track", structureInstanceId: card.instanceId, turnsToSkip: 1 })
-          );
-        }
-      };
+    // Apply saved defaults (async)
+    loadDefaults().then((defaults) => {
+      if (!this.shipRenderer || !container) return;
 
-      // Left-click installed (non-construction) card with energy action → tap
-      sector.onCardClicked = (card) => {
-        if (
-          this.gameState.availableActions.energy > 0 &&
-          !card.tapped &&
-          !card.underConstruction &&
-          card.card.tapEffect
-        ) {
-          const sectorWorldX = sectorX;
-          const sectorWorldY = LAYOUT.sectorY;
-          new ConfirmPopup(
-            this, sectorWorldX, sectorWorldY - s(80),
-            `Tap ${card.card.name}?\n${card.card.tapEffect.description}`,
-            () => this.useTapCard(card.instanceId)
-          );
-          return;
-        }
-        // Default: show info panel
-        this.infoPanel.showCard(card);
-      };
+      this.shipRenderer.orientation.rotX = defaults.orientation.rotX;
+      this.shipRenderer.orientation.rotY = defaults.orientation.rotY;
+      this.shipRenderer.orientation.rotZ = defaults.orientation.rotZ;
+      this.shipRenderer.hoverMode = defaults.hoverMode;
+      this.shipRenderer.enginePower = defaults.enginePower;
+      this.shipRenderer.starDriftSpeed = defaults.starDriftSpeed;
+      this.shipRenderer.applyHoverMode();
+
+      // Camera controls — bind to the PHASER canvas (which is on top and receives events)
+      // instead of the ship canvas (which has pointer-events: none)
+      this.shipControls = new ShipControls(this.game.canvas, defaults.camera);
+      this.shipControls.bindShipOrientation(this.shipRenderer.orientation);
+      this.shipControls.bindShipPivot(this.shipRenderer.shipPivot);
+
+      // Create hardpoint overlay system
+      this.createPanelOverlay(container);
+      this.bindShipPointerEvents();
+    });
+
+    this.events.once("shutdown", this.cleanupShip, this);
+  }
+
+  private createEndButton(x: number, y: number): void {
+    const r = LAYOUT.playMatBtnRadius;
+    const gfx = this.add.graphics();
+    const drawNormal = () => {
+      gfx.clear();
+      gfx.fillStyle(NUM.slab, 0.85);
+      gfx.fillCircle(0, 0, r);
+      gfx.lineStyle(s(2), NUM.graphite, 0.7);
+      gfx.strokeCircle(0, 0, r);
+    };
+    const drawHover = () => {
+      gfx.clear();
+      gfx.fillStyle(NUM.slab, 1);
+      gfx.fillCircle(0, 0, r);
+      gfx.lineStyle(s(2), NUM.bone, 0.9);
+      gfx.strokeCircle(0, 0, r);
+    };
+    drawNormal();
+
+    const btnFontSize = s(12);
+    const normalLabel = this.add.text(0, 0, "END", {
+      fontSize: `${btnFontSize}px`, color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
+    const hoverLabel = this.add.text(0, 0, "END", {
+      fontSize: `${btnFontSize}px`, color: "#ffffff", fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
+    hoverLabel.setVisible(false);
+
+    const hitArea = this.add.circle(0, 0, r, 0x000000, 0);
+    hitArea.setInteractive({ useHandCursor: true });
+    hitArea.on("pointerover", () => { drawHover(); normalLabel.setVisible(false); hoverLabel.setVisible(true); });
+    hitArea.on("pointerout", () => { drawNormal(); normalLabel.setVisible(true); hoverLabel.setVisible(false); });
+    hitArea.on("pointerdown", () => this.animatedEndTurn());
+
+    const container = this.add.container(x, y, [gfx, normalLabel, hoverLabel, hitArea]);
+    container.setDepth(50);
+  }
+
+  // ── Hardpoint Panel Overlay ──
+
+  /** Container for always-on hardpoint labels (low z-index, under panels) */
+  private labelOverlay: HTMLDivElement | null = null;
+
+  private createPanelOverlay(container: HTMLElement): void {
+    // Label overlay — sits above the 3D ship (z-index:-2) but below
+    // the Phaser canvas (position:static, paints at z-index:0 layer)
+    const labels = document.createElement("div");
+    labels.style.cssText = `
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: -1;
+    `;
+    container.appendChild(labels);
+    this.labelOverlay = labels;
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.style.cssText = `
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 3;
+    `;
+    container.appendChild(svg);
+    this.svgOverlay = svg;
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 4;
+    `;
+    container.appendChild(overlay);
+    this.panelOverlay = overlay;
+  }
+
+  private showHardpointPanel(hpIdx: number): void {
+    if (!this.shipRenderer || !this.panelOverlay || !this.svgOverlay) return;
+    const hp = this.shipRenderer.hardpoints[hpIdx];
+    if (!hp) return;
+
+    this.removeHardpointElements();
+    this.activeHardpointIdx = hpIdx;
+
+    // SVG connecting line
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("stroke", HEX.void);
+    line.setAttribute("stroke-width", "2.5");
+    line.setAttribute("opacity", "0.9");
+    this.svgOverlay.appendChild(line);
+    this.hardpointLine = line;
+
+    const sectionLabel = ActiveWatchScene.SECTION_LABELS[hp.sectionId] || hp.sectionId.toUpperCase();
+    const hoverColor = hp.sectionId === "engineering" ? HEX.signalRed
+      : hp.sectionId === "habitat" ? HEX.teal
+      : hp.sectionId === "command" ? HEX.chartreuse
+      : HEX.concrete;
+
+    // Each hardpoint represents one slot — show only that slot
+    const sectorIndex = ActiveWatchScene.SECTION_TO_SECTOR[hp.sectionId];
+    const sector = sectorIndex !== undefined ? this.gameState.ship.sectors[sectorIndex] : null;
+    const isLocked = this.lockedHardpointIdx === hpIdx;
+    const slotIdx = hp.data.slotIndex;
+    const card = sector?.installedCards[slotIdx];
+
+    // ── Build card-proportioned slot HTML ──
+    // Card dimensions scaled to match Phaser cards
+    const slotW = s(100);
+    const slotH = s(140);
+    const notchW = Math.round(slotW * 0.35);
+    const notchH = s(6);
+    const cornerR = s(6);
+    const innerPad = s(6);
+
+    // SVG card-shaped clip path with top-center notch indent
+    const slotSvgOutline = (color: string, dashed: boolean) => {
+      const sw = slotW;
+      const sh = slotH;
+      const nx = (sw - notchW) / 2;
+      const nr = Math.min(notchH, 4);
+      const cr = cornerR;
+      // Path: starts top-left, goes right to notch, dips notch, continues to top-right, down, around
+      const d = [
+        `M ${cr} 0`,
+        `L ${nx} 0`,
+        `L ${nx} ${notchH - nr}`,
+        `Q ${nx} ${notchH} ${nx + nr} ${notchH}`,
+        `L ${nx + notchW - nr} ${notchH}`,
+        `Q ${nx + notchW} ${notchH} ${nx + notchW} ${notchH - nr}`,
+        `L ${nx + notchW} 0`,
+        `L ${sw - cr} 0`,
+        `Q ${sw} 0 ${sw} ${cr}`,
+        `L ${sw} ${sh - cr}`,
+        `Q ${sw} ${sh} ${sw - cr} ${sh}`,
+        `L ${cr} ${sh}`,
+        `Q 0 ${sh} 0 ${sh - cr}`,
+        `L 0 ${cr}`,
+        `Q 0 0 ${cr} 0`,
+      ].join(" ");
+      const strokeDash = dashed ? `stroke-dasharray="4 3"` : "";
+      return `<svg width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}" style="position:absolute;top:0;left:0;">
+        <path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" ${strokeDash} opacity="0.8"/>
+      </svg>`;
+    };
+
+    let slotHtml: string;
+    if (card) {
+      const statusLine = card.underConstruction
+        ? `<div style="color: ${HEX.chartreuse}; font-size: ${s(8)}px; margin-top: ${s(4)}px;">⚒ ${card.constructionProgress ?? 0}/${card.card.construction?.completionTime ?? "?"}</div>`
+        : card.tapped
+          ? `<div style="color: ${HEX.concrete}; font-size: ${s(8)}px; margin-top: ${s(4)}px;">TAPPED</div>`
+          : "";
+      const attachedCrew = sector?.installedCards.filter(c => c.card.type === "crew" && c.attachedTo === card.instanceId) ?? [];
+      const crewPips = attachedCrew.length > 0
+        ? `<div style="display: flex; gap: ${s(3)}px; margin-top: ${s(4)}px;">${attachedCrew.map(() => `<div style="width: ${s(6)}px; height: ${s(6)}px; border-radius: 50%; background: ${HEX.teal};"></div>`).join("")}</div>`
+        : "";
+      // Faction color for inner panel (matches card texture style)
+      const factionColor = card.card.faction
+        ? this.getFactionColor(card.card.faction)
+        : HEX.concrete;
+      slotHtml = `
+        <div class="hp-slot" data-slot="${slotIdx}" style="
+          position: relative; width: ${slotW}px; height: ${slotH}px;
+          background: ${HEX.warmGray}30; border-radius: ${cornerR}px;
+          overflow: hidden;
+        ">
+          ${slotSvgOutline(hoverColor, false)}
+          <div style="
+            position: absolute; top: ${notchH + innerPad}px; left: ${innerPad}px;
+            right: ${innerPad}px; bottom: ${innerPad}px;
+            background: ${factionColor}18; border-radius: ${s(4)}px;
+            padding: ${s(6)}px; display: flex; flex-direction: column;
+          ">
+            <div style="color: ${HEX.bone}; font-family: 'Orbitron', sans-serif; font-size: ${s(9)}px; font-weight: bold; margin-bottom: ${s(3)}px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${card.card.name}</div>
+            <div style="color: ${HEX.teal}; font-family: 'Space Mono', monospace; font-size: ${s(7)}px; text-transform: uppercase; letter-spacing: 0.5px;">[${card.card.type.toUpperCase()}]</div>
+            ${statusLine}
+            ${crewPips}
+            <div style="flex: 1;"></div>
+            <div style="display: flex; gap: ${s(2)}px; opacity: 0.3; justify-content: flex-end;">
+              ${Array.from({length: 6}, () => `<div style="width: 1px; height: ${s(10)}px; background: ${HEX.graphite};"></div>`).join("")}
+            </div>
+          </div>
+        </div>`;
+    } else {
+      // Empty slot — card-shaped placeholder with notch, dashed outline
+      slotHtml = `
+        <div class="hp-slot" data-slot="${slotIdx}" style="
+          position: relative; width: ${slotW}px; height: ${slotH}px;
+          background: ${HEX.warmGray}08; border-radius: ${cornerR}px;
+        ">
+          ${slotSvgOutline(hoverColor, true)}
+          <div style="
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: ${s(6)}px;
+          ">
+            <svg width="${s(24)}" height="${s(24)}" viewBox="0 0 24 24" opacity="0.3">
+              <path d="M12 2 L14 10 L22 10 L16 14 L18 22 L12 18 L6 22 L8 14 L2 10 L10 10 Z" fill="none" stroke="${hoverColor}" stroke-width="1"/>
+            </svg>
+            <div style="color: ${HEX.concrete}; font-family: 'Space Mono', monospace; font-size: ${s(7)}px; letter-spacing: 1px; opacity: 0.6;">EMPTY SLOT</div>
+          </div>
+        </div>`;
     }
+
+    const panel = document.createElement("div");
+    panel.style.cssText = `
+      position: absolute; pointer-events: none;
+      background: rgba(22, 22, 24, 0.93); border: 1px solid ${HEX.graphite};
+      border-top: 2px solid ${hoverColor};
+      padding: ${s(8)}px ${s(10)}px ${s(10)}px;
+      font-family: 'Space Mono', monospace;
+      font-size: ${s(11)}px; color: ${HEX.bone};
+      transform-origin: left center; transform: scale(0);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+
+    panel.innerHTML = `
+      <div style="margin-bottom: ${s(4)}px;">
+        <span style="color: ${hoverColor}; font-family: 'Orbitron', sans-serif; font-size: ${s(8)}px; font-weight: bold; letter-spacing: 0.5px;">${sectionLabel} · SLOT ${slotIdx + 1}</span>
+      </div>
+      ${slotHtml}
+    `;
+
+    // Enable pointer events on panel when locked (for card interactions)
+    if (isLocked && sectorIndex !== undefined && card) {
+      panel.style.pointerEvents = "auto";
+      panel.style.cursor = "default";
+      const slotEl = panel.querySelector(".hp-slot") as HTMLElement | null;
+      if (slotEl) {
+        slotEl.style.cursor = "pointer";
+        slotEl.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          new ConfirmPopup(
+            this, MAIN_CX, LAYOUT.resourceY,
+            "Scrap this structure?",
+            () => this.doAction({ type: "scrap-structure", instanceId: card!.instanceId, sectorIndex: sectorIndex! })
+          );
+        });
+        slotEl.addEventListener("click", () => {
+          if (card!.underConstruction) {
+            if (this.gameState.availableActions.matter > 0) {
+              new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+                `Use Build action to\nprogress ${card!.card.name}?`,
+                () => this.useProgressBuilding(card!.instanceId));
+            } else {
+              const con = card!.card.construction;
+              if (con?.fastTrackable) {
+                const ftCost = con.fastTrackCost ?? {};
+                const costParts: string[] = [];
+                if (ftCost.matter) costParts.push(`M:${ftCost.matter}`);
+                if (ftCost.energy) costParts.push(`E:${ftCost.energy}`);
+                if (ftCost.data) costParts.push(`D:${ftCost.data}`);
+                if (ftCost.influence) costParts.push(`I:${ftCost.influence}`);
+                const costStr = costParts.length > 0 ? costParts.join(" ") : "Free";
+                new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+                  `Fast-track 1 turn? (${costStr})`,
+                  () => this.doAction({ type: "fast-track", structureInstanceId: card!.instanceId, turnsToSkip: 1 }));
+              }
+            }
+          } else if (
+            this.gameState.availableActions.energy > 0 &&
+            !card!.tapped && card!.card.tapEffect
+          ) {
+            new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+              `Tap ${card!.card.name}?\n${card!.card.tapEffect.description}`,
+              () => this.useTapCard(card!.instanceId));
+          } else {
+            this.infoPanel.showCard(card!);
+          }
+        });
+      }
+    }
+
+    this.panelOverlay.appendChild(panel);
+    this.hardpointPanel = panel;
+
+    // Initialize spring position
+    const canvasW = this.shipRenderer.canvas.clientWidth;
+    const canvasH = this.shipRenderer.canvas.clientHeight;
+    const initPos = this.shipRenderer.projectHardpoint(hpIdx, canvasW, canvasH);
+    if (initPos) {
+      // Clamp initial position to the allowed panel zone
+      const zoneLeft = s(140);
+      const zoneTop = s(388);
+      const zoneRight = canvasW - s(180);
+      const zoneBottom = s(575);
+      this.panelCurrentX = Math.max(zoneLeft, Math.min(zoneRight - 150, initPos.x + 100));
+      this.panelCurrentY = Math.max(zoneTop, Math.min(zoneBottom - 130, initPos.y - 40));
+    }
+    this.panelVelocityX = 0;
+    this.panelVelocityY = 0;
+
+    requestAnimationFrame(() => { panel.style.transform = "scale(1)"; });
+  }
+
+  private hideHardpointPanel(): void {
+    if (this.hardpointPanel) {
+      const panel = this.hardpointPanel;
+      panel.style.transform = "scale(0)";
+      panel.style.transition = "transform 0.15s cubic-bezier(0.55, 0.085, 0.68, 0.53)";
+      setTimeout(() => this.removeHardpointElements(), 160);
+    } else {
+      this.removeHardpointElements();
+    }
+    this.activeHardpointIdx = -1;
+  }
+
+  private removeHardpointElements(): void {
+    if (this.hardpointLine) { this.hardpointLine.remove(); this.hardpointLine = null; }
+    if (this.hardpointPanel) { this.hardpointPanel.remove(); this.hardpointPanel = null; }
+  }
+
+  private updateHardpointTracking(): void {
+    if (!this.shipRenderer) return;
+    const idx = this.activeHardpointIdx;
+    if (idx < 0 || !this.hardpointPanel || !this.hardpointLine) return;
+
+    const canvasW = this.shipRenderer.canvas.clientWidth;
+    const canvasH = this.shipRenderer.canvas.clientHeight;
+    const pos = this.shipRenderer.projectHardpoint(idx, canvasW, canvasH);
+
+    if (!pos || pos.x < -50 || pos.x > canvasW + 50 || pos.y < -50 || pos.y > canvasH + 50) {
+      if (this.lockedHardpointIdx === idx) this.lockedHardpointIdx = -1;
+      this.hideHardpointPanel();
+      return;
+    }
+
+    // Zone where panels are allowed (avoids overlapping market, hand, deck, discard)
+    const panelW = this.hardpointPanel.offsetWidth || 140;
+    const panelH = this.hardpointPanel.offsetHeight || 120;
+    const zoneLeft = s(140);
+    const zoneTop = s(388);
+    const zoneRight = canvasW - s(180);
+    const zoneBottom = s(575);
+
+    // Clamp the spring target itself so the spring moves toward a valid position
+    const targetX = Math.max(zoneLeft, Math.min(zoneRight - panelW, pos.x + 100));
+    const targetY = Math.max(zoneTop, Math.min(zoneBottom - panelH, pos.y - 20));
+    const dt = 1 / 60;
+    const dx = targetX - this.panelCurrentX;
+    const dy = targetY - this.panelCurrentY;
+    const ax = dx * this.springStiffness - this.panelVelocityX * this.springDamping;
+    const ay = dy * this.springStiffness - this.panelVelocityY * this.springDamping;
+    this.panelVelocityX += ax;
+    this.panelVelocityY += ay;
+    this.panelCurrentX += this.panelVelocityX * dt;
+    this.panelCurrentY += this.panelVelocityY * dt;
+
+    // Hard clamp to zone bounds
+    const clampedX = Math.max(zoneLeft, Math.min(zoneRight - panelW, this.panelCurrentX));
+    const clampedY = Math.max(zoneTop, Math.min(zoneBottom - panelH, this.panelCurrentY));
+    if (clampedX !== this.panelCurrentX) { this.panelCurrentX = clampedX; this.panelVelocityX = 0; }
+    if (clampedY !== this.panelCurrentY) { this.panelCurrentY = clampedY; this.panelVelocityY = 0; }
+
+    this.hardpointPanel.style.left = `${this.panelCurrentX}px`;
+    this.hardpointPanel.style.top = `${this.panelCurrentY}px`;
+    this.hardpointLine.setAttribute("x1", String(pos.x));
+    this.hardpointLine.setAttribute("y1", String(pos.y));
+    this.hardpointLine.setAttribute("x2", String(this.panelCurrentX));
+    this.hardpointLine.setAttribute("y2", String(this.panelCurrentY + 15));
+  }
+
+  /**
+   * Sync hardpoint 3D marker visuals and always-on labels with game state.
+   * Called from refreshAll() whenever game state changes.
+   */
+  private syncHardpointOccupancy(): void {
+    if (!this.shipRenderer || !this.labelOverlay) return;
+
+    // Clear old labels
+    for (const lbl of this.hardpointLabels) lbl.remove();
+    this.hardpointLabels = [];
+
+    for (let i = 0; i < this.shipRenderer.hardpoints.length; i++) {
+      const hp = this.shipRenderer.hardpoints[i];
+      const sectorIdx = ActiveWatchScene.SECTION_TO_SECTOR[hp.sectionId];
+      if (sectorIdx === undefined) {
+        this.shipRenderer.setHardpointOccupied(i, false);
+        continue;
+      }
+      const sector = this.gameState.ship.sectors[sectorIdx];
+      const card = sector?.installedCards[hp.data.slotIndex];
+
+      if (card) {
+        this.shipRenderer.setHardpointOccupied(i, true);
+
+        // Create always-on label
+        const label = document.createElement("div");
+        label.dataset.hpIdx = String(i);
+        label.style.cssText = `
+          position: absolute; pointer-events: none;
+          font-family: 'Space Mono', monospace; font-size: ${s(7)}px;
+          color: ${HEX.bone}; background: ${HEX.void}cc;
+          padding: ${s(1)}px ${s(4)}px; border-radius: ${s(2)}px;
+          white-space: nowrap; transform: translate(-50%, 0);
+          letter-spacing: 0.5px; opacity: 0.85;
+          border-bottom: 1px solid ${this.getFactionColor(card.card.faction ?? "")}60;
+        `;
+        label.textContent = card.card.name;
+        this.labelOverlay.appendChild(label);
+        this.hardpointLabels.push(label);
+      } else {
+        this.shipRenderer.setHardpointOccupied(i, false);
+      }
+    }
+  }
+
+  /** Update positions of always-on hardpoint labels (called per frame) */
+  private updateHardpointLabels(): void {
+    if (!this.shipRenderer || this.hardpointLabels.length === 0) return;
+    const canvasW = this.shipRenderer.canvas.clientWidth;
+    const canvasH = this.shipRenderer.canvas.clientHeight;
+
+    for (const label of this.hardpointLabels) {
+      const idx = parseInt(label.dataset.hpIdx ?? "-1", 10);
+      if (idx < 0) continue;
+      const pos = this.shipRenderer.projectHardpoint(idx, canvasW, canvasH);
+      if (!pos || pos.x < -50 || pos.x > canvasW + 50 || pos.y < -50 || pos.y > canvasH + 50) {
+        label.style.display = "none";
+      } else {
+        label.style.display = "";
+        label.style.left = `${pos.x}px`;
+        label.style.top = `${pos.y + s(12)}px`;
+      }
+    }
+  }
+
+  // ── Ship Pointer Events (Phaser → Three.js raycasting) ──
+
+  private bindShipPointerEvents(): void {
+    if (!this.shipRenderer) return;
+    const renderer = this.shipRenderer;
+
+    // Hover: raycast on pointer move for hardpoint/section highlights
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (!renderer) return;
+      const canvasW = this.game.canvas.clientWidth;
+      const canvasH = this.game.canvas.clientHeight;
+      const ndcX = (pointer.x / canvasW) * 2 - 1;
+      const ndcY = -(pointer.y / canvasH) * 2 + 1;
+      const { sectionIdx, hardpointIdx } = renderer.raycast(ndcX, ndcY);
+
+      renderer.highlightSection(sectionIdx);
+
+      if (this.isDraggingCard) {
+        // During drag, highlight the hovered hardpoint as potential drop target
+        renderer.highlightHardpoint(hardpointIdx);
+        // Show/hide hardpoint panel as the dragged card approaches a hardpoint
+        if (hardpointIdx >= 0 && hardpointIdx !== this.activeHardpointIdx) {
+          this.showHardpointPanel(hardpointIdx);
+        } else if (hardpointIdx < 0 && this.activeHardpointIdx >= 0) {
+          this.hideHardpointPanel();
+        }
+        return;
+      }
+
+      // Normal hover (not dragging)
+      if (this.lockedHardpointIdx < 0) {
+        if (hardpointIdx !== this.activeHardpointIdx) {
+          if (hardpointIdx >= 0) {
+            this.showHardpointPanel(hardpointIdx);
+          } else {
+            this.hideHardpointPanel();
+          }
+        }
+        renderer.highlightHardpoint(hardpointIdx);
+      } else {
+        renderer.highlightHardpoint(hardpointIdx >= 0 ? hardpointIdx : this.lockedHardpointIdx);
+      }
+    });
+
+    // Click: lock/unlock hardpoint panels (only when not hitting Phaser objects)
+    this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
+      if (currentlyOver.length > 0) return; // Phaser object was clicked
+      if (!renderer) return;
+
+      const canvasW = this.game.canvas.clientWidth;
+      const canvasH = this.game.canvas.clientHeight;
+      const ndcX = (_pointer.x / canvasW) * 2 - 1;
+      const ndcY = -(_pointer.y / canvasH) * 2 + 1;
+      const { hardpointIdx } = renderer.raycast(ndcX, ndcY);
+
+      if (hardpointIdx >= 0) {
+        if (this.lockedHardpointIdx === hardpointIdx) {
+          // Unlock — animate back to neutral
+          this.lockedHardpointIdx = -1;
+          this.hideHardpointPanel();
+          if (this.shipControls) {
+            this.shipControls.animateTo(0, 0, 500);
+          }
+        } else {
+          // Lock — animate camera toward hardpoint
+          this.lockedHardpointIdx = hardpointIdx;
+          this.showHardpointPanel(hardpointIdx);
+          this.animateCameraToHardpoint(hardpointIdx);
+        }
+      } else if (this.lockedHardpointIdx >= 0) {
+        // Clicked empty space while a hardpoint was locked — unlock
+        this.lockedHardpointIdx = -1;
+        this.hideHardpointPanel();
+        if (this.shipControls) {
+          this.shipControls.animateTo(0, 0, 500);
+        }
+      }
+    });
+  }
+
+  /** Animate the ship camera to bring a hardpoint closer and more centered */
+  private animateCameraToHardpoint(hpIdx: number): void {
+    if (!this.shipRenderer || !this.shipControls) return;
+
+    const { azimuth, elevation, distance } = this.shipControls.params;
+
+    // Compute zone center in NDC space so the hardpoint aims for the
+    // center of the panel display area, not the viewport center.
+    const canvasW = this.shipRenderer.canvas.clientWidth;
+    const canvasH = this.shipRenderer.canvas.clientHeight;
+    const zoneLeft = s(140);
+    const zoneTop = s(388);
+    const zoneRight = canvasW - s(180);
+    const zoneBottom = s(575);
+    const zoneCenterX = (zoneLeft + zoneRight) / 2;
+    const zoneCenterY = (zoneTop + zoneBottom) / 2;
+    // CSS pixels → NDC: x from -1..1 left to right, y from +1..-1 top to bottom
+    const targetNdcX = (zoneCenterX / canvasW) * 2 - 1;
+    const targetNdcY = -((zoneCenterY / canvasH) * 2 - 1);
+
+    const result = this.shipRenderer.computeFocusRollAndDolly(
+      hpIdx, azimuth, elevation, distance, targetNdcX, targetNdcY,
+    );
+    if (!result) return;
+
+    this.shipControls.animateTo(result.dolly, result.roll, 600);
+  }
+
+  private getFactionColor(factionId: string): string {
+    return FACTIONS[factionId]?.color ?? HEX.concrete;
+  }
+
+  private cleanupShip(): void {
+    this.shipControls?.dispose();
+    this.shipControls = null;
+    this.shipRenderer?.dispose();
+    this.shipRenderer = null;
+    this.svgOverlay?.remove();
+    this.svgOverlay = null;
+    this.panelOverlay?.remove();
+    this.panelOverlay = null;
+    for (const lbl of this.hardpointLabels) lbl.remove();
+    this.hardpointLabels = [];
+    this.labelOverlay?.remove();
+    this.labelOverlay = null;
+    this.removeHardpointElements();
+    this.activeHardpointIdx = -1;
+    this.lockedHardpointIdx = -1;
+    // (no Phaser canvas style changes to restore)
   }
 
   // ─── Player Deck & Discard Piles ─────────────────────────────────
@@ -863,6 +1449,14 @@ export class ActiveWatchScene extends Phaser.Scene {
   // ─── Hand Callbacks ────────────────────────────────────────────────
 
   private wireHandCallbacks(): void {
+    // Disable ship camera controls the moment the user presses on a hand card
+    this.handDisplay.onCardPointerDown = () => {
+      if (this.shipControls) this.shipControls.enabled = false;
+    };
+    this.handDisplay.onCardPointerUp = () => {
+      if (!this.isDraggingCard && this.shipControls) this.shipControls.enabled = true;
+    };
+
     this.handDisplay.onCardSelected = (id) => this.showCardInInfoPanel(id);
 
     this.handDisplay.onCardHovered = (id) => {
@@ -879,7 +1473,7 @@ export class ActiveWatchScene extends Phaser.Scene {
 
       const type = card.card.type;
       if (type === "structure" || type === "institution") {
-        this.showMessage("Drag to a sector to install");
+        this.showMessage("Drag to a hardpoint to install");
       } else if (type === "crew") {
         this.showMessage("Drag to a structure to attach crew");
       } else {
@@ -888,93 +1482,81 @@ export class ActiveWatchScene extends Phaser.Scene {
     };
 
     this.handDisplay.onDragStarted = (instanceId) => {
-      const card = this.gameState.mandateDeck.hand.find(c => c.instanceId === instanceId);
-      if (!card) return;
-
-      const type = card.card.type;
-      if (type === "structure" || type === "institution") {
-        // Highlight sectors for structure drop
-        for (let i = 0; i < 3; i++) {
-          const sector = this.gameState.ship.sectors[i];
-          const hasSpace = sector.installedCards.length < sector.maxSlots;
-          this.sectorDisplays[i].setDropHighlight(true, hasSpace);
-        }
-      } else if (type === "crew") {
-        // Highlight sectors that have structures (crew can attach to structures)
-        for (let i = 0; i < 3; i++) {
-          const sector = this.gameState.ship.sectors[i];
-          const hasStructures = sector.installedCards.some(
-            c => (c.card.type === "structure" || c.card.type === "institution") && !c.underConstruction
-          );
-          this.sectorDisplays[i].setDropHighlight(true, hasStructures);
-        }
-      } else {
-        // Highlight the play mat for action/junk play
-        this.playMat.setHighlight(true);
-      }
+      this.isDraggingCard = true;
+      this.draggingCardId = instanceId;
+      // Disable ship spin/scroll while holding a card
+      if (this.shipControls) this.shipControls.enabled = false;
+      // Hide any open hardpoint panel so it doesn't block the drag
+      this.lockedHardpointIdx = -1;
+      this.hideHardpointPanel();
     };
 
     this.handDisplay.onDragEnded = () => {
-      this.playMat.setHighlight(false);
-      for (const sd of this.sectorDisplays) {
-        sd.setDropHighlight(false, false);
-      }
+      this.isDraggingCard = false;
+      this.draggingCardId = null;
+      // Re-enable ship camera controls
+      if (this.shipControls) this.shipControls.enabled = true;
+      // Clear all hardpoint highlights and close drag panels
+      if (this.shipRenderer) this.shipRenderer.highlightHardpoint(-1);
+      this.hideHardpointPanel();
     };
 
     this.handDisplay.onCardDropped = (instanceId, worldX, worldY) => {
       const card = this.gameState.mandateDeck.hand.find(c => c.instanceId === instanceId);
       if (!card) return;
 
+      // Use the currently-highlighted hardpoint (from drag hover) or raycast as fallback
+      const hpIdx = this.activeHardpointIdx >= 0
+        ? this.activeHardpointIdx
+        : this.raycastHardpointAtScreen(worldX, worldY);
+
       if (card.card.type === "crew") {
-        // Crew drop: find which sector, then pick best structure target
-        const sectorIdx = this.getSectorAtPosition(worldX, worldY);
-        if (sectorIdx === null) {
-          this.showMessage("Drop crew on a sector with structures");
+        // Crew: drop on a hardpoint's section, attach to first structure there
+        if (hpIdx < 0) {
+          this.showMessage("Drop crew on a ship hardpoint with structures");
           return;
         }
-        const sector = this.gameState.ship.sectors[sectorIdx];
+        const slot = this.getSlotForHardpoint(hpIdx);
+        if (!slot) return;
+        const sector = this.gameState.ship.sectors[slot.sectorIndex];
         const structures = sector.installedCards.filter(
           c => (c.card.type === "structure" || c.card.type === "institution") && !c.underConstruction
         );
         if (structures.length === 0) {
-          this.showMessage("No completed structures in this sector");
+          this.showMessage("No completed structures in this section");
           return;
-        }
-        // If only one structure, attach directly. Otherwise pick closest.
-        let targetStructure = structures[0];
-        if (structures.length > 1) {
-          // Pick the structure card closest to the drop position
-          const cardScale = 0.88;
-          const sectorX = MAIN_CX + (sectorIdx - 1) * LAYOUT.sectorSpacing;
-          let bestDist = Infinity;
-          for (let i = 0; i < sector.installedCards.length; i++) {
-            const inst = sector.installedCards[i];
-            if (!structures.includes(inst)) continue;
-            const cardX = sectorX + (i - 1) * (CARD_WIDTH * cardScale + s(6));
-            const dist = Math.abs(worldX - cardX);
-            if (dist < bestDist) {
-              bestDist = dist;
-              targetStructure = inst;
-            }
-          }
         }
         this.doAction({
           type: "attach-crew",
           crewInstanceId: instanceId,
-          structureInstanceId: targetStructure.instanceId,
-          sectorIndex: sectorIdx,
+          structureInstanceId: structures[0].instanceId,
+          sectorIndex: slot.sectorIndex,
         });
         return;
       }
 
       const isStructureType = card.card.type === "structure" || card.card.type === "institution";
+
+      // If a hardpoint is active and this is a structure card, use it directly
+      if (isStructureType && hpIdx >= 0) {
+        const slot = this.getSlotForHardpoint(hpIdx);
+        if (slot) {
+          this.doAction({ type: "slot-structure", instanceId, sectorIndex: slot.sectorIndex });
+          return;
+        }
+      }
+
       const target = this.getDropTarget(worldX, worldY, isStructureType);
       if (!target) {
-        this.showMessage("Drop on a valid target");
+        if (isStructureType) {
+          this.showMessage("Drag to a ship hardpoint to install");
+        } else {
+          this.showMessage("Drop on a valid target");
+        }
         return;
       }
 
-      if (target.type === "sector") {
+      if (target.type === "hardpoint") {
         this.doAction({ type: "slot-structure", instanceId, sectorIndex: target.sectorIndex });
       } else if (target.type === "play-zone") {
         this.doAction({ type: "play-card", instanceId });
@@ -982,21 +1564,27 @@ export class ActiveWatchScene extends Phaser.Scene {
     };
   }
 
+  /** Raycast from screen-space Phaser pointer coords to find a hardpoint */
+  private raycastHardpointAtScreen(screenX: number, screenY: number): number {
+    if (!this.shipRenderer) return -1;
+    const canvasW = this.game.canvas.clientWidth;
+    const canvasH = this.game.canvas.clientHeight;
+    const ndcX = (screenX / canvasW) * 2 - 1;
+    const ndcY = -(screenY / canvasH) * 2 + 1;
+    const { hardpointIdx } = this.shipRenderer.raycast(ndcX, ndcY);
+    return hardpointIdx;
+  }
+
   private getDropTarget(worldX: number, worldY: number, canSlotStructure: boolean):
-    | { type: "sector"; sectorIndex: number }
+    | { type: "hardpoint"; sectorIndex: number }
     | { type: "play-zone" }
     | null {
-    // Check sectors (only for structure/institution cards)
+    // Check hardpoints (for structure/institution cards)
     if (canSlotStructure) {
-      for (let i = 0; i < 3; i++) {
-        const sectorX = MAIN_CX + (i - 1) * LAYOUT.sectorSpacing;
-        const sectorY = LAYOUT.sectorY;
-        if (
-          Math.abs(worldX - sectorX) < s(160) &&
-          Math.abs(worldY - sectorY) < s(100)
-        ) {
-          return { type: "sector", sectorIndex: i };
-        }
+      const hpIdx = this.raycastHardpointAtScreen(worldX, worldY);
+      if (hpIdx >= 0) {
+        const slot = this.getSlotForHardpoint(hpIdx);
+        if (slot) return { type: "hardpoint", sectorIndex: slot.sectorIndex };
       }
     }
 
@@ -1008,21 +1596,8 @@ export class ActiveWatchScene extends Phaser.Scene {
     return null;
   }
 
-  /** Hit-test: which sector is at this world position? */
-  private getSectorAtPosition(worldX: number, worldY: number): number | null {
-    for (let i = 0; i < 3; i++) {
-      const sectorX = MAIN_CX + (i - 1) * LAYOUT.sectorSpacing;
-      const sectorY = LAYOUT.sectorY;
-      if (Math.abs(worldX - sectorX) < s(160) && Math.abs(worldY - sectorY) < s(100)) {
-        return i;
-      }
-    }
-    return null;
-  }
-
   // ─── Buy Animation ──────────────────────────────────────────────
 
-  /** Animate a card-back from a market slot position to the discard pile. */
   /** Animate a card-back ghost from a world position to the discard pile. */
   private animateCardToDiscard(fromX: number, fromY: number): void {
     const ghost = this.add.image(fromX, fromY, "card-back");
@@ -1676,8 +2251,12 @@ export class ActiveWatchScene extends Phaser.Scene {
       }
     }
 
-    for (let i = 0; i < 3; i++) {
-      this.sectorDisplays[i].updateDisplay(this.gameState.ship.sectors[i]);
+    // Sync hardpoint 3D visuals + labels with current game state
+    this.syncHardpointOccupancy();
+
+    // Refresh hardpoint panel if one is currently visible
+    if (this.activeHardpointIdx >= 0 && this.lockedHardpointIdx >= 0) {
+      this.showHardpointPanel(this.lockedHardpointIdx);
     }
 
     this.handDisplay.updateHand(this.gameState.mandateDeck.hand);
@@ -1760,7 +2339,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     return true;
   }
 
-  // ── Matter: Progress Building (triggered by SectorDisplay click) ──
+  // ── Matter: Progress Building (triggered by hardpoint panel click) ──
 
   /** Called when a sector with under-construction buildings is clicked and matter actions are available */
   private useProgressBuilding(instanceId: string): void {
@@ -1778,7 +2357,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.refreshAll();
   }
 
-  // ── Energy: Tap Card (triggered by SectorDisplay click on tappable card) ──
+  // ── Energy: Tap Card (triggered by hardpoint panel click on tappable card) ──
 
   /** Called when a tappable card in the tableau is clicked and energy actions are available */
   private useTapCard(instanceId: string): void {
@@ -1843,19 +2422,11 @@ export class ActiveWatchScene extends Phaser.Scene {
             `Progress ${candidates[0].name}?`,
             () => this.useProgressBuilding(candidates[0].instanceId));
         } else {
-          this.showMessage("Click a sector with a building under construction.");
-          // Set up one-shot click handlers on sectors
-          for (let i = 0; i < this.sectorDisplays.length; i++) {
-            const sector = this.gameState.ship.sectors[i];
-            const constructing = sector.installedCards.find(c => c.underConstruction);
-            if (constructing) {
-              this.sectorDisplays[i].once("pointerdown", () => {
-                new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
-                  `Progress ${constructing.card.name}?`,
-                  () => this.useProgressBuilding(constructing.instanceId));
-              });
-            }
-          }
+          // Multiple candidates: show a popup for the first one found
+          this.showMessage("Click a hardpoint to select a building to progress.");
+          new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+            `Progress ${candidates[0].name}?`,
+            () => this.useProgressBuilding(candidates[0].instanceId));
         }
         break;
       }
@@ -1878,20 +2449,11 @@ export class ActiveWatchScene extends Phaser.Scene {
             `Tap ${candidates[0].name}?\n${candidates[0].name}`,
             () => this.useTapCard(candidates[0].instanceId));
         } else {
-          this.showMessage("Click a tappable card in the tableau.");
-          for (let i = 0; i < this.sectorDisplays.length; i++) {
-            const sector = this.gameState.ship.sectors[i];
-            const tappable = sector.installedCards.filter(
-              c => !c.tapped && !c.underConstruction && c.card.tapEffect
-            );
-            if (tappable.length > 0) {
-              this.sectorDisplays[i].once("pointerdown", () => {
-                new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
-                  `Tap ${tappable[0].card.name}?`,
-                  () => this.useTapCard(tappable[0].instanceId));
-              });
-            }
-          }
+          // Multiple tappable: show a popup for the first one found
+          this.showMessage("Click a hardpoint to select a card to tap.");
+          new ConfirmPopup(this, MAIN_CX, LAYOUT.resourceY,
+            `Tap ${candidates[0].name}?`,
+            () => this.useTapCard(candidates[0].instanceId));
         }
         break;
       }

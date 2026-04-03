@@ -39,6 +39,9 @@ export class SuccessionScene extends Phaser.Scene {
   create(): void {
     const { width, height } = this.scale;
 
+    // Opaque background (config is transparent for ship view)
+    this.add.rectangle(width / 2, height / 2, width, height, 0xD8D4CC).setDepth(-100);
+
     // Title
     this.add.text(width / 2, s(30), "THE SUCCESSION", {
       fontSize: fs(28), color: HEX.chartreuse, fontFamily: "'Orbitron', monospace", fontStyle: "bold",

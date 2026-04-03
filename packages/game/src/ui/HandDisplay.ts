@@ -14,6 +14,10 @@ const DRAG_THRESHOLD = s(6);
 /** Max interval (ms) between two clicks to count as double-click */
 const DOUBLE_CLICK_MS = 350;
 
+/** Once dragged out of hand, pointer must return this far below the exit
+ *  threshold before the card reverts to in-hand reorder mode.  */
+const DRAG_OUT_HYSTERESIS = CARD_HEIGHT * 0.6;
+
 /**
  * Horizontal card layout for the player's hand.
  *
@@ -37,6 +41,10 @@ export class HandDisplay extends Phaser.GameObjects.Container {
   public onCardDropped: ((instanceId: string, worldX: number, worldY: number) => void) | null = null;
   public onDragStarted: ((instanceId: string) => void) | null = null;
   public onDragEnded: (() => void) | null = null;
+  /** Fired immediately on pointerdown on a hand card (before drag threshold). */
+  public onCardPointerDown: (() => void) | null = null;
+  /** Fired on pointerup after any hand card interaction (click or drag). */
+  public onCardPointerUp: (() => void) | null = null;
 
   // Pointer-down state (before we know if it's a click or drag)
   private pendingCard: CardSprite | null = null;
@@ -99,11 +107,14 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     // ── Scene-level pointer handlers for tuck/untuck + drag ──
 
     scene.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-      // Tuck/untuck based on pointer Y position
-      if (pointer.y >= this.handZoneTopY) {
-        this.untuck();
-      } else if (!this.dragging) {
-        this.tuck();
+      // Tuck/untuck based on pointer Y position — but NOT during drag,
+      // because tweening this.y mid-drag causes the card to jitter.
+      if (!this.dragging) {
+        if (pointer.y >= this.handZoneTopY) {
+          this.untuck();
+        } else {
+          this.tuck();
+        }
       }
 
       // Drag handling
@@ -122,6 +133,9 @@ export class HandDisplay extends Phaser.GameObjects.Container {
         this.dragCard = this.pendingCard;
         this.dragStartIndex = this.pendingIndex;
 
+        // Kill any in-progress tuck/untuck tween so this.y stays stable
+        this.scene.tweens.killTweensOf(this);
+
         const localPx = this.pointerStartX - this.x;
         const localPy = this.pointerStartY - this.y;
         this.dragLocalOffsetX = this.dragCard.x - localPx;
@@ -139,8 +153,9 @@ export class HandDisplay extends Phaser.GameObjects.Container {
       this.dragCard!.x = localX + this.dragLocalOffsetX;
       this.dragCard!.y = localY + this.dragLocalOffsetY;
 
-      // Check if card has been dragged above the hand zone
+      // Check if card has been dragged above the hand zone (with hysteresis)
       if (pointer.y < this.handZoneTopY) {
+        // Above hand zone — enter drag-out mode
         if (!this.draggedOutOfHand) {
           this.draggedOutOfHand = true;
           this.dragOutFired = false;
@@ -152,17 +167,18 @@ export class HandDisplay extends Phaser.GameObjects.Container {
             this.onDragStarted(this.dragCard.cardInstance.instanceId);
           }
         }
-        // Don't reorder when dragged out
-      } else {
-        // Back in hand zone — revert to reorder mode
-        if (this.draggedOutOfHand && this.dragCard) {
-          this.draggedOutOfHand = false;
-          this.dragOutFired = false;
-          this.dragCard.setDragGhost(false);
-          if (this.onDragEnded) this.onDragEnded();
-        }
+      } else if (!this.draggedOutOfHand) {
+        // Never left hand zone — normal reorder
+        this.checkReorder();
+      } else if (pointer.y > this.handZoneTopY + DRAG_OUT_HYSTERESIS) {
+        // Re-entering hand zone past hysteresis buffer — revert to reorder
+        this.draggedOutOfHand = false;
+        this.dragOutFired = false;
+        if (this.dragCard) this.dragCard.setDragGhost(false);
+        if (this.onDragEnded) this.onDragEnded();
         this.checkReorder();
       }
+      // else: in the dead zone between thresholds — card stays dragged out, no state changes
     });
 
     scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
@@ -197,6 +213,9 @@ export class HandDisplay extends Phaser.GameObjects.Container {
           this.toggleSelect(instanceId);
         }
       }
+
+      // Notify scene that hand interaction is over
+      if (this.onCardPointerUp) this.onCardPointerUp();
 
       // Reset pending/drag state
       this.pendingCard = null;
@@ -273,6 +292,7 @@ export class HandDisplay extends Phaser.GameObjects.Container {
         this.pendingIndex = idx >= 0 ? idx : i;
         this.pointerStartX = pointer.x;
         this.pointerStartY = pointer.y;
+        if (this.onCardPointerDown) this.onCardPointerDown();
       });
 
       this.add(sprite);
