@@ -6,6 +6,7 @@ import { s, fontSize, GAME_W, GAME_H } from "../ui/layout";
 import { MainMenuScene } from "./MainMenuScene";
 import { OutlinePostFX } from "../ui/OutlineShader";
 import { GlitchPostFX } from "../ui/GlitchShader";
+import { PixelDissolvePostFX } from "../ui/PixelDissolveShader";
 
 /**
  * Boot scene: loads card data and generates placeholder textures.
@@ -35,6 +36,7 @@ export class BootScene extends Phaser.Scene {
     if (renderer instanceof Phaser.Renderer.WebGL.WebGLRenderer) {
       renderer.pipelines.addPostPipeline(OutlinePostFX.KEY, OutlinePostFX);
       renderer.pipelines.addPostPipeline(GlitchPostFX.KEY, GlitchPostFX);
+      renderer.pipelines.addPostPipeline(PixelDissolvePostFX.KEY, PixelDissolvePostFX);
     }
 
     BootScene.cardDefinitions = (coreSetData as { cards: Card[] }).cards;

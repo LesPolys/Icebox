@@ -24,14 +24,15 @@ function buildLayout() {
     phaseX: s(16),
     phaseY: s(20),
 
-    // Market (6 cols × 2 rows) — no title, rows pushed up
-    marketLabelY: s(14),
-    marketRow1Y: s(95),
-    marketRow2Y: s(225),
+    // Market (6 cols × 2 rows) — below the top bar
+    marketLabelY: s(40),
+    marketRow1Y: s(118),
+    marketRow2Y: s(248),
     marketColSpacing: s(130),
 
     // Resources (between market and play mat)
-    resourceY: s(338),
+    // Tab bottom at ~s(350), bar half-height s(45), so center needs to be ≥s(407)
+    resourceY: s(415),
 
     // Sectors — evenly spaced: 35px gap on all sides in 1100-wide playmat
     sectorY: s(505),
@@ -51,7 +52,7 @@ function buildLayout() {
     messageY: s(625),
 
     // Play mat (encloses sectors + hand)
-    playMatTop: s(385),
+    playMatTop: s(465),
     playMatBottom: s(720),
     playMatW: s(1100),
     playMatBtnRadius: s(36),

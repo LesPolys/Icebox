@@ -1,7 +1,14 @@
 import Phaser from "phaser";
-import type { ResourceTotals } from "@icebox/shared";
+import type { ResourceTotals, ActionPoolState } from "@icebox/shared";
 import { NUM, HEX } from "@icebox/shared";
 import { s, fontSize as fs } from "../ui/layout";
+
+const ACTION_LABELS: Record<string, string> = {
+  matter: "BUILD",
+  energy: "TAP",
+  data: "SCRY",
+  influence: "SWAP",
+};
 
 /** Resource metadata — shared with MarketSlot for investment visuals. */
 export const RESOURCE_META = [
@@ -87,32 +94,50 @@ export class ResourceBar extends Phaser.GameObjects.Container {
   public onDragStart: ((resourceType: ResourceKey) => void) | null = null;
   /** Fired when a resource drag ends (regardless of drop target). */
   public onDragEnd: (() => void) | null = null;
+  /** Fired when player clicks an action token in the second row. */
+  public onActionClicked: ((resourceKey: string) => void) | null = null;
+
+  // ── Action row state ──
+  private actionTokenGroups: Record<string, Phaser.GameObjects.Graphics[]> = {};
+  private actionCounts: Record<string, number> = {};
+  private actionLabelsMap: Record<string, Phaser.GameObjects.Text> = {};
+  private actionRowY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
 
-    // Background with tab indents
+    // Background with tab indents — includes action row below
     const totalW = RESOURCE_META.length * ResourceBar.COLUMN_WIDTH + s(30);
-    const barH = s(75);
+    const resourceRowH = s(90);
+    const actionRowH = s(32);
+    const barH = resourceRowH + actionRowH;
     const tabW = s(8);
-    const tabH = s(20);
+    const tabH = s(24);
+    // Offset so the resource shapes stay centered at y=0; action row hangs below
+    const barTop = -resourceRowH / 2;
+    this.actionRowY = resourceRowH / 2 + actionRowH / 2 - s(2);
+    // Tab center = vertical middle of full bar
+    const tabCenterY = barTop + barH / 2;
 
     const bgGfx = scene.add.graphics();
     // Main bar
     bgGfx.fillStyle(NUM.slab, 0.85);
-    bgGfx.fillRoundedRect(-totalW / 2, -barH / 2, totalW, barH, s(10));
+    bgGfx.fillRoundedRect(-totalW / 2, barTop, totalW, barH, s(10));
     bgGfx.lineStyle(s(1), NUM.graphite, 0.6);
-    bgGfx.strokeRoundedRect(-totalW / 2, -barH / 2, totalW, barH, s(10));
-    // Left tab indent
+    bgGfx.strokeRoundedRect(-totalW / 2, barTop, totalW, barH, s(10));
+    // Divider between resource row and action row
+    bgGfx.lineStyle(s(1), NUM.graphite, 0.3);
+    bgGfx.lineBetween(-totalW / 2 + s(8), resourceRowH / 2 - s(2), totalW / 2 - s(8), resourceRowH / 2 - s(2));
+    // Left tab indent — centered on full bar height
     bgGfx.fillStyle(NUM.slab, 0.85);
-    bgGfx.fillRoundedRect(-totalW / 2 - tabW, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
+    bgGfx.fillRoundedRect(-totalW / 2 - tabW, tabCenterY - tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
     bgGfx.lineStyle(s(1), NUM.graphite, 0.4);
-    bgGfx.strokeRoundedRect(-totalW / 2 - tabW, -tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
-    // Right tab indent
+    bgGfx.strokeRoundedRect(-totalW / 2 - tabW, tabCenterY - tabH / 2, tabW, tabH, { tl: s(4), tr: 0, bl: s(4), br: 0 });
+    // Right tab indent — centered on full bar height
     bgGfx.fillStyle(NUM.slab, 0.85);
-    bgGfx.fillRoundedRect(totalW / 2, -tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
+    bgGfx.fillRoundedRect(totalW / 2, tabCenterY - tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
     bgGfx.lineStyle(s(1), NUM.graphite, 0.4);
-    bgGfx.strokeRoundedRect(totalW / 2, -tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
+    bgGfx.strokeRoundedRect(totalW / 2, tabCenterY - tabH / 2, tabW, tabH, { tl: 0, tr: s(4), bl: 0, br: s(4) });
     this.add(bgGfx);
 
     // Center the columns within the bar
@@ -160,6 +185,37 @@ export class ResourceBar extends Phaser.GameObjects.Container {
       hit.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
         this.startDrag(res.key as ResourceKey, pointer);
       });
+    }
+
+    // ── Action row: one column per resource, showing action label + token pips ──
+    for (let i = 0; i < RESOURCE_META.length; i++) {
+      const res = RESOURCE_META[i];
+      const colX = startX + i * ResourceBar.COLUMN_WIDTH;
+      const actionName = ACTION_LABELS[res.key] ?? res.key.toUpperCase();
+
+      const actLabel = scene.add.text(colX, this.actionRowY, actionName, {
+        fontSize: fs(7), color: res.color, fontFamily: "'Space Mono', monospace",
+        fontStyle: "bold",
+      }).setOrigin(0.5).setAlpha(0.3);
+      this.actionLabelsMap[res.key] = actLabel;
+      this.add(actLabel);
+
+      this.actionTokenGroups[res.key] = [];
+      this.actionCounts[res.key] = 0;
+
+      // Clickable hit area for this action column
+      const hitW = ResourceBar.COLUMN_WIDTH - s(4);
+      const hitH = actionRowH;
+      const actHit = scene.add.rectangle(colX, this.actionRowY, hitW, hitH, 0xffffff, 0);
+      actHit.setInteractive({ useHandCursor: true });
+      actHit.on("pointerover", () => {
+        if (this.actionCounts[res.key] > 0) actHit.setFillStyle(0xffffff, 0.05);
+      });
+      actHit.on("pointerout", () => actHit.setFillStyle(0xffffff, 0));
+      actHit.on("pointerdown", () => {
+        if (this.actionCounts[res.key] > 0) this.onActionClicked?.(res.key);
+      });
+      this.add(actHit);
     }
 
     // Scene-level move and up handlers for dragging
@@ -254,6 +310,52 @@ export class ResourceBar extends Phaser.GameObjects.Container {
 
       this.shapes[res.key].clear();
       drawResourceShape(this.shapes[res.key], res.shape, 0, 0, ResourceBar.SHAPE_SIZE, res.numColor);
+    }
+  }
+
+  /** Update action token display from game state */
+  updateActions(actions: ActionPoolState): void {
+    const startX = -((RESOURCE_META.length - 1) * ResourceBar.COLUMN_WIDTH) / 2;
+    for (let i = 0; i < RESOURCE_META.length; i++) {
+      const res = RESOURCE_META[i];
+      const key = res.key;
+      const newCount = actions[key as keyof ActionPoolState] ?? 0;
+      const oldCount = this.actionCounts[key] ?? 0;
+      if (newCount === oldCount) continue;
+
+      // Destroy old tokens
+      for (const t of this.actionTokenGroups[key]) t.destroy();
+      this.actionTokenGroups[key] = [];
+      this.actionCounts[key] = newCount;
+
+      // Rebuild tokens: small pips to the right of the label
+      const colX = startX + i * ResourceBar.COLUMN_WIDTH;
+      const tokenSize = s(5);
+      const tokenSpacing = s(13);
+      const tokensStartX = colX - ((newCount - 1) * tokenSpacing) / 2;
+
+      for (let t = 0; t < newCount; t++) {
+        const gfx = this.scene.add.graphics();
+        const tx = tokensStartX + t * tokenSpacing;
+        drawResourceShape(gfx, res.shape, tx, this.actionRowY + s(10), tokenSize, res.numColor, 0.6, 1);
+
+        if (newCount > oldCount) {
+          gfx.setScale(0);
+          this.scene.tweens.add({
+            targets: gfx,
+            scaleX: 1, scaleY: 1,
+            duration: 200,
+            delay: t * 50,
+            ease: "Back.easeOut",
+          });
+        }
+
+        this.add(gfx);
+        this.actionTokenGroups[key].push(gfx);
+      }
+
+      // Update label opacity
+      this.actionLabelsMap[key]?.setAlpha(newCount > 0 ? 1 : 0.3);
     }
   }
 }

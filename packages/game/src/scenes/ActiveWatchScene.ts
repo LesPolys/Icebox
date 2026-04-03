@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { GameState, Card, CardInstance, MarketRowId, ResourceCost } from "@icebox/shared";
+import type { GameState, Card, CardInstance, MarketRowId, ResourceCost, GamePhase, EraState, EraModifiers, ActionPoolState } from "@icebox/shared";
 import { MARKET_SLOTS, MARKET_SLOTS_PER_ROW, NUM, HEX, FACTIONS, getAllMarketSlots, getMarketRowById, canAfford, gainResources, spendResources } from "@icebox/shared";
 import { createNewGameState } from "../systems/GameStateManager";
 import { ShipRenderer } from "../ship/ShipRenderer";
@@ -16,17 +16,17 @@ import { ResourceBar, type ResourceKey, drawResourceShape, RESOURCE_META } from 
 import { MarketSlot } from "../game-objects/MarketSlot";
 import { HandDisplay } from "../ui/HandDisplay";
 import { InfoPanel } from "../ui/InfoPanel";
-import { PhaseIndicator } from "../ui/PhaseIndicator";
+// PhaseIndicator replaced by compact top bar inline
 import { ActionLog } from "../ui/ActionLog";
 import { MessagePanel } from "../ui/MessagePanel";
 import { ConfirmPopup } from "../ui/ConfirmPopup";
 import { CardSprite, CARD_WIDTH, CARD_HEIGHT } from "../game-objects/CardSprite";
-import { EraDisplay } from "../ui/EraDisplay";
+import { ERA_VISUALS, ERA_ORDER, ERA_TOOLTIPS } from "../ui/EraDisplay";
 import { EraTheme } from "../ui/EraTheme";
 import { BootScene } from "./BootScene";
 import { SuccessionScene } from "./SuccessionScene";
 import { MAIN_CX, LAYOUT, s, fontSize } from "../ui/layout";
-import { ActionPool } from "../ui/ActionPool";
+// ActionPool replaced by ResourceBar second row
 import { ScryDialog } from "../ui/ScryDialog";
 import {
   extractResourceActions,
@@ -49,9 +49,26 @@ export class ActiveWatchScene extends Phaser.Scene {
   private marketSlots: MarketSlot[] = [];
   private handDisplay!: HandDisplay;
   private infoPanel!: InfoPanel;
-  private phaseIndicator!: PhaseIndicator;
   private actionLog!: ActionLog;
   private messagePanel!: MessagePanel;
+
+  // ── Collapsible market ──
+  private marketContainer!: Phaser.GameObjects.Container;
+  private marketOpen = true;
+  private marketContentHeight = 0;
+  private marketToggleTab!: Phaser.GameObjects.Container;
+  private marketTabText!: Phaser.GameObjects.Text;
+
+  // ── Compact top bar (phase + era) ──
+  private topBarContainer!: Phaser.GameObjects.Container;
+  private topBarPhaseText!: Phaser.GameObjects.Text;
+  private topBarEraCells: Map<string, {
+    cellBg: Phaser.GameObjects.Graphics;
+    label: Phaser.GameObjects.Text;
+  }> = new Map();
+  private topBarTooltip!: Phaser.GameObjects.Container;
+  private topBarTooltipBg!: Phaser.GameObjects.Graphics;
+  private topBarTooltipTexts: Phaser.GameObjects.Text[] = [];
 
   // ── Ship visualizer (background) ──
   private shipRenderer: ShipRenderer | null = null;
@@ -76,7 +93,6 @@ export class ActiveWatchScene extends Phaser.Scene {
   /** Always-on hardpoint labels (card name when occupied) */
   private hardpointLabels: HTMLDivElement[] = [];
 
-  private eraDisplay!: EraDisplay;
   private eraTheme!: EraTheme;
   private worldDeckCountText!: Phaser.GameObjects.Text;
   private playerDeckCountText!: Phaser.GameObjects.Text;
@@ -90,8 +106,6 @@ export class ActiveWatchScene extends Phaser.Scene {
     investments: Map<number, { row: MarketRowId; resource: ResourceCost }>;
   } | null = null;
 
-  // ── Action Pool (persistent resource action tokens) ──
-  private actionPool!: ActionPool;
   /** Swap mode state for influence action */
   private swapMode: { row: MarketRowId; col: number } | null = null;
 
@@ -142,13 +156,6 @@ export class ActiveWatchScene extends Phaser.Scene {
     // ─── Ship background (Three.js behind Phaser canvas) ───
     this.initShipBackground();
 
-    // ─── END button (standalone, positioned right of market deck) ───
-    const marketDeckX = MAIN_CX + 2.5 * LAYOUT.marketColSpacing + s(55) + s(70);
-    const marketDeckY = (LAYOUT.marketRow1Y + LAYOUT.marketRow2Y) / 2;
-    const endBtnX = marketDeckX + s(120);
-    const endBtnY = marketDeckY;
-    this.createEndButton(endBtnX, endBtnY);
-
     // ─── Action log (left gutter) ───
     this.actionLog = new ActionLog(this);
 
@@ -156,45 +163,32 @@ export class ActiveWatchScene extends Phaser.Scene {
     this.eraTheme = new EraTheme(this);
     this.eraTheme.applyTheme(this.gameState.era);
 
-    // ─── Right gutter: Deck count + Info panel ───
-    // Deck/discard counts shown on the pile visuals instead
-
     this.infoPanel = new InfoPanel(this);
 
-    // ─── Main area ───
+    // ─── Compact top bar (phase + era, always at very top) ───
+    this.createCompactTopBar();
+
+    // ─── Market (inside collapsible container) ───
     this.createMarket();
 
-    // ─── Left of market: Era display ───
-    const marketTopY = LAYOUT.marketRow1Y - s(30);
-    this.eraDisplay = new EraDisplay(this, 0, 0);
-    this.eraDisplay.setPosition(this.marketBoxLeft - this.eraDisplay.boxW - s(12), marketTopY);
+    // ─── Toggle tab at bottom of market ───
+    this.createMarketToggleTab();
 
-    // ─── Phase indicator — bounded box above era display ───
-    this.phaseIndicator = new PhaseIndicator(
-      this,
-      this.eraDisplay.x,
-      this.eraDisplay.y - s(64),
-      this.eraDisplay.boxW
-    );
-
+    // ─── Resource bar (below toggle tab when market collapsed) ───
     this.resourceBar = new ResourceBar(this, MAIN_CX, LAYOUT.resourceY);
+    this.resourceBar.setDepth(15);
     this.wireResourceBarDrag();
+    this.resourceBar.onActionClicked = (key) => this.handleActionPoolClick(key);
     this.createPlayerPiles();
+
+    // ─── END button (above player deck) ───
+    this.createEndButton(this.playerDeckPileX, this.playerDeckPileY - s(110));
 
     // ─── Hand ───
     this.handDisplay = new HandDisplay(this, MAIN_CX, LAYOUT.handY, LAYOUT.handTuckOffset);
     this.wireHandCallbacks();
 
     this.messagePanel = new MessagePanel(this);
-
-    // ─── Action Pool (below era display) ───
-    this.actionPool = new ActionPool(
-      this,
-      this.eraDisplay.x,
-      this.eraDisplay.y + this.eraDisplay.boxH + s(8),
-      this.eraDisplay.boxW
-    );
-    this.actionPool.onActionClicked = (key) => this.handleActionPoolClick(key);
 
     // ─── Cancel purchase mode on click on empty space ───
     this.input.on("pointerdown", (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
@@ -247,6 +241,10 @@ export class ActiveWatchScene extends Phaser.Scene {
     const cs = LAYOUT.marketColSpacing;
     const numCols = 6;
 
+    // All market elements go into this container (for collapse animation)
+    this.marketContainer = this.add.container(0, 0);
+    this.marketContainer.setDepth(10);
+
     // Column numbers — bordered badges above the box
     const badgeY = LAYOUT.marketLabelY;
     const badgeR = s(12);
@@ -258,10 +256,11 @@ export class ActiveWatchScene extends Phaser.Scene {
       badge.fillCircle(colX, badgeY, badgeR);
       badge.lineStyle(s(1.5), NUM.graphite, 0.8);
       badge.strokeCircle(colX, badgeY, badgeR);
-      badge.setDepth(9);
+      this.marketContainer.add(badge);
       const colNumText = this.add.text(colX, badgeY, `${col}`, {
         fontSize: fontSize(11), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(10);
+      }).setOrigin(0.5);
+      this.marketContainer.add(colNumText);
     }
 
     // Box background — starts below the badge row
@@ -288,6 +287,7 @@ export class ActiveWatchScene extends Phaser.Scene {
       const divX = cx + (i - 2.5) * cs + cs / 2;
       gfx.lineBetween(divX, boxTop + s(4), divX, boxTop + boxH - s(4));
     }
+    this.marketContainer.add(gfx);
 
     // Slots: 6 cols × 2 rows = 12 total
     // Top row = Upper, Bottom row = Lower
@@ -300,11 +300,13 @@ export class ActiveWatchScene extends Phaser.Scene {
       const upperFlatIdx = slotIdx;
       const top = new MarketSlot(this, colX, LAYOUT.marketRow1Y, upperFlatIdx, true);
       this.marketSlots[upperFlatIdx] = top;
+      this.marketContainer.add(top);
 
       // Bottom row = Lower (flat indices 6..11)
       const lowerFlatIdx = slotIdx + MARKET_SLOTS_PER_ROW;
       const bot = new MarketSlot(this, colX, LAYOUT.marketRow2Y, lowerFlatIdx, true);
       this.marketSlots[lowerFlatIdx] = bot;
+      this.marketContainer.add(bot);
     }
 
     // World deck pile — to the right of the market box
@@ -318,12 +320,15 @@ export class ActiveWatchScene extends Phaser.Scene {
     const worldBackShadow = this.add.image(deckX + s(3), deckY + s(2), "card-back");
     worldBackShadow.setDisplaySize(CARD_WIDTH * worldDeckScale, s(170) * worldDeckScale);
     worldBackShadow.setAlpha(0.5);
+    this.marketContainer.add(worldBackShadow);
     const worldBack = this.add.image(deckX, deckY, "card-back");
     worldBack.setDisplaySize(CARD_WIDTH * worldDeckScale, s(170) * worldDeckScale);
+    this.marketContainer.add(worldBack);
     // Count text below the card
     this.worldDeckCountText = this.add.text(deckX, deckY + s(82), "", {
       fontSize: fontSize(9), color: HEX.abyss, fontFamily: "'Space Mono', monospace",
     }).setOrigin(0.5);
+    this.marketContainer.add(this.worldDeckCountText);
 
     // Click on world deck pile → scry action (data)
     const deckHitArea = this.add.rectangle(deckX, deckY, s(80), s(110), 0x000000, 0);
@@ -333,6 +338,442 @@ export class ActiveWatchScene extends Phaser.Scene {
         this.useScryMarket();
       }
     });
+    this.marketContainer.add(deckHitArea);
+
+    // Market content height — flush with box bottom so tab attaches directly
+    this.marketContentHeight = boxTop + boxH;
+
+  }
+
+  // ─── Market Toggle Tab ──────────────────────────────────────────────
+
+  private createMarketToggleTab(): void {
+    const tabW = s(160);
+    const tabH = s(24);
+
+    // Tab lives inside the market container, at the very bottom
+    this.marketToggleTab = this.add.container(MAIN_CX, this.marketContentHeight);
+
+    const tabBg = this.add.graphics();
+    tabBg.fillStyle(NUM.steel, 0.9);
+    tabBg.fillRoundedRect(-tabW / 2, 0, tabW, tabH, { tl: 0, tr: 0, bl: s(6), br: s(6) });
+    tabBg.lineStyle(s(1), NUM.graphite, 0.6);
+    tabBg.strokeRoundedRect(-tabW / 2, 0, tabW, tabH, { tl: 0, tr: 0, bl: s(6), br: s(6) });
+    this.marketToggleTab.add(tabBg);
+
+    // ▲ when open (click to collapse up), ▼ when closed (click to expand down)
+    this.marketTabText = this.add.text(0, tabH / 2, "▲ MARKET", {
+      fontSize: fontSize(9), color: HEX.bone, fontFamily: "'Orbitron', monospace", fontStyle: "bold",
+    }).setOrigin(0.5);
+    this.marketToggleTab.add(this.marketTabText);
+
+    const hitArea = this.add.rectangle(0, tabH / 2, tabW, tabH, 0x000000, 0);
+    hitArea.setInteractive({ useHandCursor: true });
+    hitArea.on("pointerdown", () => this.toggleMarket());
+    this.marketToggleTab.add(hitArea);
+
+    // Add tab to the market container so it moves with it
+    this.marketContainer.add(this.marketToggleTab);
+  }
+
+  /** True while the beam animation is running (prevent double-toggle) */
+  private marketAnimating = false;
+  /** Active beam block sprites (cleaned up after animation) */
+  private beamBlocks: Phaser.GameObjects.Image[] = [];
+
+  private toggleMarket(): void {
+    if (this.marketAnimating) return;
+    this.marketAnimating = true;
+    this.marketOpen = !this.marketOpen;
+
+    const duration = 450;
+    const collapsedY = s(24) - this.marketContentHeight;
+
+    if (this.marketOpen) {
+      // ── OPENING: beam down / reconstruct ──
+      // Snapshot at open position, then hide children before any visuals
+      const savedY = this.marketContainer.y;
+      this.marketContainer.y = 0;
+      this.setMarketChildrenVisible(true);
+      this.snapshotMarketBlocks(); // snapshots and hides children
+      this.marketContainer.y = savedY; // restore so tween starts from collapsed
+
+      // Tween tab from collapsed → open, resource bar down
+      this.tweens.add({
+        targets: this.marketContainer,
+        y: 0,
+        duration: 300,
+        ease: "Power2",
+      });
+      this.tweens.add({
+        targets: this.resourceBar,
+        y: LAYOUT.resourceY,
+        duration: 300,
+        ease: "Power2",
+        onComplete: () => {
+          // Beam blocks down into place
+          this.animateBeamBlocks(false, () => {
+            this.setMarketChildrenVisible(true);
+            this.marketAnimating = false;
+
+            if (this.marketOpenCallback) {
+              const cb = this.marketOpenCallback;
+              this.marketOpenCallback = null;
+              cb();
+            }
+          });
+        },
+      });
+    } else {
+      // ── CLOSING: beam up / dissolve ──
+      // Snapshot visible market, then animate blocks upward
+      this.snapshotMarketBlocks(); // snapshots and hides children
+      this.animateBeamBlocks(true, () => {
+        this.marketAnimating = false;
+
+        // Tween tab to collapsed position, resource bar up
+        this.tweens.add({
+          targets: this.marketContainer,
+          y: collapsedY,
+          duration: 300,
+          ease: "Power2",
+        });
+        this.tweens.add({
+          targets: this.resourceBar,
+          y: s(115),
+          duration: 300,
+          ease: "Power2",
+        });
+      });
+    }
+
+    this.marketTabText.setText(this.marketOpen ? "▲ MARKET" : "▼ MARKET");
+  }
+
+  /** Snapshot data for beam blocks — captured once, animated later. */
+  private beamSnapshot: {
+    texKey: string;
+    rt: Phaser.GameObjects.RenderTexture;
+    blockSize: number;
+    cols: number;
+    rows: number;
+  } | null = null;
+
+  /**
+   * Capture the market content into a RenderTexture and prepare per-block frames.
+   * Children must be visible when called. Hides children after snapshot.
+   */
+  private snapshotMarketBlocks(): void {
+    // Clean up any leftover blocks / previous snapshot
+    for (const b of this.beamBlocks) b.destroy();
+    this.beamBlocks = [];
+    if (this.beamSnapshot) {
+      this.cleanupBeamTexture(this.beamSnapshot.texKey, this.beamSnapshot.rt);
+      this.beamSnapshot = null;
+    }
+
+    const blockSize = s(28);
+    const snapW = this.scale.width;
+    const snapH = this.marketContentHeight;
+
+    const rt = this.add.renderTexture(0, 0, snapW, snapH);
+    rt.setVisible(false);
+
+    const children = this.marketContainer.getAll();
+    for (const child of children) {
+      if (child === this.marketToggleTab) continue;
+      rt.draw(child as Phaser.GameObjects.GameObject);
+    }
+
+    const texKey = `market-beam-${Date.now()}`;
+    rt.saveTexture(texKey);
+    const texture = this.textures.get(texKey);
+
+    const cols = Math.ceil(snapW / blockSize);
+    const rows = Math.ceil(snapH / blockSize);
+
+    let frameIdx = 1;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const bx = col * blockSize;
+        const by = row * blockSize;
+        const bw = Math.min(blockSize, snapW - bx);
+        const bh = Math.min(blockSize, snapH - by);
+        texture.add(frameIdx, 0, bx, by, bw, bh);
+        frameIdx++;
+      }
+    }
+
+    // Hide real content — blocks will replace it visually
+    this.setMarketChildrenVisible(false);
+
+    this.beamSnapshot = { texKey, rt, blockSize, cols, rows };
+  }
+
+  /**
+   * Create block sprites from a prior snapshot and animate them.
+   * Must call snapshotMarketBlocks() first.
+   */
+  private animateBeamBlocks(beamUp: boolean, onComplete: () => void): void {
+    const snap = this.beamSnapshot;
+    if (!snap) { onComplete(); return; }
+
+    const { texKey, rt, blockSize, cols, rows } = snap;
+    const snapW = this.scale.width;
+    const snapH = this.marketContentHeight;
+    const totalBlocks = cols * rows;
+    const duration = 450;
+    const beamDistance = s(180);
+    let completedCount = 0;
+
+    let frameIdx = 1;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const bx = col * blockSize;
+        const by = row * blockSize;
+        const bw = Math.min(blockSize, snapW - bx);
+        const bh = Math.min(blockSize, snapH - by);
+
+        const block = this.add.image(bx + bw / 2, by + bh / 2, texKey, frameIdx);
+        block.setDepth(50);
+        frameIdx++;
+
+        const rnd = Math.random() * 0.2;
+        const rowNorm = row / rows;
+        const waveDelay = beamUp
+          ? (1 - rowNorm) * 0.4 + rnd
+          : rowNorm * 0.4 + rnd;
+        const delay = waveDelay * duration * 0.5;
+        const blockDuration = duration * 0.6;
+
+        if (beamUp) {
+          this.tweens.add({
+            targets: block,
+            y: block.y - beamDistance - Math.random() * s(50),
+            alpha: 0,
+            duration: blockDuration,
+            delay,
+            ease: "Quad.easeIn",
+            onComplete: () => {
+              block.destroy();
+              completedCount++;
+              if (completedCount >= totalBlocks) {
+                this.cleanupBeamTexture(texKey, rt);
+                this.beamSnapshot = null;
+                onComplete();
+              }
+            },
+          });
+        } else {
+          const targetY = block.y;
+          block.y = targetY - beamDistance - Math.random() * s(50);
+          block.setAlpha(0);
+
+          this.tweens.add({
+            targets: block,
+            y: targetY,
+            alpha: 1,
+            duration: blockDuration,
+            delay,
+            ease: "Quad.easeOut",
+            onComplete: () => {
+              completedCount++;
+              if (completedCount >= totalBlocks) {
+                for (const b of this.beamBlocks) b.destroy();
+                this.cleanupBeamTexture(texKey, rt);
+                this.beamSnapshot = null;
+                onComplete();
+              }
+            },
+          });
+        }
+
+        this.beamBlocks.push(block);
+      }
+    }
+  }
+
+  private cleanupBeamTexture(texKey: string, rt: Phaser.GameObjects.RenderTexture): void {
+    rt.destroy();
+    if (this.textures.exists(texKey)) {
+      this.textures.remove(texKey);
+    }
+    this.beamBlocks = [];
+  }
+
+  /** Hide/show all market container children except the toggle tab. */
+  private setMarketChildrenVisible(visible: boolean): void {
+    const children = this.marketContainer.getAll();
+    for (const child of children) {
+      if (child === this.marketToggleTab) continue;
+      (child as unknown as Phaser.GameObjects.Components.Visible).setVisible(visible);
+    }
+  }
+
+  // ─── Compact Top Bar (Phase + Era) ────────────────────────────────
+
+  private createCompactTopBar(): void {
+    const barY = s(12);
+    const barW = s(700);
+    const barH = s(24);
+
+    this.topBarContainer = this.add.container(MAIN_CX, barY);
+    this.topBarContainer.setDepth(30);
+
+    const bg = this.add.graphics();
+    bg.fillStyle(NUM.slab, 0.85);
+    bg.fillRoundedRect(-barW / 2, -barH / 2, barW, barH, s(4));
+    bg.lineStyle(s(1), NUM.graphite, 0.5);
+    bg.strokeRoundedRect(-barW / 2, -barH / 2, barW, barH, s(4));
+    this.topBarContainer.add(bg);
+
+    // Phase · Turn · Sleeps text (left side)
+    this.topBarPhaseText = this.add.text(-barW / 2 + s(12), 0, "ACTIVE WATCH · Turn 1 · Sleeps: 0", {
+      fontSize: fontSize(8), color: HEX.bone, fontFamily: "'Space Mono', monospace",
+    }).setOrigin(0, 0.5);
+    this.topBarContainer.add(this.topBarPhaseText);
+
+    // Era cells (right side) — 4 inline cells
+    const cellW = s(80);
+    const cellH = s(18);
+    const cellGap = s(4);
+    const eraStartX = barW / 2 - s(12) - (ERA_ORDER.length * (cellW + cellGap) - cellGap);
+
+    for (let i = 0; i < ERA_ORDER.length; i++) {
+      const era = ERA_ORDER[i];
+      const vis = ERA_VISUALS[era];
+      const cx = eraStartX + i * (cellW + cellGap);
+
+      const cellBg = this.add.graphics();
+      this.topBarContainer.add(cellBg);
+
+      const label = this.add.text(cx + cellW / 2, 0, `${vis.icon} ${era.substring(0, 3).toUpperCase()}`, {
+        fontSize: fontSize(8), color: vis.desatColor, fontFamily: "'Space Mono', monospace", fontStyle: "bold",
+      }).setOrigin(0.5);
+      this.topBarContainer.add(label);
+
+      // Invisible hit area for hover tooltip
+      const hitArea = this.add.rectangle(cx + cellW / 2, 0, cellW, cellH, 0x000000, 0);
+      hitArea.setInteractive({ useHandCursor: true });
+      hitArea.on("pointerover", () => this.showTopBarTooltip(era, cx + cellW / 2));
+      hitArea.on("pointerout", () => this.hideTopBarTooltip());
+      this.topBarContainer.add(hitArea);
+
+      this.topBarEraCells.set(era, { cellBg, label });
+    }
+
+    // ── Era tooltip (hidden by default, added to scene for z-order) ──
+    this.topBarTooltip = this.add.container(0, 0);
+    this.topBarTooltip.setVisible(false);
+    this.topBarTooltip.setDepth(500);
+
+    this.topBarTooltipBg = this.add.graphics();
+    this.topBarTooltip.add(this.topBarTooltipBg);
+
+    for (let i = 0; i < 5; i++) {
+      const t = this.add.text(0, 0, "", {
+        fontSize: fontSize(8), color: HEX.bone, fontFamily: "Space Mono",
+        wordWrap: { width: s(200) },
+      });
+      this.topBarTooltip.add(t);
+      this.topBarTooltipTexts.push(t);
+    }
+  }
+
+  private showTopBarTooltip(era: EraState, localCellCx: number): void {
+    const vis = ERA_VISUALS[era];
+    const tip = ERA_TOOLTIPS[era];
+
+    const worldX = this.topBarContainer.x + localCellCx;
+    const worldY = this.topBarContainer.y + s(18);
+
+    const tipPad = s(8);
+    const lineH = s(14);
+    let lineIdx = 0;
+
+    // Title
+    this.topBarTooltipTexts[lineIdx].setText(`${vis.icon} ${era.toUpperCase()}`);
+    this.topBarTooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fontSize(9), fontFamily: "Space Mono", color: vis.color });
+    this.topBarTooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH);
+    lineIdx++;
+
+    // Trigger
+    this.topBarTooltipTexts[lineIdx].setText(`Trigger: ${tip.trigger}`);
+    this.topBarTooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fontSize(7), fontFamily: "Space Mono", color: HEX.abyss });
+    this.topBarTooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH);
+    lineIdx++;
+
+    // Effects header
+    this.topBarTooltipTexts[lineIdx].setText("Effects:");
+    this.topBarTooltipTexts[lineIdx].setStyle({ fontStyle: "bold", fontSize: fontSize(7), fontFamily: "Space Mono", color: HEX.bone });
+    this.topBarTooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH + s(2));
+    lineIdx++;
+
+    // Effect lines
+    for (const eff of tip.effects) {
+      if (lineIdx >= this.topBarTooltipTexts.length) break;
+      this.topBarTooltipTexts[lineIdx].setText(`  ${eff}`);
+      this.topBarTooltipTexts[lineIdx].setStyle({ fontStyle: "normal", fontSize: fontSize(7), fontFamily: "Space Mono", color: HEX.bone });
+      this.topBarTooltipTexts[lineIdx].setPosition(tipPad, tipPad + lineIdx * lineH + s(2));
+      lineIdx++;
+    }
+
+    // Hide unused
+    for (let i = 0; i < this.topBarTooltipTexts.length; i++) {
+      this.topBarTooltipTexts[i].setVisible(i < lineIdx);
+    }
+
+    const tipW = s(220);
+    const tipH = tipPad * 2 + lineIdx * lineH + s(4);
+    this.topBarTooltipBg.clear();
+    this.topBarTooltipBg.fillStyle(NUM.slab, 0.95);
+    this.topBarTooltipBg.fillRoundedRect(0, 0, tipW, tipH, s(4));
+    this.topBarTooltipBg.lineStyle(s(1), vis.numColor, 0.5);
+    this.topBarTooltipBg.strokeRoundedRect(0, 0, tipW, tipH, s(4));
+
+    this.topBarTooltip.setPosition(worldX - tipW / 2, worldY);
+    this.topBarTooltip.setVisible(true);
+  }
+
+  private hideTopBarTooltip(): void {
+    this.topBarTooltip.setVisible(false);
+  }
+
+  private updateTopBar(phase: GamePhase, turnNumber: number, totalSleeps: number, era: EraState, _modifiers: EraModifiers): void {
+    const phaseLabels: Record<GamePhase, string> = {
+      "active-watch": "ACTIVE WATCH",
+      succession: "SUCCESSION",
+      cryosleep: "CRYOSLEEP",
+      "game-over": "GAME OVER",
+    };
+    this.topBarPhaseText.setText(`${phaseLabels[phase]} · Turn ${turnNumber} · Sleeps: ${totalSleeps}`);
+
+    // Highlight active era cell, desaturate others
+    for (const e of ERA_ORDER) {
+      const cell = this.topBarEraCells.get(e);
+      if (!cell) continue;
+      const vis = ERA_VISUALS[e];
+      const active = e === era;
+
+      cell.cellBg.clear();
+      if (active) {
+        cell.cellBg.fillStyle(vis.numColor, 0.15);
+        cell.cellBg.fillRoundedRect(-s(40), -s(9), s(80), s(18), s(3));
+        cell.cellBg.lineStyle(s(1), vis.numColor, 0.5);
+        cell.cellBg.strokeRoundedRect(-s(40), -s(9), s(80), s(18), s(3));
+      }
+
+      // Position cell bg at the label's position
+      cell.cellBg.setPosition(cell.label.x, cell.label.y);
+
+      cell.label.setColor(active ? vis.color : vis.desatColor);
+      cell.label.setAlpha(active ? 1 : 0.5);
+    }
+  }
+
+  /** Get the current top of the hardpoint panel zone (dynamic based on market state). */
+  private get panelZoneTop(): number {
+    return this.marketOpen ? s(465) : s(190);
   }
 
   private wireMarketSlotInteractions(slot: MarketSlot, slotIndex: number, row: MarketRowId): void {
@@ -1124,7 +1565,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     if (initPos) {
       // Clamp initial position to the allowed panel zone
       const zoneLeft = s(140);
-      const zoneTop = s(388);
+      const zoneTop = this.panelZoneTop;
       const zoneRight = canvasW - s(180);
       const zoneBottom = s(575);
       this.panelCurrentX = Math.max(zoneLeft, Math.min(zoneRight - 150, initPos.x + 100));
@@ -1172,7 +1613,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     const panelW = this.hardpointPanel.offsetWidth || 140;
     const panelH = this.hardpointPanel.offsetHeight || 120;
     const zoneLeft = s(140);
-    const zoneTop = s(388);
+    const zoneTop = this.panelZoneTop;
     const zoneRight = canvasW - s(180);
     const zoneBottom = s(575);
 
@@ -1359,7 +1800,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     const canvasW = this.shipRenderer.canvas.clientWidth;
     const canvasH = this.shipRenderer.canvas.clientHeight;
     const zoneLeft = s(140);
-    const zoneTop = s(388);
+    const zoneTop = this.panelZoneTop;
     const zoneRight = canvasW - s(180);
     const zoneBottom = s(575);
     const zoneCenterX = (zoneLeft + zoneRight) / 2;
@@ -1673,12 +2114,35 @@ export class ActiveWatchScene extends Phaser.Scene {
     if (this.endTurnAnimating) return;
     this.endTurnAnimating = true;
 
+    // Force-open the market so the player sees the update animations
+    this.ensureMarketOpen(() => this.runEndTurnSequence());
+  }
+
+  /**
+   * If the market is closed, play the beam-down open animation then invoke cb.
+   * If already open (or mid-animation), invoke cb immediately.
+   */
+  private ensureMarketOpen(cb: () => void): void {
+    if (this.marketOpen) {
+      cb();
+      return;
+    }
+
+    // Trigger the normal open toggle — listen for animation completion
+    this.marketOpenCallback = cb;
+    this.toggleMarket();
+  }
+
+  /** One-shot callback fired after toggleMarket finishes opening. */
+  private marketOpenCallback: (() => void) | null = null;
+
+  private runEndTurnSequence(): void {
     this.showMessage("Turn ended.");
     this.actionLog.addEntry("Turn ended.");
 
     // Clear action pool — unused actions are lost, fallout will grant fresh ones
     this.gameState.availableActions = { matter: 0, energy: 0, data: 0, influence: 0 };
-    this.actionPool.updatePool(this.gameState.availableActions);
+    this.resourceBar.updateActions(this.gameState.availableActions);
 
     // Phase 1: Compact
     this.animateCompact(() => {
@@ -1942,7 +2406,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     }
 
     // Update action pool live as cards fall off
-    this.actionPool.updatePool(this.gameState.availableActions);
+    this.resourceBar.updateActions(this.gameState.availableActions);
 
     // Reactive cryosleep: crisis card fell off the market
     if (reactiveSleep) {
@@ -2192,7 +2656,8 @@ export class ActiveWatchScene extends Phaser.Scene {
     (this as any).__restartData = { newGame: false, savedState: this.gameState };
 
     this.resourceBar.update(this.gameState.resources);
-    this.phaseIndicator.update(this.gameState.phase, this.gameState.turnNumber, this.gameState.totalSleepCycles);
+    this.resourceBar.updateActions(this.gameState.availableActions);
+    this.updateTopBar(this.gameState.phase, this.gameState.turnNumber, this.gameState.totalSleepCycles, this.gameState.era, this.gameState.eraModifiers);
 
     const allSlots = getAllMarketSlots(this.gameState.transitMarket);
     const numCols = 6;
@@ -2271,11 +2736,7 @@ export class ActiveWatchScene extends Phaser.Scene {
     const worldDeckCount = this.gameState.worldDeck.drawPile.length;
     this.worldDeckCountText.setText(`${worldDeckCount}`);
 
-    // Era display
-    this.eraDisplay.update(this.gameState.era, this.gameState.eraModifiers);
-
-    // Action pool
-    this.actionPool.updatePool(this.gameState.availableActions);
+    // (Era + phase + actions now handled by top bar + resource bar above)
   }
 
   /**

@@ -312,4 +312,4 @@ export class EraDisplay extends Phaser.GameObjects.Container {
   }
 }
 
-export { ERA_VISUALS };
+export { ERA_VISUALS, ERA_ORDER, ERA_TOOLTIPS };
