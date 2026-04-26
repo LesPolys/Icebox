@@ -163,6 +163,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
 
     // Hover effects
     this.on("pointerover", () => {
+      if (this.dragGhostActive) return;
       if (this.marketMode) {
         // Market: subtle brightness only, no scale/lift
         this.setAlpha(1);
@@ -174,6 +175,7 @@ export class CardSprite extends Phaser.GameObjects.Container {
       }
     });
     this.on("pointerout", () => {
+      if (this.dragGhostActive) return;
       if (this.marketMode) {
         this.setAlpha(0.95);
         this.setDepth(0);

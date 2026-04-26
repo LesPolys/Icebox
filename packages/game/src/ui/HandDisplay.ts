@@ -143,6 +143,7 @@ export class HandDisplay extends Phaser.GameObjects.Container {
 
         this.dragCard.setDepth(200);
         this.dragCard.setAlpha(0.8);
+        this.dragCard.disableInteractive();
         // Clear selection highlight while dragging
         this.dragCard.setSelected(false);
       }
@@ -184,15 +185,23 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     scene.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
       if (this.dragging && this.dragCard) {
         if (this.draggedOutOfHand) {
-          // Card was dropped outside the hand — notify scene
+          // Card was dropped outside the hand — notify scene.
+          // onCardDropped may trigger refreshAll → updateHand which destroys
+          // all card sprites, so we must NOT touch dragCard after the callback.
           const instanceId = this.dragCard.cardInstance.instanceId;
           this.dragCard.setDragGhost(false);
           if (this.onCardDropped) {
             this.onCardDropped(instanceId, pointer.worldX, pointer.worldY);
           }
           if (this.onDragEnded) this.onDragEnded();
+          // Skip finishDrag — the sprite was likely destroyed by updateHand
+          this.dragCard = null;
+          this.dragStartIndex = -1;
+          this.dragLocalOffsetX = 0;
+          this.dragLocalOffsetY = 0;
+        } else {
+          this.finishDrag();
         }
-        this.finishDrag();
       } else if (this.pendingCard) {
         // It was a click (no significant movement) — check double-click
         const instanceId = this.pendingCard.cardInstance.instanceId;
@@ -411,6 +420,7 @@ export class HandDisplay extends Phaser.GameObjects.Container {
     const finalX = this.slotX(this.dragStartIndex);
     const card = this.dragCard;
 
+    card.setInteractive();
     this.scene.tweens.add({
       targets: card,
       x: finalX,
